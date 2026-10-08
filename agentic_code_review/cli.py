@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import argparse
+import os
 import sys
 from pathlib import Path
 
@@ -30,6 +31,10 @@ def _parser() -> argparse.ArgumentParser:
     r.add_argument("--no-scanners", action="store_true", help="Built-in rules only; skip external scanners.")
     r.add_argument("--scanners", help="Comma-separated subset, e.g. semgrep,trivy.")
     r.add_argument("--exclude", action="append", default=[], help="Glob to skip (repeatable).")
+    r.add_argument("--ai", choices=("claude", "openai"), default=os.environ.get("ACR_AI") or None,
+                   help="Have an LLM agent verify findings and explain fixes (claude needs the [claude] extra).")
+    r.add_argument("--model", help="Model override (default: claude-opus-5-5 for claude; ACR_MODEL for openai).")
+    r.add_argument("--max-steps", type=int, default=12, help="Maximum agent tool-use steps (default: 12).")
 
     sub.add_parser("rules", help="List built-in rules.")
     return p
@@ -46,6 +51,17 @@ def _cmd_review(args: argparse.Namespace) -> int:
     only = {s.strip() for s in args.scanners.split(",")} if args.scanners else None
     result = review(Path(args.root), base=args.base, head=args.head, full=args.full,
                     use_scanners=not args.no_scanners, only_scanners=only, excludes=tuple(args.exclude))
+    if args.ai:
+        from .agent.review import AgentError
+        from .agent.run import apply_ai, make_reviewer
+        try:
+            reviewer = make_reviewer(args.ai, model=args.model, max_steps=args.max_steps)
+        except AgentError as exc:
+            result.ai_error = str(exc)
+        else:
+            apply_ai(result, Path(args.root).resolve(), reviewer, base=args.base, head=args.head, full=args.full)
+        if result.ai_error:
+            print(f"acr: AI review skipped: {result.ai_error}", file=sys.stderr)
     threshold = FAIL_LEVELS.get(args.fail_on)
     rendered = {"markdown": lambda: report.to_markdown(result, threshold or Severity.CRITICAL),
                 "json": lambda: report.to_json(result), "sarif": lambda: report.to_sarif(result)}[args.format]()

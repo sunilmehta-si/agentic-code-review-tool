@@ -42,6 +42,10 @@ def to_markdown(result: ReviewResult, threshold: Severity = Severity.HIGH) -> st
              " · ".join(f"{ICON[s]} {counts[s]} {s.label()}" for s in counts if s != Severity.INFO), "",
              f"Reviewed **{len(result.file_kinds)}** changed file(s). Scanners run: "
              f"{', '.join(result.scanners_run) or 'built-in rules only'}."]
+    if result.ai_summary:
+        lines += ["", f"**AI reviewer:** {result.ai_summary}"]
+    if result.ai_error:
+        lines += ["", f"⚠️ AI review skipped: {result.ai_error} The findings below come from rules and scanners only."]
     dropped = len(result.findings) - len(shown)
     if dropped:
         lines.append(f"The AI reviewer dismissed **{dropped}** finding(s) as false positives.")
@@ -64,6 +68,8 @@ def to_markdown(result: ReviewResult, threshold: Severity = Severity.HIGH) -> st
 def to_json(result: ReviewResult) -> str:
     return json.dumps({"version": __version__, "counts": result.counts(), "scanners_run": result.scanners_run,
                        "scanners_missing": result.scanners_missing, "files_reviewed": sorted(result.file_kinds),
+                       "ai": {"provider": result.ai_provider, "summary": result.ai_summary, "error": result.ai_error,
+                              "usage": result.ai_usage},
                        "findings": [f.to_dict() for f in result.findings]}, indent=2)
 
 

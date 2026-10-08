@@ -27,6 +27,10 @@ class ReviewResult:
     file_kinds: dict[str, set[str]]
     scanners_run: list[str] = field(default_factory=list)
     scanners_missing: list[str] = field(default_factory=list)
+    ai_provider: str = ""
+    ai_summary: str = ""
+    ai_error: str = ""
+    ai_usage: dict = field(default_factory=dict)
 
     def counts(self) -> dict[str, int]:
         out = {s.label(): 0 for s in sorted(Severity, reverse=True)}

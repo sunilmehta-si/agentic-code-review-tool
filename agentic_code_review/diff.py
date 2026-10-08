@@ -71,3 +71,18 @@ def _line_count(p: Path) -> int:
             return sum(1 for _ in fh) or 1
     except OSError:
         return 1
+
+
+def unified_text(root: Path, base: str | None, head: str | None) -> str:
+    """The human-readable diff (3 lines of context) that the AI reviewer reads."""
+    if base:
+        return _git(root, "diff", "-U3", "--no-color", "--diff-filter=ACMR", f"{base}...{head or 'HEAD'}")
+    text = _git(root, "diff", "-U3", "--no-color", "--diff-filter=ACMR", "HEAD")
+    for path in _git(root, "ls-files", "--others", "--exclude-standard").splitlines():
+        p = root / path
+        try:
+            body = p.read_text(errors="replace")
+        except OSError:
+            continue
+        text += f"\n--- /dev/null\n+++ b/{path}\n" + "".join(f"+{line}\n" for line in body.splitlines())
+    return text
