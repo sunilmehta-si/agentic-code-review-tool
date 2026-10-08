@@ -1,0 +1,73 @@
+"""`acr` command line: review a change, list rules, print the version."""
+from __future__ import annotations
+
+import argparse
+import sys
+from pathlib import Path
+
+from . import __version__, report
+from .engine import review
+from .models import Severity
+from .rules import base as rules_base
+
+FAIL_LEVELS = {"critical": Severity.CRITICAL, "high": Severity.HIGH, "medium": Severity.MEDIUM, "low": Severity.LOW}
+
+
+def _parser() -> argparse.ArgumentParser:
+    p = argparse.ArgumentParser(prog="acr", description="Agentic, scanner-grounded code review for the whole pull request.")
+    p.add_argument("--version", action="version", version=f"agentic-code-review-tool {__version__}")
+    sub = p.add_subparsers(dest="command", required=True)
+
+    r = sub.add_parser("review", help="Review changed code (default: working tree vs HEAD).")
+    r.add_argument("--root", default=".", help="Repository root (default: current directory).")
+    r.add_argument("--base", help="Base ref, e.g. origin/main. Reviews base...head (merge-base) like a PR.")
+    r.add_argument("--head", help="Head ref (default: HEAD).")
+    r.add_argument("--all", dest="full", action="store_true", help="Review every tracked file, not just the change.")
+    r.add_argument("--format", choices=("markdown", "json", "sarif"), default="markdown")
+    r.add_argument("--output", "-o", help="Write the report to a file instead of stdout.")
+    r.add_argument("--fail-on", choices=(*FAIL_LEVELS, "never"), default="high",
+                   help="Exit 1 if a finding at or above this severity remains (default: high).")
+    r.add_argument("--no-scanners", action="store_true", help="Built-in rules only; skip external scanners.")
+    r.add_argument("--scanners", help="Comma-separated subset, e.g. semgrep,trivy.")
+    r.add_argument("--exclude", action="append", default=[], help="Glob to skip (repeatable).")
+
+    sub.add_parser("rules", help="List built-in rules.")
+    return p
+
+
+def _cmd_rules() -> int:
+    for info, _ in sorted(rules_base.REGISTRY, key=lambda x: x[0].rule_id):
+        print(f"{info.rule_id:<16} {info.severity.label():<9} {info.category:<13} {info.title}")
+    print(f"\n{len(rules_base.REGISTRY)} built-in rules")
+    return 0
+
+
+def _cmd_review(args: argparse.Namespace) -> int:
+    only = {s.strip() for s in args.scanners.split(",")} if args.scanners else None
+    result = review(Path(args.root), base=args.base, head=args.head, full=args.full,
+                    use_scanners=not args.no_scanners, only_scanners=only, excludes=tuple(args.exclude))
+    threshold = FAIL_LEVELS.get(args.fail_on)
+    rendered = {"markdown": lambda: report.to_markdown(result, threshold or Severity.CRITICAL),
+                "json": lambda: report.to_json(result), "sarif": lambda: report.to_sarif(result)}[args.format]()
+    if args.output:
+        Path(args.output).write_text(rendered + "\n", encoding="utf-8")
+    else:
+        print(rendered)
+    if threshold is not None and result.blocking(threshold):
+        return 1
+    return 0
+
+
+def main(argv: list[str] | None = None) -> int:
+    args = _parser().parse_args(argv)
+    if args.command == "rules":
+        return _cmd_rules()
+    try:
+        return _cmd_review(args)
+    except Exception as exc:  # surface a clean error in CI logs
+        print(f"acr: error: {exc}", file=sys.stderr)
+        return 2
+
+
+if __name__ == "__main__":
+    sys.exit(main())
