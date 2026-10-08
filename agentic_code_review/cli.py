@@ -35,6 +35,9 @@ def _parser() -> argparse.ArgumentParser:
                    help="Have an LLM agent verify findings and explain fixes (claude needs the [claude] extra).")
     r.add_argument("--model", help="Model override (default: claude-opus-5-5 for claude; ACR_MODEL for openai).")
     r.add_argument("--max-steps", type=int, default=12, help="Maximum agent tool-use steps (default: 12).")
+    r.add_argument("--github-review", action="store_true",
+                   help="Post a summary and inline comments to the current pull request (needs GITHUB_TOKEN).")
+    r.add_argument("--pr", type=int, help="Pull request number (default: from the GitHub Actions event).")
 
     sub.add_parser("rules", help="List built-in rules.")
     return p
@@ -69,6 +72,13 @@ def _cmd_review(args: argparse.Namespace) -> int:
         Path(args.output).write_text(rendered + "\n", encoding="utf-8")
     else:
         print(rendered)
+    if args.github_review:
+        from .github import GitHubError, post_review
+        try:
+            url = post_review(result, threshold or Severity.CRITICAL, pr=args.pr)
+            print(f"acr: review posted {url}".rstrip(), file=sys.stderr)
+        except GitHubError as exc:
+            print(f"acr: could not post the PR review: {exc}", file=sys.stderr)
     if threshold is not None and result.blocking(threshold):
         return 1
     return 0
