@@ -19,6 +19,9 @@ classifiers = [
 ]
 dependencies = ["PyYAML>=6.0"]
 
+[project.optional-dependencies]
+claude = ["anthropic>=1.12"]
+
 [project.urls]
 Homepage = "https://github.com/sunilmehta-si/agentic-code-review-tool"
 
