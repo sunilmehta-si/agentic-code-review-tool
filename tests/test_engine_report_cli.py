@@ -1,0 +1,86 @@
+import io
+import json
+import unittest
+from contextlib import redirect_stdout
+from unittest import mock
+
+from agentic_code_review import report
+from agentic_code_review.cli import main
+from agentic_code_review.engine import dedupe, review
+from agentic_code_review.models import Finding, Severity
+from agentic_code_review.scanners import tools
+from tests.helpers import git_repo
+
+
+class EngineTests(unittest.TestCase):
+    def setUp(self):
+        self.root = git_repo({"app.py": "import yaml\ncfg = yaml.load(fh)\n"})
+        (self.root / "app.py").write_text("import yaml\ncfg = yaml.load(fh)\nsubprocess.run(c, shell=True)\n")
+
+    def test_only_changed_lines_are_reported(self):
+        result = review(self.root, use_scanners=False)
+        self.assertEqual([(f.rule_id, f.line) for f in result.findings], [("ACR-APP-002", 3)])
+
+    def test_full_mode_reports_old_issues_too(self):
+        result = review(self.root, full=True, use_scanners=False)
+        self.assertIn("ACR-APP-004", [f.rule_id for f in result.findings])
+
+    def test_dedupe_merges_across_tools_only(self):
+        a = Finding("ACR-SEC-001", "a", Severity.CRITICAL, "x", 3, "acr", "secrets")
+        b = Finding("gitleaks:k", "b", Severity.HIGH, "x", 3, "gitleaks", "secrets")
+        c = Finding("ACR-SEC-002", "c", Severity.HIGH, "x", 3, "acr", "secrets")
+        merged = dedupe([b, a, c])
+        self.assertEqual(sorted(f.rule_id for f in merged), ["ACR-SEC-001", "ACR-SEC-002"])
+        self.assertIn("gitleaks", merged[0].detail)
+
+
+class ReportTests(unittest.TestCase):
+    def test_sarif_shape(self):
+        root = git_repo({"README.md": "x\n"})
+        (root / "Dockerfile").write_text("FROM python:latest\n")
+        sarif = json.loads(report.to_sarif(review(root, use_scanners=False)))
+        run = sarif["runs"][0]
+        self.assertEqual(sarif["version"], "2.1.0")
+        self.assertTrue(run["results"])
+        self.assertIn("security-severity", run["tool"]["driver"]["rules"][0]["properties"])
+        self.assertEqual(run["results"][0]["locations"][0]["physicalLocation"]["artifactLocation"]["uri"], "Dockerfile")
+
+    def test_false_positives_hidden_from_reports(self):
+        root = git_repo({"README.md": "x\n"})
+        (root / "Dockerfile").write_text("FROM python:latest\nUSER 1000\n")
+        result = review(root, use_scanners=False)
+        result.findings[0].ai_verdict = "false_positive"
+        self.assertNotIn(result.findings[0].rule_id, report.to_markdown(result))
+
+
+class CliTests(unittest.TestCase):
+    def test_exit_code_gates_on_severity(self):
+        root = git_repo({"README.md": "x\n"})
+        (root / "Dockerfile").write_text("FROM python:3.12\nRUN curl -s https://x.sh | sh\nUSER 1000\n")
+        with redirect_stdout(io.StringIO()):
+            self.assertEqual(main(["review", "--root", str(root), "--no-scanners"]), 1)
+            self.assertEqual(main(["review", "--root", str(root), "--no-scanners", "--fail-on", "critical"]), 0)
+
+    def test_rules_command_lists_rules(self):
+        buf = io.StringIO()
+        with redirect_stdout(buf):
+            self.assertEqual(main(["rules"]), 0)
+        self.assertIn("ACR-AI-001", buf.getvalue())
+
+
+class ScannerParsingTests(unittest.TestCase):
+    def test_semgrep_and_hadolint_json_normalised(self):
+        semgrep = json.dumps({"results": [{"check_id": "python.lang.security.eval", "path": "a.py",
+                                            "start": {"line": 4}, "end": {"line": 4},
+                                            "extra": {"message": "eval use", "severity": "ERROR"}}]})
+        with mock.patch.object(tools, "_exec", return_value=semgrep):
+            f = tools.run_semgrep(tools.Path("."), ["a.py"])[0]
+        self.assertEqual((f.rule_id, f.line, f.severity), ("semgrep:eval", 4, Severity.HIGH))
+        hado = json.dumps([{"code": "DL3007", "file": "Dockerfile", "line": 1, "level": "warning", "message": "latest"}])
+        with mock.patch.object(tools, "_exec", return_value=hado):
+            f = tools.run_hadolint(tools.Path("."), ["Dockerfile"])[0]
+        self.assertEqual((f.rule_id, f.severity), ("hadolint:DL3007", Severity.MEDIUM))
+
+    def test_missing_or_garbage_output_is_safe(self):
+        with mock.patch.object(tools, "_exec", return_value="not json"):
+            self.assertEqual(tools.run_checkov(tools.Path("."), ["m.tf"]), [])
