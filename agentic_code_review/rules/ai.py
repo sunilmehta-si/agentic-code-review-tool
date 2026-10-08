@@ -1,0 +1,99 @@
+"""Rules for code that builds on LLMs and agents, mapped to the OWASP Top 10 for LLM Applications (2025).
+
+Ordinary SAST does not understand prompts, model loading or agent tools; these rules do.
+They only run on files that import an LLM/agent library (see classify.AI_IMPORT_HINTS).
+"""
+from __future__ import annotations
+
+import re
+
+from ..models import Severity
+from .base import IGNORE_MARKER, line_matches, make, rule
+
+AI = ["ai-code"]
+OWASP_LLM = "https://genai.owasp.org/llm-top-10/"
+
+
+@rule("ACR-AI-001", "User input concatenated into a system prompt (LLM01 Prompt Injection)", Severity.HIGH, "ai-security", AI,
+      fix="Keep the system prompt static. Put untrusted input in the user turn, clearly delimited, and treat it as data.",
+      references=[OWASP_LLM])
+def prompt_injection(path, text, lines):
+    pat = re.compile(
+        r"""(["']role["']\s*:\s*["']system["']\s*,\s*["']content["']\s*:\s*f["'][^"']*\{"""
+        r"""|\bsystem(_prompt|_message)?\s*=\s*f["'][^"']*\{"""
+        r"""|SystemMessage\(\s*(content\s*=\s*)?f["'][^"']*\{"""
+        r"""|\bsystem\s*:\s*`[^`]*\$\{)""")
+    yield from line_matches(prompt_injection.info, path, lines, pat)
+
+
+@rule("ACR-AI-002", "LLM output used as code, shell, SQL or HTML (LLM05 Improper Output Handling)", Severity.CRITICAL,
+      "ai-security", AI,
+      fix="Treat model output as untrusted input: validate against a schema or allow-list, never pass it to eval, a shell, SQL or raw HTML.",
+      references=[OWASP_LLM])
+def output_handling(path, text, lines):
+    llm_var = r"(completion|response|resp|output|llm_\w+|answer|generated\w*|reply|choices\[|message\.content|\.content\b|\.text\b)"
+    pat = re.compile(rf"(?<![\w.])(eval|exec)\([^)]*{llm_var}|(os\.system|subprocess\.\w+|\.execute|innerHTML\s*=|dangerouslySetInnerHTML)[^\n]*{llm_var}")
+    yield from line_matches(output_handling.info, path, lines, pat)
+
+
+@rule("ACR-AI-003", "Agent given dangerous tools without guardrails (LLM06 Excessive Agency)", Severity.HIGH, "ai-security", AI,
+      fix="Give agents the narrowest tools possible, run them in a sandbox, and require human approval for writes, shell and network.",
+      references=[OWASP_LLM])
+def excessive_agency(path, text, lines):
+    pat = re.compile(r"allow_dangerous_(code|requests|deserialization)\s*=\s*True|\b(ShellTool|PythonREPLTool|BashProcess|PythonAstREPLTool|TerminalTool)\(|dangerouslyAllowCommands|auto_approve\s*=\s*True|human_in_the_loop\s*=\s*False")
+    yield from line_matches(excessive_agency.info, path, lines, pat)
+
+
+@rule("ACR-AI-004", "Untrusted model code or weights loaded (LLM03 Supply Chain)", Severity.HIGH, "ai-security", AI,
+      fix="Avoid trust_remote_code; load weights with torch.load(..., weights_only=True) or safetensors; pin a model revision.",
+      references=[OWASP_LLM, "https://huggingface.co/docs/safetensors"])
+def model_supply_chain(path, text, lines):
+    info = model_supply_chain.info
+    remote = re.compile(r"trust_remote_code\s*=\s*True")
+    torch_load = re.compile(r"\btorch\.load\((?![^)]*weights_only\s*=\s*True)")
+    yield from line_matches(info, path, lines, remote)
+    yield from line_matches(info, path, lines, torch_load)
+    unpinned = re.compile(r"\.from_pretrained\((?![^)]*revision\s*=)")
+    for i, line in enumerate(lines, start=1):
+        if IGNORE_MARKER not in line and unpinned.search(line) and ")" in line:
+            yield make(info, path, i, "Model is not pinned to a revision, so a changed upstream repo changes your code.",
+                       severity=Severity.LOW)
+
+
+@rule("ACR-AI-005", "LLM call without an output-token limit (LLM10 Unbounded Consumption)", Severity.MEDIUM, "ai-security", AI,
+      fix="Set max_tokens (or max_output_tokens), a request timeout, and a step limit on agent loops.",
+      references=[OWASP_LLM])
+def unbounded(path, text, lines):
+    info = unbounded.info
+    call = re.compile(r"\.(chat\.completions|completions|messages|responses)\.(create|stream)\(|\bgenerate_content\(")
+    limit = re.compile(r"max_(output_|completion_)?tokens|max_new_tokens|maxTokens|maxOutputTokens")
+    for i, line in enumerate(lines, start=1):
+        if IGNORE_MARKER in line or not call.search(line):
+            continue
+        # Look at the call's argument list (until parentheses balance, max 40 lines).
+        depth, window = 0, []
+        for j in range(i - 1, min(len(lines), i + 39)):
+            window.append(lines[j])
+            depth += lines[j].count("(") - lines[j].count(")")
+            if depth <= 0 and j >= i - 1:
+                break
+        if not limit.search("\n".join(window)):
+            yield make(info, path, i)
+
+
+@rule("ACR-AI-006", "Provider API key exposed to the browser (LLM02 Sensitive Information Disclosure)", Severity.CRITICAL,
+      "ai-security", ["lang:javascript", "lang:typescript"],
+      fix="Call the model from your server. Never ship provider keys in client bundles or NEXT_PUBLIC_/VITE_ variables.",
+      references=[OWASP_LLM])
+def key_in_browser(path, text, lines):
+    pat = re.compile(r"dangerouslyAllowBrowser\s*:\s*true|\b(NEXT_PUBLIC|VITE|REACT_APP)_(OPENAI|ANTHROPIC|GEMINI|GROQ|MISTRAL)\w*KEY")
+    yield from line_matches(key_in_browser.info, path, lines, pat)
+
+
+@rule("ACR-AI-007", "Full prompts or model responses written to logs (LLM02 Sensitive Information Disclosure)", Severity.LOW,
+      "ai-security", AI,
+      fix="Log metadata (model, token counts, latency, request id), not raw prompts or completions that may hold personal data.",
+      references=[OWASP_LLM])
+def prompt_logging(path, text, lines):
+    pat = re.compile(r"\b(logger|logging|log|console)\.(info|debug|warning|warn|log|error)\([^)]*\b(prompt|messages|completion|llm_response|model_output)\b")
+    yield from line_matches(prompt_logging.info, path, lines, pat)
