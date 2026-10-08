@@ -58,6 +58,60 @@ acr rules                          # list built-in rules
 
 Suppress a deliberate, reviewed line with an inline `acr:ignore` comment.
 
+## Use it in GitHub Actions
+
+```yaml
+# .github/workflows/code-review.yml
+name: code-review
+on: pull_request
+permissions:
+  contents: read
+  pull-requests: write     # inline review comments
+  security-events: write   # SARIF upload to code scanning
+jobs:
+  review:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: sunilmehta-si/agentic-code-review-tool@main   # pin to a release SHA once tagged
+        with:
+          fail-on: high
+          ai: claude                                        # or: none, openai
+          anthropic-api-key: ${{ secrets.ANTHROPIC_API_KEY }}
+      - uses: github/codeql-action/upload-sarif@24c54180a607b1449ed407dd24f251e4e9147c8d # v4.38.3
+        if: always()
+        with:
+          sarif_file: acr.sarif
+```
+
+The action writes the summary to the job page, posts inline comments on the PR, uploads SARIF to the Security tab, and fails the check only after all of that is published.
+
+## AI review
+
+With `--ai`, an LLM agent verifies every deterministic finding before you see it. It reads the surrounding code with three **read-only, repository-confined tools** (`read_file`, `search_repo`, `list_changed_files`), then marks each finding *confirmed*, *false positive* or *uncertain*, explains it in plain language and writes a concrete fix. It may add up to five issues of its own, but only on lines the PR changes.
+
+```bash
+pip install "agentic-code-review-tool[claude] @ git+https://github.com/sunilmehta-si/agentic-code-review-tool"
+export ANTHROPIC_API_KEY=...            # or: ant auth login
+acr review --base origin/main --ai claude
+
+# Any OpenAI-compatible endpoint: OpenAI, vLLM, Ollama, LM Studio, LiteLLM
+export ACR_OPENAI_BASE_URL=http://localhost:11434/v1 ACR_MODEL=qwen2.5-coder:32b
+acr review --base origin/main --ai openai
+```
+
+| Setting | Default | Notes |
+|---|---|---|
+| `--ai claude` | model `claude-opus-5-5`, effort `high` | Official Anthropic SDK; cached system prompt; structured JSON verdicts; server-side fallback on safety refusals (`ACR_CLAUDE_FALLBACKS=0` to disable) |
+| `--ai openai` | `ACR_MODEL` required | Standard-library HTTP only, so it works air-gapped with a local model |
+| `--model`, `ACR_MODEL`, `ACR_EFFORT` | — | Override model and effort |
+| `--max-steps` | 12 | Upper bound on agent tool calls |
+
+**The agent is treated as untrusted too.** Repository content is passed as data, the prompt tells the model not to follow instructions found in code, the tools cannot write, execute or leave the repository, and new findings off the changed lines are discarded. If the AI step fails for any reason (no key, rate limit, refusal), the deterministic review is still published and the report says why.
+
 ## Built-in rules
 
 48 rules, generated from the code (`acr rules`):
@@ -136,8 +190,8 @@ When two tools report the same issue on the same line, the report shows it once 
 |---|---|
 | Diff-aware engine, 49 built-in rules, 7 scanner adapters | ✅ Done, unit-tested |
 | Markdown / JSON / SARIF reports, CLI with severity gate | ✅ Done, unit-tested |
-| AI review agent (Claude + OpenAI-compatible) | 🚧 In progress |
-| Inline PR comments and GitHub Action | 🚧 In progress |
+| AI review agent (Claude + OpenAI-compatible) with read-only tools | ✅ Done, unit-tested with a fake model |
+| Inline PR comments and composite GitHub Action | ✅ Done, unit-tested; first live run pending |
 
 ## Design notes
 

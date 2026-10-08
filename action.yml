@@ -1,0 +1,87 @@
+name: agentic-code-review-tool
+description: Agentic, scanner-grounded review of the whole pull request (app code, infrastructure and AI/agent code).
+author: Sunil Mehta
+branding:
+  icon: shield
+  color: green
+
+inputs:
+  fail-on:
+    description: Fail the check if a finding at or above this severity remains (critical, high, medium, low, never).
+    default: high
+  ai:
+    description: AI reviewer to verify findings and write fixes (none, claude, openai).
+    default: none
+  model:
+    description: Model override (default claude-opus-5-5 for claude; required for openai).
+    default: ""
+  anthropic-api-key:
+    description: Anthropic API key, needed when ai is claude. Pass it from a secret.
+    default: ""
+  openai-api-key:
+    description: API key for an OpenAI-compatible endpoint, needed when ai is openai (optional for local servers).
+    default: ""
+  openai-base-url:
+    description: Base URL of an OpenAI-compatible endpoint (default https://api.openai.com/v1).
+    default: ""
+  post-review:
+    description: Post a summary and inline comments to the pull request (needs pull-requests write permission).
+    default: "true"
+  sarif-file:
+    description: Where to write SARIF for GitHub code scanning (empty to skip).
+    default: acr.sarif
+  python-version:
+    description: Python version used to run the tool.
+    default: "3.12"
+
+outputs:
+  sarif-file:
+    description: Path of the SARIF report.
+    value: ${{ steps.review.outputs.sarif }}
+
+runs:
+  using: composite
+  steps:
+    - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+      with:
+        python-version: ${{ inputs.python-version }}
+
+    - name: Install agentic-code-review-tool
+      shell: bash
+      env:
+        ACTION_PATH: ${{ github.action_path }}
+        AI: ${{ inputs.ai }}
+      run: |
+        if [ "$AI" = "claude" ]; then extra="[claude]"; else extra=""; fi
+        python -m pip install --quiet "${ACTION_PATH}${extra}"
+
+    - name: Review the pull request
+      id: review
+      shell: bash
+      env:
+        BASE_REF: ${{ github.base_ref }}
+        FAIL_ON: ${{ inputs.fail-on }}
+        AI: ${{ inputs.ai }}
+        MODEL: ${{ inputs.model }}
+        POST_REVIEW: ${{ inputs.post-review }}
+        SARIF: ${{ inputs.sarif-file }}
+        ANTHROPIC_API_KEY: ${{ inputs.anthropic-api-key }}
+        ACR_OPENAI_API_KEY: ${{ inputs.openai-api-key }}
+        ACR_OPENAI_BASE_URL: ${{ inputs.openai-base-url }}
+        GITHUB_TOKEN: ${{ github.token }}
+      run: |
+        args=(review --fail-on never)
+        if [ -n "$BASE_REF" ]; then
+          git fetch --quiet --no-tags origin "$BASE_REF" || true
+          args+=(--base "origin/$BASE_REF")
+        fi
+        if [ "$AI" != "none" ] && [ -n "$AI" ]; then args+=(--ai "$AI"); fi
+        if [ -n "$MODEL" ]; then args+=(--model "$MODEL"); fi
+        if [ "$POST_REVIEW" = "true" ] && [ -n "$BASE_REF" ]; then args+=(--github-review); fi
+        acr "${args[@]}" >> "$GITHUB_STEP_SUMMARY"
+        if [ -n "$SARIF" ]; then
+          acr review ${BASE_REF:+--base "origin/$BASE_REF"} --format sarif --output "$SARIF" --fail-on never
+          echo "sarif=$SARIF" >> "$GITHUB_OUTPUT"
+        fi
+        # Gate last, so the summary, PR comments and SARIF are always produced first.
+        acr review ${BASE_REF:+--base "origin/$BASE_REF"} --format json --output acr-report.json --fail-on "$FAIL_ON"
