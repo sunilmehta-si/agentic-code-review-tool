@@ -29,7 +29,7 @@ def sql_formatting(path, text, lines):
       references=["https://cwe.mitre.org/data/definitions/78.html"])
 def shell_injection(path, text, lines):
     py = re.compile(r"\b(subprocess\.(run|call|Popen|check_output|check_call)\(.*shell\s*=\s*True|os\.system\(|os\.popen\()")
-    js = re.compile(r"""\b(child_process\.)?exec(Sync)?\(\s*(`[^`]*\$\{|[^)]*\+)""")
+    js = re.compile(r"""\b(child_process\.)?exec(Sync)?\(\s*(`[^`]*\$\{|[^)]*\+)""")  # acr:ignore - rule pattern, not a call
     yield from line_matches(shell_injection.info, path, lines, py)
     yield from line_matches(shell_injection.info, path, lines, js)
 

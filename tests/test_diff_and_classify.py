@@ -28,3 +28,18 @@ class ClassifyTests(unittest.TestCase):
     def test_ai_code_detected_only_with_llm_imports(self):
         self.assertIn("ai-code", kinds("bot.py", "from anthropic import Anthropic"))
         self.assertNotIn("ai-code", kinds("util.py", "import os"))
+
+
+class AiImportDetectionTests(unittest.TestCase):
+    def test_mentions_in_strings_are_not_imports(self):
+        self.assertNotIn("ai-code", kinds("scan.py", 'RULES = [("anthropic-api-key", "sk-ant-")]\n'))
+
+    def test_real_imports_in_python_and_js(self):
+        self.assertIn("ai-code", kinds("a.py", "from openai import OpenAI\n"))
+        self.assertIn("ai-code", kinds("a.py", "import langchain.agents\n"))
+        self.assertIn("ai-code", kinds("a.ts", 'import Anthropic from "@anthropic-ai/sdk"\n'))
+        self.assertIn("ai-code", kinds("a.js", 'const { OpenAI } = require("openai")\n'))
+
+    def test_scoped_package_detected_regardless_of_binding_name(self):
+        self.assertIn("ai-code", kinds("b.ts", 'import Client from "@anthropic-ai/sdk"\n'))
+        self.assertIn("ai-code", kinds("c.ts", 'import { ChatOpenAI } from "@langchain/openai"\n'))

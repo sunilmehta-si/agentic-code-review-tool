@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import fnmatch
+import re
 from pathlib import Path
 
 APP_EXT = {".py": "python", ".js": "javascript", ".jsx": "javascript", ".ts": "typescript", ".tsx": "typescript",
@@ -9,7 +10,7 @@ APP_EXT = {".py": "python", ".js": "javascript", ".jsx": "javascript", ".ts": "t
 
 AI_IMPORT_HINTS = ("openai", "anthropic", "langchain", "llama_index", "llamaindex", "transformers", "vllm", "litellm",
                    "ollama", "mcp", "@modelcontextprotocol", "crewai", "autogen", "semantic_kernel", "google.genai",
-                   "@ai-sdk", "ai/", "langgraph", "smolagents", "pydantic_ai")
+                   "@ai-sdk", "ai/", "langgraph", "smolagents", "pydantic_ai", "@anthropic-ai/", "@google/genai", "@langchain/")
 
 
 def kinds(path: str, text: str) -> set[str]:
@@ -36,9 +37,37 @@ def kinds(path: str, text: str) -> set[str]:
     if lang:
         out.add("app")
         out.add(f"lang:{lang}")
-        if any(h in text for h in AI_IMPORT_HINTS):
+        if _imports_ai(text):
             out.add("ai-code")
     return out
+
+
+_MODULE_REFS = (
+    re.compile(r"^\s*from\s+([\w.]+)\s+import\b", re.M),             # python: from x import y
+    re.compile(r"^\s*import\s+([\w.]+(?:\s*,\s*[\w.]+)*)\s*$", re.M),  # python: import x, y
+    re.compile(r"""\bfrom\s+['"]([^'"]+)['"]"""),                   # js/ts: import ... from "x"
+    re.compile(r"""\brequire\(\s*['"]([^'"]+)['"]"""),              # js: require("x")
+    re.compile(r"""^\s*import\s+['"]([^'"]+)['"]""", re.M),          # js: import "x"
+)
+
+
+def _module_refs(text: str) -> set[str]:
+    refs: set[str] = set()
+    for pat in _MODULE_REFS:
+        for m in pat.finditer(text):
+            refs.update(part.strip().lower() for part in m.group(1).split(","))
+    return refs
+
+
+def _matches_hint(module: str, hint: str) -> bool:
+    if hint.endswith("/"):
+        return module.startswith(hint) or module.startswith("@" + hint)
+    return module == hint or module.startswith(hint + ".") or module.startswith(hint + "/")
+
+
+def _imports_ai(text: str) -> bool:
+    """True only when an LLM/agent library is actually imported (a mention in a string or comment is not enough)."""
+    return any(_matches_hint(m, h) for m in _module_refs(text) for h in AI_IMPORT_HINTS)
 
 
 def _in_helm_chart(path: str) -> bool:

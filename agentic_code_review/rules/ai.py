@@ -31,7 +31,7 @@ def prompt_injection(path, text, lines):
       fix="Treat model output as untrusted input: validate against a schema or allow-list, never pass it to eval, a shell, SQL or raw HTML.",
       references=[OWASP_LLM])
 def output_handling(path, text, lines):
-    llm_var = r"(completion|response|resp|output|llm_\w+|answer|generated\w*|reply|choices\[|message\.content|\.content\b|\.text\b)"
+    llm_var = r"(\b(completion|response|resp|output|llm_\w+|answer|generated\w*|reply)\b|choices\[|message\.content|\.content\b)"
     pat = re.compile(rf"(?<![\w.])(eval|exec)\([^)]*{llm_var}|(os\.system|subprocess\.\w+|\.execute|innerHTML\s*=|dangerouslySetInnerHTML)[^\n]*{llm_var}")
     yield from line_matches(output_handling.info, path, lines, pat)
 
