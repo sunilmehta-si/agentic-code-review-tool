@@ -1,0 +1,16 @@
+name: triage
+on:
+  pull_request_target:
+    types: [opened]
+permissions: write-all
+jobs:
+  triage:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+      - uses: some-org/label-action@v2
+      - run: |
+          echo "Triaging: ${{ github.event.pull_request.title }}"
+          ./scripts/triage.sh

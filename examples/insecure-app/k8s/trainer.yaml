@@ -1,0 +1,29 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: trainer
+spec:
+  replicas: 1
+  selector:
+    matchLabels: {app: trainer}
+  template:
+    metadata:
+      labels: {app: trainer}
+    spec:
+      hostNetwork: true
+      containers:
+        - name: trainer
+          image: ghcr.io/acme/trainer:latest
+          securityContext:
+            privileged: true
+            capabilities:
+              add: ["SYS_ADMIN"]
+          resources:
+            requests:
+              nvidia.com/gpu: 1
+          volumeMounts:
+            - {name: docker, mountPath: /var/run/docker.sock}
+      volumes:
+        - name: docker
+          hostPath:
+            path: /var/run/docker.sock

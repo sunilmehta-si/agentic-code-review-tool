@@ -58,6 +58,30 @@ acr rules                          # list built-in rules
 
 Suppress a deliberate, reviewed line with an inline `acr:ignore` comment.
 
+## Demo
+
+[`examples/insecure-app`](examples/insecure-app) is a small project with deliberate mistakes in every area. Running
+
+```bash
+acr review --root examples/insecure-app --all --no-scanners --fail-on never
+```
+
+reports **39 findings across 9 files** (6 critical, 19 high, 11 medium, 3 low). One finding from each rule family:
+
+| | Severity | Location | Issue | Rule |
+|---|---|---|---|---|
+| 🔴 | critical | `.github/workflows/triage.yml:12` | pull_request_target checks out untrusted PR code | `ACR-GHA-001` |
+| 🔴 | critical | `.mcp.json:6` | Credential stored in plain text in an MCP config | `ACR-MCP-002` |
+| 🔴 | critical | `agent.py:24` | LLM output used as code, shell, SQL or HTML (LLM05 Improper Output Handling) | `ACR-AI-002` |
+| 🔴 | critical | `infra/main.tf:7` | Sensitive port open to the whole internet | `ACR-TF-001` |
+| 🔴 | critical | `k8s/trainer.yaml:18` | Privileged container or privilege escalation allowed | `ACR-K8S-001` |
+| 🔴 | critical | `skills/deploy-helper/SKILL.md:8` | Agent skill reads credentials or sends data out | `ACR-SKILL-002` |
+| 🟠 | high | `Dockerfile:2` | Secret baked into the image via ENV or ARG | `ACR-DOCKER-005` |
+| 🟠 | high | `agent.py:24` | Dynamic code execution | `ACR-APP-003` |
+| 🟠 | high | `app.py:6` | Hardcoded password or token | `ACR-SEC-002` |
+
+The full run is checked in CI by `tests/test_examples.py`, so a rule that stops firing fails the build.
+
 ## Use it in GitHub Actions
 
 ```yaml
