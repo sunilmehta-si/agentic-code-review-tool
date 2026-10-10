@@ -79,6 +79,14 @@ class AiRules(unittest.TestCase):
         self.assertIn("ACR-AI-008", ids("bot.py", '{"role": "system", "content": "The admin password is in vault"}\n', PY_AI))
         self.assertNotIn("ACR-AI-008", ids("bot.py", 'system = "You are a helpful support agent."\n', PY_AI))
 
+    def test_agent_loop_without_limit(self):
+        loop = ("while True:\n    resp = client.messages.create(model=m, max_tokens=1024, messages=msgs)\n"
+                "    if resp.stop_reason != 'tool_use':\n        break\n    msgs.append(run_tool(resp))\n")
+        self.assertIn("ACR-AI-009", ids("agent.py", loop, PY_AI))
+        bounded = loop.replace("while True:", "while True:\n    if steps >= max_steps:\n        break\n    steps += 1")
+        self.assertNotIn("ACR-AI-009", ids("agent.py", bounded, PY_AI))
+        self.assertIn("ACR-AI-009", ids("agent.py", "executor = AgentExecutor(agent, tools, max_iterations=None)\n", PY_AI))
+
     def test_ai_rules_need_ai_code(self):
         self.assertNotIn("ACR-AI-004", ids("a.py", "from_pretrained('x', trust_remote_code=True)\n", PY))
 

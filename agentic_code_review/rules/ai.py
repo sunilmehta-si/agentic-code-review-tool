@@ -108,3 +108,21 @@ def system_prompt_secret(path, text, lines):
                      r"""(password|passwd|api[_ -]?key|secret|access[_ -]?token|connection string|os\.environ|getenv\(|settings\.\w*(KEY|TOKEN|SECRET))""",
                      re.I)
     yield from line_matches(system_prompt_secret.info, path, lines, pat)
+
+
+@rule("ACR-AI-009", "Agent loop has no step or iteration limit (LLM10 Unbounded Consumption)", Severity.MEDIUM,
+      "ai-security", AI,
+      fix="Bound every agent loop: a maximum number of steps/tool calls, a wall-clock timeout and a token or cost budget.",
+      references=[OWASP_LLM])
+def unbounded_agent_loop(path, text, lines):
+    info = unbounded_agent_loop.info
+    explicit = re.compile(r"\b(max_iterations|max_turns|max_steps|recursion_limit)\s*=\s*(None|-1|float\(['\"]inf)")
+    yield from line_matches(info, path, lines, explicit)
+    agentic = re.compile(r"tool_calls|tool_use|stop_reason|finish_reason|run_tool|execute_tool|\.invoke\(|\.step\(")
+    bounded = re.compile(r"max_(steps|iterations|turns|tool_calls)|\bstep(s)?\s*[<>]=?|\biteration|\bturns?\s*[<>]=?|budget|timeout")
+    for i, line in enumerate(lines, start=1):
+        if IGNORE_MARKER in line or not re.match(r"^\s*while\s+(True|1)\s*:", line):
+            continue
+        body = "\n".join(lines[i:i + 30])
+        if agentic.search(body) and not bounded.search(body):
+            yield make(info, path, i, "A `while True` agent loop only stops when the model decides to.")
