@@ -82,6 +82,19 @@ reports **39 findings across 9 files** (6 critical, 19 high, 11 medium, 3 low). 
 
 The full run is checked in CI by `tests/test_examples.py`, so a rule that stops firing fails the build.
 
+### As a pre-commit hook
+
+```yaml
+# .pre-commit-config.yaml
+repos:
+  - repo: https://github.com/sunilmehta-si/agentic-code-review-tool
+    rev: v0.2.0
+    hooks:
+      - id: acr
+```
+
+The hook runs the built-in rules only (fast, offline) on what you are about to commit; CI can run the full review with scanners and the AI agent.
+
 ## Use it in GitHub Actions
 
 ```yaml
