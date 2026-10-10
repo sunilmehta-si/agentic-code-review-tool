@@ -42,6 +42,12 @@ def _parser() -> argparse.ArgumentParser:
     r.add_argument("--github-review", action="store_true",
                    help="Post a summary and inline comments to the current pull request (needs GITHUB_TOKEN).")
     r.add_argument("--pr", type=int, help="Pull request number (default: from the GitHub Actions event).")
+    r.add_argument("--baseline", help="Baseline file to suppress known findings (default: .acr.yml, else .acr-baseline.json if present).")
+
+    b = sub.add_parser("baseline", help="Accept every current finding so only new ones fail future reviews.")
+    b.add_argument("--root", default=".", help="Repository root (default: current directory).")
+    b.add_argument("--output", default=None, help="Baseline file (default: .acr.yml 'baseline', else .acr-baseline.json).")
+    b.add_argument("--no-scanners", action="store_true", help="Built-in rules only.")
 
     sub.add_parser("rules", help="List built-in rules.")
     return p
@@ -67,6 +73,9 @@ def _cmd_review(args: argparse.Namespace) -> int:
     result = review(Path(args.root), base=args.base, head=args.head, full=args.full,
                     use_scanners=not args.no_scanners, only_scanners=only, excludes=tuple(args.exclude) + tuple(cfg.exclude),
                     disable=tuple(cfg.disable), severity_overrides=cfg.severity)
+    from . import baseline as baseline_mod
+    baseline_mod.apply(Path(args.root).resolve(), result,
+                       baseline_mod.load(Path(args.root).resolve(), args.baseline or cfg.baseline or baseline_mod.DEFAULT_PATH))
     if args.ai:
         from .agent.review import AgentError
         from .agent.run import apply_ai, make_reviewer
@@ -102,10 +111,29 @@ def _cmd_review(args: argparse.Namespace) -> int:
     return 0
 
 
+def _cmd_baseline(args: argparse.Namespace) -> int:
+    from . import baseline as baseline_mod
+    from .config import ConfigError, load
+    root = Path(args.root).resolve()
+    try:
+        cfg = load(root)
+    except ConfigError as exc:
+        print(f"acr: config error: {exc}", file=sys.stderr)
+        return 2
+    result = review(root, full=True, use_scanners=not args.no_scanners, excludes=tuple(cfg.exclude),
+                    disable=tuple(cfg.disable), severity_overrides=cfg.severity)
+    path = args.output or cfg.baseline or baseline_mod.DEFAULT_PATH
+    n = baseline_mod.write(root, result, path)
+    print(f"acr: wrote {n} known finding(s) to {path}. Commit it; future reviews fail only on new findings.")
+    return 0
+
+
 def main(argv: list[str] | None = None) -> int:
     args = _parser().parse_args(argv)
     if args.command == "rules":
         return _cmd_rules()
+    if args.command == "baseline":
+        return _cmd_baseline(args)
     try:
         return _cmd_review(args)
     except Exception as exc:  # surface a clean error in CI logs

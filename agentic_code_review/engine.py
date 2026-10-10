@@ -33,6 +33,7 @@ class ReviewResult:
     ai_summary: str = ""
     ai_error: str = ""
     ai_usage: dict = field(default_factory=dict)
+    baselined: int = 0
 
     def counts(self) -> dict[str, int]:
         out = {s.label(): 0 for s in sorted(Severity, reverse=True)}
