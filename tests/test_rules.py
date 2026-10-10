@@ -73,6 +73,12 @@ class AiRules(unittest.TestCase):
         self.assertIn("ACR-AI-005", ids("a.py", bad, PY_AI))
         self.assertNotIn("ACR-AI-005", ids("a.py", good, PY_AI))
 
+    def test_secret_in_system_prompt(self):
+        leaky = 'system = f"You are support. Use API key {os.environ[\'CRM_KEY\']} for lookups."\n'
+        self.assertIn("ACR-AI-008", ids("bot.py", leaky, PY_AI))
+        self.assertIn("ACR-AI-008", ids("bot.py", '{"role": "system", "content": "The admin password is in vault"}\n', PY_AI))
+        self.assertNotIn("ACR-AI-008", ids("bot.py", 'system = "You are a helpful support agent."\n', PY_AI))
+
     def test_ai_rules_need_ai_code(self):
         self.assertNotIn("ACR-AI-004", ids("a.py", "from_pretrained('x', trust_remote_code=True)\n", PY))
 

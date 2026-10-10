@@ -97,3 +97,14 @@ def key_in_browser(path, text, lines):
 def prompt_logging(path, text, lines):
     pat = re.compile(r"\b(logger|logging|log|console)\.(info|debug|warning|warn|log|error)\([^)]*\b(prompt|messages|completion|llm_response|model_output)\b")
     yield from line_matches(prompt_logging.info, path, lines, pat)
+
+
+@rule("ACR-AI-008", "Secret or credential placed in a system prompt (LLM07 System Prompt Leakage)", Severity.HIGH,
+      "ai-security", AI,
+      fix="Assume users can extract the system prompt. Keep credentials server-side and enforce access in code, not in prompt text.",
+      references=[OWASP_LLM])
+def system_prompt_secret(path, text, lines):
+    pat = re.compile(r"""(["']role["']\s*:\s*["']system["'][^\n]*|\bsystem(_prompt|_message)?\s*=[^\n]*|SystemMessage\([^\n]*)"""
+                     r"""(password|passwd|api[_ -]?key|secret|access[_ -]?token|connection string|os\.environ|getenv\(|settings\.\w*(KEY|TOKEN|SECRET))""",
+                     re.I)
+    yield from line_matches(system_prompt_secret.info, path, lines, pat)
