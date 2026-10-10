@@ -26,6 +26,9 @@ def _parser() -> argparse.ArgumentParser:
     r.add_argument("--all", dest="full", action="store_true", help="Review every tracked file, not just the change.")
     r.add_argument("--format", choices=("markdown", "json", "sarif"), default="markdown")
     r.add_argument("--output", "-o", help="Write the report to a file instead of stdout.")
+    r.add_argument("--sarif", metavar="PATH", help="Also write SARIF to PATH (same run, no re-scan).")
+    r.add_argument("--json", dest="json_out", metavar="PATH", help="Also write JSON to PATH (same run, no re-scan).")
+    r.add_argument("--markdown", dest="md_out", metavar="PATH", help="Also write Markdown to PATH (same run, no re-scan).")
     r.add_argument("--fail-on", choices=(*FAIL_LEVELS, "never"), default="high",
                    help="Exit 1 if a finding at or above this severity remains (default: high).")
     r.add_argument("--no-scanners", action="store_true", help="Built-in rules only; skip external scanners.")
@@ -72,6 +75,11 @@ def _cmd_review(args: argparse.Namespace) -> int:
         Path(args.output).write_text(rendered + "\n", encoding="utf-8")
     else:
         print(rendered)
+    # Extra formats come from the same result, so scanners and the AI agent run only once.
+    for path, render in ((args.sarif, lambda: report.to_sarif(result)), (args.json_out, lambda: report.to_json(result)),
+                         (args.md_out, lambda: report.to_markdown(result, threshold or Severity.CRITICAL))):
+        if path:
+            Path(path).write_text(render() + "\n", encoding="utf-8")
     if args.github_review:
         from .github import GitHubError, post_review
         try:

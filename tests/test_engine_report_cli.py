@@ -61,6 +61,17 @@ class CliTests(unittest.TestCase):
             self.assertEqual(main(["review", "--root", str(root), "--no-scanners"]), 1)
             self.assertEqual(main(["review", "--root", str(root), "--no-scanners", "--fail-on", "critical"]), 0)
 
+    def test_one_run_writes_every_format(self):
+        root = git_repo({"README.md": "x\n"})
+        (root / "Dockerfile").write_text("FROM python:latest\nUSER 1000\n")
+        sarif, js, md = (root / "r.sarif"), (root / "r.json"), (root / "r.md")
+        with redirect_stdout(io.StringIO()):
+            main(["review", "--root", str(root), "--no-scanners", "--fail-on", "never",
+                  "--sarif", str(sarif), "--json", str(js), "--markdown", str(md)])
+        self.assertEqual(json.loads(sarif.read_text())["version"], "2.1.0")
+        self.assertEqual(json.loads(js.read_text())["counts"]["medium"], 1)
+        self.assertIn("Agentic code review", md.read_text())
+
     def test_rules_command_lists_rules(self):
         buf = io.StringIO()
         with redirect_stdout(buf):
