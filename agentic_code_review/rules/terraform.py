@@ -110,3 +110,10 @@ def module_pin(path, text, lines):
         pinned = "?ref=" in s if s.startswith(("git::", "github.com", "git@")) else bool(re.search(r"^\s*version\s*=", block, re.M))
         if not pinned:
             yield make(info, path, start, f"Module source '{s}' is not pinned.")
+
+
+@rule("ACR-TF-007", "Database can be destroyed without protection or a final backup", Severity.MEDIUM, "iac", TF,
+      fix="Set deletion_protection = true and keep a final snapshot (skip_final_snapshot = false) on stateful data stores.")
+def db_protection(path, text, lines):
+    pat = re.compile(r"\bdeletion_protection(_enabled)?\s*=\s*false|\bskip_final_snapshot\s*=\s*true|\bprevent_destroy\s*=\s*false")
+    yield from line_matches(db_protection.info, path, lines, pat)

@@ -148,6 +148,14 @@ class InfraRules(unittest.TestCase):
         self.assertNotIn("ACR-TF-001", ids("m.tf", https, {"terraform"}))
 
 
+class TerraformDataProtection(unittest.TestCase):
+    def test_database_deletion_protection(self):
+        risky = 'resource "aws_db_instance" "main" {\n  deletion_protection = false\n  skip_final_snapshot = true\n}\n'
+        self.assertEqual(ids("db.tf", risky, {"terraform"}).count("ACR-TF-007"), 2)
+        safe = risky.replace("false", "true").replace("skip_final_snapshot = true", "skip_final_snapshot = false")
+        self.assertNotIn("ACR-TF-007", ids("db.tf", safe, {"terraform"}))
+
+
 class AgentSupplyChainRules(unittest.TestCase):
     def test_mcp_config(self):
         token = "gh" + "p_" + "b" * 36
