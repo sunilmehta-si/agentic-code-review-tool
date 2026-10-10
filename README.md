@@ -55,8 +55,29 @@ acr rules                          # list built-in rules
 | `--no-scanners` | off | Built-in rules only |
 | `--scanners semgrep,trivy` | all installed | Run a subset of external scanners |
 | `--exclude 'docs/*'` | — | Skip paths (repeatable) |
+| `--sarif`, `--json`, `--markdown PATH` | — | Write extra report formats from the same run (no re-scan) |
+| `--baseline FILE` | `.acr-baseline.json` if present | Suppress findings accepted with `acr baseline` |
 
 Suppress a deliberate, reviewed line with an inline `acr:ignore` comment.
+
+## Configure once per repository
+
+```yaml
+# .acr.yml  (command-line flags win over this file)
+fail_on: high
+exclude: ["docs/*", "*.generated.go"]
+disable: ["ACR-AI-007"]          # rule ids or globs, e.g. "hadolint:*"
+severity:
+  ACR-K8S-009: medium            # per-rule severity overrides
+scanners: [semgrep, trivy]
+ai: claude                       # none | claude | openai
+```
+
+Unknown or invalid settings stop the run with a clear error instead of being silently ignored.
+
+**Adopting on an existing codebase:** run `acr baseline` once and commit `.acr-baseline.json`. Known findings are suppressed,
+matched by rule and line *content* so they survive code moving around, and only new problems fail pull requests.
+
 
 ## Demo
 
@@ -160,10 +181,13 @@ acr review --base origin/main --ai openai
 
 ## Built-in rules
 
-48 rules, generated from the code (`acr rules`):
+58 rules, generated from the code (`acr rules`; `acr explain <id>` for details):
+
+<!-- regenerate: python -c "from agentic_code_review.cli import main; main(['rules'])" -->
 
 | Area | Rule | Severity | What it catches |
 |---|---|---|---|
+| Secrets | `ACR-K8S-011` | high | Kubernetes Secret with real values committed to git |
 | Secrets | `ACR-MCP-002` | critical | Credential stored in plain text in an MCP config |
 | Secrets | `ACR-SEC-001` | critical | Provider credential committed to source |
 | Secrets | `ACR-SEC-002` | high | Hardcoded password or token |
@@ -174,6 +198,8 @@ acr review --base origin/main --ai openai
 | Application code | `ACR-APP-005` | medium | TLS certificate verification disabled |
 | Application code | `ACR-APP-006` | medium | Debug mode enabled in application code |
 | Application code | `ACR-APP-007` | low | Weak hash used for security |
+| Application code | `ACR-APP-008` | critical | JWT accepted without verifying its signature or expiry |
+| Application code | `ACR-APP-009` | high | CORS allows any origin together with credentials |
 | AI / LLM / agent code | `ACR-AI-001` | high | User input concatenated into a system prompt (LLM01 Prompt Injection) |
 | AI / LLM / agent code | `ACR-AI-002` | critical | LLM output used as code, shell, SQL or HTML (LLM05 Improper Output Handling) |
 | AI / LLM / agent code | `ACR-AI-003` | high | Agent given dangerous tools without guardrails (LLM06 Excessive Agency) |
@@ -181,6 +207,8 @@ acr review --base origin/main --ai openai
 | AI / LLM / agent code | `ACR-AI-005` | medium | LLM call without an output-token limit (LLM10 Unbounded Consumption) |
 | AI / LLM / agent code | `ACR-AI-006` | critical | Provider API key exposed to the browser (LLM02 Sensitive Information Disclosure) |
 | AI / LLM / agent code | `ACR-AI-007` | low | Full prompts or model responses written to logs (LLM02 Sensitive Information Disclosure) |
+| AI / LLM / agent code | `ACR-AI-008` | high | Secret or credential placed in a system prompt (LLM07 System Prompt Leakage) |
+| AI / LLM / agent code | `ACR-AI-009` | medium | Agent loop has no step or iteration limit (LLM10 Unbounded Consumption) |
 | AI / LLM / agent code | `ACR-MCP-001` | high | MCP server installed from an unpinned package |
 | AI / LLM / agent code | `ACR-MCP-003` | high | MCP server over plain HTTP or with broad host access |
 | AI / LLM / agent code | `ACR-SKILL-001` | high | Agent skill tells the agent to run a remote script |
@@ -195,24 +223,28 @@ acr review --base origin/main --ai openai
 | Kubernetes | `ACR-K8S-007` | medium | Container has no CPU/memory limits |
 | Kubernetes | `ACR-K8S-008` | medium | GPU requested without a matching limit |
 | Kubernetes | `ACR-K8S-009` | low | Pod does not require a non-root user |
+| Kubernetes | `ACR-K8S-010` | high | RBAC grants wildcard permissions or cluster-admin |
 | Dockerfile | `ACR-DOCKER-001` | medium | Base image not pinned (latest or no tag) |
 | Dockerfile | `ACR-DOCKER-002` | medium | Image runs as root (no USER instruction) |
 | Dockerfile | `ACR-DOCKER-003` | high | Remote script piped straight into a shell |
 | Dockerfile | `ACR-DOCKER-004` | low | ADD fetches a remote URL |
 | Dockerfile | `ACR-DOCKER-005` | high | Secret baked into the image via ENV or ARG |
 | Dockerfile | `ACR-DOCKER-006` | low | Package manager cache or sudo left in the image |
+| Dockerfile | `ACR-DOCKER-007` | medium | World-writable permissions set in the image |
 | GitHub Actions | `ACR-GHA-001` | critical | pull_request_target checks out untrusted PR code |
 | GitHub Actions | `ACR-GHA-002` | high | Untrusted event data interpolated into a shell script |
 | GitHub Actions | `ACR-GHA-003` | medium | Third-party action not pinned to a commit SHA |
 | GitHub Actions | `ACR-GHA-004` | medium | Workflow token has broad or default permissions |
 | GitHub Actions | `ACR-GHA-005` | high | Secret printed to the workflow log |
 | GitHub Actions | `ACR-GHA-006` | low | Deprecated workflow command |
+| GitHub Actions | `ACR-GHA-007` | medium | Cloud OIDC token granted to every job in the workflow |
 | Terraform | `ACR-TF-001` | critical | Sensitive port open to the whole internet |
 | Terraform | `ACR-TF-002` | high | Storage or data service exposed publicly |
 | Terraform | `ACR-TF-003` | high | Encryption or TLS weakened |
 | Terraform | `ACR-TF-004` | high | Wildcard or owner-level IAM permission |
 | Terraform | `ACR-TF-005` | medium | Kubernetes control plane reachable from the internet or legacy auth on |
 | Terraform | `ACR-TF-006` | low | Module source not pinned to a version |
+| Terraform | `ACR-TF-007` | medium | Database can be destroyed without protection or a final backup |
 
 ## Optional scanners
 
@@ -234,10 +266,11 @@ When two tools report the same issue on the same line, the report shows it once 
 
 | Part | State |
 |---|---|
-| Diff-aware engine, 49 built-in rules, 7 scanner adapters | ✅ Done, unit-tested |
+| Diff-aware engine, 58 built-in rules, 7 scanner adapters (run in parallel) | ✅ Done, unit-tested |
 | Markdown / JSON / SARIF reports, CLI with severity gate | ✅ Done, unit-tested |
 | AI review agent (Claude + OpenAI-compatible) with read-only tools | ✅ Done, unit-tested with a fake model |
-| Inline PR comments and composite GitHub Action | ✅ Done, unit-tested; first live run pending |
+| Inline PR comments and composite GitHub Action (single run) | ✅ Done, unit-tested; first live run pending |
+| `.acr.yml` config, baseline, `acr explain`, pre-commit hook, container image | ✅ Done (v0.2.0) |
 
 ## Design notes
 
