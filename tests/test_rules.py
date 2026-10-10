@@ -72,6 +72,8 @@ class AiRules(unittest.TestCase):
         good = "r = client.messages.create(\n    model='m',\n    max_tokens=1024,\n    messages=msgs,\n)\n"
         self.assertIn("ACR-AI-005", ids("a.py", bad, PY_AI))
         self.assertNotIn("ACR-AI-005", ids("a.py", good, PY_AI))
+        forwarded = "return client.messages.create(**request)\n"
+        self.assertNotIn("ACR-AI-005", ids("a.py", forwarded, PY_AI))
 
     def test_secret_in_system_prompt(self):
         leaky = 'system = f"You are support. Use API key {os.environ[\'CRM_KEY\']} for lookups."\n'

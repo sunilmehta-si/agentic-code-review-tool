@@ -77,7 +77,9 @@ def unbounded(path, text, lines):
             depth += lines[j].count("(") - lines[j].count(")")
             if depth <= 0 and j >= i - 1:
                 break
-        if not limit.search("\n".join(window)):
+        args = "\n".join(window)
+        # A call that forwards **kwargs may carry the limit inside them; don't guess.
+        if not limit.search(args) and "**" not in args:
             yield make(info, path, i)
 
 
