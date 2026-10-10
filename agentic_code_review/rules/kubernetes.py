@@ -170,3 +170,16 @@ def rbac_wildcard(path, text, lines):
         if (doc.get("roleRef") or {}).get("name") == "cluster-admin":
             yield make(info, path, find_line(lines, "cluster-admin"),
                        f"{doc['kind']} '{(doc.get('metadata') or {}).get('name', '')}' hands out cluster-admin.")
+
+
+@rule("ACR-K8S-011", "Kubernetes Secret with real values committed to git", Severity.HIGH, "secrets", ["kubernetes"],
+      fix="Secrets are only base64-encoded. Commit a SealedSecret, SOPS-encrypted file or ExternalSecret reference instead, and rotate this value.",
+      references=["https://kubernetes.io/docs/concepts/security/secrets-good-practices/"])
+def committed_secret(path, text, lines):
+    info = committed_secret.info
+    for doc in _docs(text, {"Secret"}):
+        values = {**(doc.get("data") or {}), **(doc.get("stringData") or {})}
+        real = [k for k, v in values.items() if v not in (None, "") and not re.search(r"\{\{|\$\{|<|CHANGE|REPLACE", str(v), re.I)]
+        if real:
+            yield make(info, path, find_line(lines, re.compile(r"^\s*(data|stringData)\s*:")),
+                       f"Secret '{(doc.get('metadata') or {}).get('name', '')}' holds {len(real)} literal value(s) (not shown).")

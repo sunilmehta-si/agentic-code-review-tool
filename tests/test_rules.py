@@ -110,6 +110,12 @@ class InfraRules(unittest.TestCase):
         narrow = role.replace('resources: [\"*\"]', 'resources: [\"configmaps\"]').replace('verbs: [\"*\"]', 'verbs: [\"get\"]')
         self.assertNotIn("ACR-K8S-010", ids("rbac.yaml", narrow, {"kubernetes"}))
 
+    def test_committed_secret_manifest(self):
+        secret = "apiVersion: v1\nkind: Secret\nmetadata:\n  name: db\ntype: Opaque\nstringData:\n  DB_USER: app\n  DB_PASS: hunter2\n"
+        self.assertIn("ACR-K8S-011", ids("secret.yaml", secret, {"kubernetes"}))
+        templated = secret.replace("app", "{{ .Values.user }}").replace("hunter2", "${DB_PASS}")
+        self.assertNotIn("ACR-K8S-011", ids("secret.yaml", templated, {"kubernetes"}))
+
     def test_dockerfile(self):
         found = ids("Dockerfile", "FROM python:latest\nRUN curl -s https://x.sh | sh\n", {"dockerfile"})
         self.assertEqual(found, ["ACR-DOCKER-001", "ACR-DOCKER-002", "ACR-DOCKER-003"])
