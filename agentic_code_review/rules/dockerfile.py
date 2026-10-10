@@ -76,3 +76,10 @@ def apt_hygiene(path, text, lines):
             yield make(info, path, i, "apt lists are never cleaned, which bloats the image and widens the attack surface.")
         elif re.search(r"\b(apt-get|apk|yum|dnf)\s+(install|add)\b.*\bsudo\b", line):
             yield make(info, path, i, "sudo inside a container is almost never needed.")
+
+
+@rule("ACR-DOCKER-007", "World-writable permissions set in the image", Severity.MEDIUM, "container", DF,
+      fix="Give ownership to the runtime user (COPY --chown / chown) and use 755 for directories and 644 for files.")
+def world_writable(path, text, lines):
+    pat = re.compile(r"\bchmod\s+(-R\s+)?(0?777|a\+w|o\+w|ugo\+w)\b|--chmod=0?777\b")
+    yield from line_matches(world_writable.info, path, lines, pat)

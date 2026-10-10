@@ -121,6 +121,11 @@ class InfraRules(unittest.TestCase):
         self.assertEqual(found, ["ACR-DOCKER-001", "ACR-DOCKER-002", "ACR-DOCKER-003"])
         self.assertEqual(ids("Dockerfile", "FROM python:3.12-slim\nUSER 10001\n", {"dockerfile"}), [])
 
+    def test_world_writable(self):
+        for line in ("RUN chmod -R 777 /app\n", "RUN chmod o+w /data\n", "COPY --chmod=777 run.sh /run.sh\n"):
+            self.assertIn("ACR-DOCKER-007", ids("Dockerfile", "FROM a:1\nUSER 1\n" + line, {"dockerfile"}), line)
+        self.assertNotIn("ACR-DOCKER-007", ids("Dockerfile", "FROM a:1\nUSER 1\nRUN chmod 755 /app\n", {"dockerfile"}))
+
     def test_github_actions(self):
         src = ("on:\n  pull_request_target:\njobs:\n  b:\n    steps:\n      - uses: actions/checkout@v4\n"
                "        with:\n          ref: ${{ github.event.pull_request.head.sha }}\n      - uses: org/act@v1\n"
