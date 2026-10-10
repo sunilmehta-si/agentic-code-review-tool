@@ -70,7 +70,7 @@ runs:
         ACR_OPENAI_BASE_URL: ${{ inputs.openai-base-url }}
         GITHUB_TOKEN: ${{ github.token }}
       run: |
-        args=(review --fail-on never)
+        args=(review --fail-on "$FAIL_ON" --markdown acr-summary.md --json acr-report.json)
         if [ -n "$BASE_REF" ]; then
           git fetch --quiet --no-tags origin "$BASE_REF" || true
           args+=(--base "origin/$BASE_REF")
@@ -78,10 +78,10 @@ runs:
         if [ "$AI" != "none" ] && [ -n "$AI" ]; then args+=(--ai "$AI"); fi
         if [ -n "$MODEL" ]; then args+=(--model "$MODEL"); fi
         if [ "$POST_REVIEW" = "true" ] && [ -n "$BASE_REF" ]; then args+=(--github-review); fi
-        acr "${args[@]}" >> "$GITHUB_STEP_SUMMARY"
-        if [ -n "$SARIF" ]; then
-          acr review ${BASE_REF:+--base "origin/$BASE_REF"} --format sarif --output "$SARIF" --fail-on never
-          echo "sarif=$SARIF" >> "$GITHUB_OUTPUT"
-        fi
-        # Gate last, so the summary, PR comments and SARIF are always produced first.
-        acr review ${BASE_REF:+--base "origin/$BASE_REF"} --format json --output acr-report.json --fail-on "$FAIL_ON"
+        if [ -n "$SARIF" ]; then args+=(--sarif "$SARIF"); echo "sarif=$SARIF" >> "$GITHUB_OUTPUT"; fi
+        # One run: scanners and the AI agent execute once; every report comes from the same result.
+        # Reports and PR comments are written before the exit code gates the check.
+        status=0
+        acr "${args[@]}" > /dev/null || status=$?
+        cat acr-summary.md >> "$GITHUB_STEP_SUMMARY"
+        exit "$status"
