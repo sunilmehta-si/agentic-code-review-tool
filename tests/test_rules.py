@@ -46,6 +46,18 @@ class JwtRule(unittest.TestCase):
         self.assertEqual(ids("auth.py", 'jwt.decode(tok, key, algorithms=["RS256"], audience="api")\n', PY), [])
 
 
+class CorsRule(unittest.TestCase):
+    def test_wildcard_with_credentials(self):
+        fastapi = 'app.add_middleware(CORSMiddleware, allow_origins=["*"], allow_credentials=True)\n'
+        self.assertIn("ACR-APP-009", ids("main.py", fastapi, PY))
+        express = "app.use(cors({ origin: true, credentials: true }))\n"
+        self.assertIn("ACR-APP-009", ids("server.js", express, {"app", "lang:javascript"}))
+
+    def test_wildcard_without_credentials_or_explicit_origins_pass(self):
+        self.assertEqual(ids("main.py", 'CORSMiddleware, allow_origins=["*"], allow_credentials=False\n', PY), [])
+        self.assertEqual(ids("main.py", 'allow_origins=["https://app.example.com"], allow_credentials=True\n', PY), [])
+
+
 class AiRules(unittest.TestCase):
     def test_owasp_llm_patterns(self):
         src = ('msgs = [{"role": "system", "content": f"Hi {name}"}]\n'

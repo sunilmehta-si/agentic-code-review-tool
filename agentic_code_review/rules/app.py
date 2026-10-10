@@ -77,3 +77,15 @@ def jwt_unverified(path, text, lines):
     pat = re.compile(r"""["']verify_signature["']\s*:\s*False|["']verify_exp["']\s*:\s*False|jwt\.decode\([^)]*verify\s*=\s*False"""
                      r"""|algorithms\s*[:=]\s*\[\s*["']none["']|ignoreExpiration\s*:\s*true|\bjwt\.decode\(\s*\w+\s*\)""", re.I)
     yield from line_matches(jwt_unverified.info, path, lines, pat)
+
+
+@rule("ACR-APP-009", "CORS allows any origin together with credentials", Severity.HIGH, "app-security", PY + JS,
+      fix="List the exact trusted origins. Never combine a wildcard or reflected origin with credentials (cookies, auth headers).",
+      references=["https://developer.mozilla.org/en-US/docs/Web/HTTP/CORS"])
+def cors_wildcard(path, text, lines):
+    creds = re.compile(r"allow_credentials\s*=\s*True|supports_credentials\s*=\s*True|credentials\s*:\s*true", re.I)
+    if not creds.search(text):
+        return
+    wildcard = re.compile(r"""allow_origins\s*=\s*\[\s*["']\*["']|origins\s*=\s*["']\*["']|origin\s*:\s*(["']\*["']|true)\b"""
+                          r"""|CORS\([^)]*resources\s*=\s*\{[^}]*["']origins["']\s*:\s*["']\*["']""")
+    yield from line_matches(cors_wildcard.info, path, lines, wildcard)
