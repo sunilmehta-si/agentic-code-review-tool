@@ -100,6 +100,13 @@ class InfraRules(unittest.TestCase):
             self.assertIn(rid, found)
         self.assertNotIn("ACR-K8S-005", ids("p.yaml", "    image: nginx@sha256:" + "a" * 64 + "\n", {"kubernetes"}))
 
+    def test_policy_image_patterns_are_not_images(self):
+        policy = ("apiVersion: kyverno.io/v1\nkind: ClusterPolicy\nmetadata:\n  name: pin\nspec:\n  rules:\n"
+                  "    - name: no-latest\n      validate:\n        pattern:\n          spec:\n            containers:\n"
+                  "              - image: \"!*:latest\"\n")
+        self.assertNotIn("ACR-K8S-005", ids("policy.yaml", policy, {"kubernetes"}))
+        self.assertIn("ACR-K8S-005", ids("pod.yaml", "apiVersion: v1\nkind: Pod\nspec:\n  containers:\n    - image: nginx\n", {"kubernetes"}))
+
     def test_rbac_wildcards_and_cluster_admin(self):
         role = ("apiVersion: rbac.authorization.k8s.io/v1\nkind: ClusterRole\nmetadata:\n  name: ops\nrules:\n"
                 "  - apiGroups: [\"\"]\n    resources: [\"*\"]\n    verbs: [\"*\"]\n")

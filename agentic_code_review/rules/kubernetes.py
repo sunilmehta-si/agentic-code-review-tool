@@ -12,6 +12,7 @@ from .base import find_line, line_matches, make, rule
 
 K8S = ["kubernetes", "helm-template"]
 PSS = "https://kubernetes.io/docs/concepts/security/pod-security-standards/"
+POLICY_DOC = re.compile(r"^apiVersion:\s*(kyverno\.io|templates\.gatekeeper\.sh|constraints\.gatekeeper\.sh)/", re.M)
 WORKLOADS = {"Pod", "Deployment", "StatefulSet", "DaemonSet", "ReplicaSet", "Job", "CronJob"}
 
 
@@ -59,13 +60,15 @@ def capabilities(path, text, lines):
       fix="Pin images to an immutable digest (image@sha256:...) or at least a specific version tag.")
 def image_pin(path, text, lines):
     info = image_pin.info
+    if POLICY_DOC.search(text):
+        return  # Kyverno/Gatekeeper policies contain image *patterns* that enforce pinning, not images
     pat = re.compile(r"^\s*-?\s*image\s*:\s*['\"]?([^'\"\s#]+)")
     for i, line in enumerate(lines, start=1):
         m = pat.match(line)
         if not m or "{{" in line:
             continue
         ref = m.group(1)
-        if "@sha256:" in ref:
+        if "@sha256:" in ref or "*" in ref or ref.startswith("!"):
             continue
         name = ref.rsplit("/", 1)[-1]
         if ":" not in name or name.endswith(":latest"):
