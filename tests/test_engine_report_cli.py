@@ -34,6 +34,29 @@ class EngineTests(unittest.TestCase):
         self.assertIn("gitleaks", merged[0].detail)
 
 
+class ParallelScannerTests(unittest.TestCase):
+    def test_scanners_run_concurrently_and_merge_in_order(self):
+        import time
+        from agentic_code_review.scanners.tools import Scanner
+
+        def slow(name, line):
+            def run(root, files):
+                time.sleep(0.3)
+                return [Finding(f"{name}:x", name, Severity.LOW, "Dockerfile", line, name, "container")]
+            return Scanner(name, name, frozenset({"*"}), run)
+
+        root = git_repo({"README.md": "x\n"})
+        (root / "Dockerfile").write_text("FROM a:1\nUSER 1\nRUN true\n")
+        fakes = [slow("one", 1), slow("two", 2), slow("three", 3)]
+        with mock.patch("agentic_code_review.engine.available_scanners", return_value=fakes), \
+                mock.patch("agentic_code_review.scanners.tools.ALL_SCANNERS", fakes):
+            start = time.monotonic()
+            result = review(root)
+            elapsed = time.monotonic() - start
+        self.assertLess(elapsed, 0.8)  # three 0.3s scanners in parallel, not 0.9s in series
+        self.assertEqual(result.scanners_run, ["one", "two", "three"])
+
+
 class ReportTests(unittest.TestCase):
     def test_sarif_shape(self):
         root = git_repo({"README.md": "x\n"})

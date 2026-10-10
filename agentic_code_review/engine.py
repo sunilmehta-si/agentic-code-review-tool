@@ -6,6 +6,8 @@ deterministic part first means every finding is reproducible and placed on an ex
 from __future__ import annotations
 
 import fnmatch
+import os
+from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass, field
 from pathlib import Path
 
@@ -103,12 +105,18 @@ def review(root: Path, base: str | None = None, head: str | None = None, full: b
         installed = {s.name for s in available_scanners(wanted)}
         missing = [s.name for s in ALL_SCANNERS if (wanted is None or s.name in wanted) and s.name not in installed]
         all_kinds = set().union(*file_kinds.values()) if file_kinds else set()
+        jobs = []
         for scanner in available_scanners(wanted):
             targets = [p for p, k in file_kinds.items() if "*" in scanner.kinds or scanner.kinds & k]
-            if not targets or not ("*" in scanner.kinds or scanner.kinds & all_kinds):
-                continue
-            findings.extend(scanner.run(root, targets))
-            ran.append(scanner.name)
+            if targets and ("*" in scanner.kinds or scanner.kinds & all_kinds):
+                jobs.append((scanner, targets))
+        # Scanners are separate processes, so threads run them concurrently; results keep a stable order.
+        workers = max(1, min(len(jobs), int(os.environ.get("ACR_SCANNER_WORKERS", "4"))))
+        with ThreadPoolExecutor(max_workers=workers) as pool:
+            futures = [(scanner, pool.submit(scanner.run, root, targets)) for scanner, targets in jobs]
+            for scanner, fut in futures:
+                findings.extend(fut.result())
+                ran.append(scanner.name)
 
     # Keep only findings on lines this change touches (every line counts in full mode).
     kept = [f for f in findings if f.path in files and files[f.path].touches(f.line, f.end_line)]
