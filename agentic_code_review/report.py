@@ -7,6 +7,8 @@ from . import __version__
 from .engine import ReviewResult
 from .models import Finding, Severity
 
+AREA = {"secrets": "Secrets", "app-security": "App code", "ai-security": "AI/agent", "kubernetes": "Kubernetes",
+        "container": "Containers", "ci-cd": "CI/CD", "iac": "Terraform/IaC", "dependency": "Dependencies", "other": "Other"}
 ICON = {Severity.CRITICAL: "🔴", Severity.HIGH: "🟠", Severity.MEDIUM: "🟡", Severity.LOW: "🔵", Severity.INFO: "⚪"}
 SARIF_LEVEL = {Severity.CRITICAL: "error", Severity.HIGH: "error", Severity.MEDIUM: "warning", Severity.LOW: "note", Severity.INFO: "note"}
 # GitHub maps this numeric property onto its critical/high/medium/low security severities.
@@ -33,6 +35,18 @@ def comment_body(f: Finding) -> str:
     return "\n\n".join(parts)
 
 
+def _by_area(findings: list[Finding]) -> list[str]:
+    """One line showing where the problems are, most affected area first."""
+    if not findings:
+        return []
+    areas: dict[str, int] = {}
+    for f in findings:
+        name = AREA.get(f.category, f.category)
+        areas[name] = areas.get(name, 0) + 1
+    ordered = sorted(areas.items(), key=lambda kv: (-kv[1], kv[0]))
+    return ["**By area:** " + " · ".join(f"{name} {n}" for name, n in ordered), ""]
+
+
 def to_markdown(result: ReviewResult, threshold: Severity = Severity.HIGH) -> str:
     shown = _visible(result)
     counts = {s: sum(1 for f in shown if f.severity == s) for s in sorted(Severity, reverse=True)}
@@ -40,6 +54,7 @@ def to_markdown(result: ReviewResult, threshold: Severity = Severity.HIGH) -> st
     status = "❌ **Changes requested**" if blocking else "✅ **No blocking issues**"
     lines = [f"## Agentic code review · {status}", "",
              " · ".join(f"{ICON[s]} {counts[s]} {s.label()}" for s in counts if s != Severity.INFO), "",
+             *_by_area(shown),
              f"Reviewed **{len(result.file_kinds)}** changed file(s). Scanners run: "
              f"{', '.join(result.scanners_run) or 'built-in rules only'}."]
     if result.ai_summary:

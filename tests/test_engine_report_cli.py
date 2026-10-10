@@ -68,6 +68,13 @@ class ReportTests(unittest.TestCase):
         self.assertIn("security-severity", run["tool"]["driver"]["rules"][0]["properties"])
         self.assertEqual(run["results"][0]["locations"][0]["physicalLocation"]["artifactLocation"]["uri"], "Dockerfile")
 
+    def test_summary_by_area(self):
+        root = git_repo({"README.md": "x\n"})
+        (root / "Dockerfile").write_text("FROM python:latest\nRUN curl -s https://x.sh | sh\n")
+        (root / "app.py").write_text("subprocess.run(c, shell=True)\n")
+        md = report.to_markdown(review(root, use_scanners=False))
+        self.assertIn("**By area:** Containers 3 · App code 1", md)
+
     def test_false_positives_hidden_from_reports(self):
         root = git_repo({"README.md": "x\n"})
         (root / "Dockerfile").write_text("FROM python:latest\nUSER 1000\n")
