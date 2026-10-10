@@ -50,6 +50,8 @@ def _parser() -> argparse.ArgumentParser:
     b.add_argument("--no-scanners", action="store_true", help="Built-in rules only.")
 
     sub.add_parser("rules", help="List built-in rules.")
+    e = sub.add_parser("explain", help="Explain a built-in rule: why it matters and how to fix it.")
+    e.add_argument("rule_id", help="Rule id, e.g. ACR-AI-002 (case-insensitive).")
     return p
 
 
@@ -58,6 +60,26 @@ def _cmd_rules() -> int:
         print(f"{info.rule_id:<16} {info.severity.label():<9} {info.category:<13} {info.title}")
     print(f"\n{len(rules_base.REGISTRY)} built-in rules")
     return 0
+
+
+def _cmd_explain(rule_id: str) -> int:
+    wanted = rule_id.strip().upper()
+    for info, fn in rules_base.REGISTRY:
+        if info.rule_id == wanted:
+            doc = " ".join((fn.__module__.rsplit(".", 1)[-1] + " rules").split())
+            print(f"{info.rule_id}  ·  {info.severity.label()}  ·  {info.category}  ({doc})")
+            print(f"\n{info.title}\n")
+            print(f"Applies to: {', '.join(sorted(info.applies_to))}")
+            if info.fix:
+                print(f"\nHow to fix:\n  {info.fix}")
+            if info.references:
+                print("\nReferences:\n" + "\n".join(f"  {r}" for r in info.references))
+            print("\nSuppress one reviewed line with an inline `acr:ignore` comment, or disable the rule in .acr.yml.")
+            return 0
+    close = [i.rule_id for i, _ in rules_base.REGISTRY if wanted.split("-")[:2] == i.rule_id.split("-")[:2]]
+    hint = f" Did you mean: {', '.join(sorted(close)[:6])}?" if close else " Run `acr rules` for the list."
+    print(f"acr: unknown rule '{rule_id}'.{hint}", file=sys.stderr)
+    return 2
 
 
 def _cmd_review(args: argparse.Namespace) -> int:
@@ -134,6 +156,8 @@ def main(argv: list[str] | None = None) -> int:
         return _cmd_rules()
     if args.command == "baseline":
         return _cmd_baseline(args)
+    if args.command == "explain":
+        return _cmd_explain(args.rule_id)
     try:
         return _cmd_review(args)
     except Exception as exc:  # surface a clean error in CI logs

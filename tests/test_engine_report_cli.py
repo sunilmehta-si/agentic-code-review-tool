@@ -95,6 +95,18 @@ class CliTests(unittest.TestCase):
         self.assertEqual(json.loads(js.read_text())["counts"]["medium"], 1)
         self.assertIn("Agentic code review", md.read_text())
 
+    def test_explain_shows_fix_and_handles_typos(self):
+        from contextlib import redirect_stderr
+        buf = io.StringIO()
+        with redirect_stdout(buf):
+            self.assertEqual(main(["explain", "acr-ai-002"]), 0)
+        self.assertIn("How to fix", buf.getvalue())
+        self.assertIn("genai.owasp.org", buf.getvalue())
+        err = io.StringIO()
+        with redirect_stderr(err):
+            self.assertEqual(main(["explain", "ACR-AI-999"]), 2)
+        self.assertIn("ACR-AI-001", err.getvalue())
+
     def test_rules_command_lists_rules(self):
         buf = io.StringIO()
         with redirect_stdout(buf):
