@@ -83,7 +83,8 @@ def dedupe(findings: list[Finding]) -> list[Finding]:
 
 
 def review(root: Path, base: str | None = None, head: str | None = None, full: bool = False,
-           use_scanners: bool = True, only_scanners: set[str] | None = None, excludes: tuple[str, ...] = ()) -> ReviewResult:
+           use_scanners: bool = True, only_scanners: set[str] | None = None, excludes: tuple[str, ...] = (),
+           disable: tuple[str, ...] = (), severity_overrides: dict[str, Severity] | None = None) -> ReviewResult:
     root = root.resolve()
     files = diff.all_files(root) if full else diff.changed_files(root, base, head)
     files = {p: cf for p, cf in files.items() if not _excluded(p, excludes)}
@@ -117,6 +118,13 @@ def review(root: Path, base: str | None = None, head: str | None = None, full: b
             for scanner, fut in futures:
                 findings.extend(fut.result())
                 ran.append(scanner.name)
+
+    # Repository policy: drop disabled rules (ids or globs) and apply per-rule severity overrides.
+    if disable:
+        findings = [f for f in findings if not any(fnmatch.fnmatch(f.rule_id, pat) for pat in disable)]
+    for f in findings:
+        if severity_overrides and f.rule_id in severity_overrides:
+            f.severity = severity_overrides[f.rule_id]
 
     # Keep only findings on lines this change touches (every line counts in full mode).
     kept = [f for f in findings if f.path in files and files[f.path].touches(f.line, f.end_line)]

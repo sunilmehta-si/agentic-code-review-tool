@@ -29,12 +29,13 @@ def _parser() -> argparse.ArgumentParser:
     r.add_argument("--sarif", metavar="PATH", help="Also write SARIF to PATH (same run, no re-scan).")
     r.add_argument("--json", dest="json_out", metavar="PATH", help="Also write JSON to PATH (same run, no re-scan).")
     r.add_argument("--markdown", dest="md_out", metavar="PATH", help="Also write Markdown to PATH (same run, no re-scan).")
-    r.add_argument("--fail-on", choices=(*FAIL_LEVELS, "never"), default="high",
-                   help="Exit 1 if a finding at or above this severity remains (default: high).")
+    r.add_argument("--fail-on", choices=(*FAIL_LEVELS, "never"), default=None,
+                   help="Exit 1 if a finding at or above this severity remains (default: .acr.yml, else high).")
     r.add_argument("--no-scanners", action="store_true", help="Built-in rules only; skip external scanners.")
     r.add_argument("--scanners", help="Comma-separated subset, e.g. semgrep,trivy.")
     r.add_argument("--exclude", action="append", default=[], help="Glob to skip (repeatable).")
     r.add_argument("--ai", choices=("claude", "openai"), default=os.environ.get("ACR_AI") or None,
+                   # falls back to `ai:` in .acr.yml
                    help="Have an LLM agent verify findings and explain fixes (claude needs the [claude] extra).")
     r.add_argument("--model", help="Model override (default: claude-opus-5-5 for claude; ACR_MODEL for openai).")
     r.add_argument("--max-steps", type=int, default=12, help="Maximum agent tool-use steps (default: 12).")
@@ -54,9 +55,18 @@ def _cmd_rules() -> int:
 
 
 def _cmd_review(args: argparse.Namespace) -> int:
-    only = {s.strip() for s in args.scanners.split(",")} if args.scanners else None
+    from .config import ConfigError, load
+    try:
+        cfg = load(Path(args.root))
+    except ConfigError as exc:
+        print(f"acr: config error: {exc}", file=sys.stderr)
+        return 2
+    args.fail_on = args.fail_on or cfg.fail_on or "high"
+    args.ai = args.ai or cfg.ai
+    only = {s.strip() for s in args.scanners.split(",")} if args.scanners else (set(cfg.scanners) if cfg.scanners else None)
     result = review(Path(args.root), base=args.base, head=args.head, full=args.full,
-                    use_scanners=not args.no_scanners, only_scanners=only, excludes=tuple(args.exclude))
+                    use_scanners=not args.no_scanners, only_scanners=only, excludes=tuple(args.exclude) + tuple(cfg.exclude),
+                    disable=tuple(cfg.disable), severity_overrides=cfg.severity)
     if args.ai:
         from .agent.review import AgentError
         from .agent.run import apply_ai, make_reviewer

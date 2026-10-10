@@ -23,3 +23,35 @@ class ConfigTests(unittest.TestCase):
         for body in ("fial_on: high\n", "fail_on: urgent\n", "severity:\n  X: severe\n", "ai: gpt\n", "- just\n- a list\n"):
             with self.assertRaises(ConfigError, msg=body):
                 load(git_repo({".acr.yml": body}))
+
+
+class ConfigAppliedTests(unittest.TestCase):
+    def _run(self, root, *extra):
+        import io
+        from contextlib import redirect_stdout
+        from agentic_code_review.cli import main
+        with redirect_stdout(io.StringIO()) as buf:
+            code = main(["review", "--root", str(root), "--no-scanners", "--format", "json", *extra])
+        import json
+        return code, json.loads(buf.getvalue())
+
+    def test_disable_override_and_fail_on_from_file(self):
+        root = git_repo({"README.md": "x\n", ".acr.yml": "fail_on: critical\ndisable: ['ACR-DOCKER-002']\n"
+                                                        "severity:\n  ACR-DOCKER-003: critical\n"})
+        (root / "Dockerfile").write_text("FROM python:latest\nRUN curl -s https://x.sh | sh\n")
+        code, data = self._run(root)
+        rules = {f["rule_id"]: f["severity"] for f in data["findings"]}
+        self.assertNotIn("ACR-DOCKER-002", rules)
+        self.assertEqual(rules["ACR-DOCKER-003"], "critical")
+        self.assertEqual(code, 1)          # fail_on: critical from the file, and there is now a critical
+        code, _ = self._run(root, "--fail-on", "never")
+        self.assertEqual(code, 0)          # the flag wins over the file
+
+    def test_bad_config_is_a_clean_error(self):
+        root = git_repo({".acr.yml": "fial_on: high\n"})
+        import io
+        from contextlib import redirect_stderr
+        from agentic_code_review.cli import main
+        with redirect_stderr(io.StringIO()) as err:
+            self.assertEqual(main(["review", "--root", str(root), "--no-scanners"]), 2)
+        self.assertIn("Unknown setting", err.getvalue())
