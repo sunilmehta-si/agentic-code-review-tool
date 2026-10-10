@@ -82,6 +82,15 @@ reports **39 findings across 9 files** (6 critical, 19 high, 11 medium, 3 low). 
 
 The full run is checked in CI by `tests/test_examples.py`, so a rule that stops firing fails the build.
 
+### In a container
+
+```bash
+docker build -t acr .
+docker run --rm -v "$PWD:/src" acr review --base origin/main
+```
+
+The image runs as a non-root user and pins its base image by digest.
+
 ### As a pre-commit hook
 
 ```yaml

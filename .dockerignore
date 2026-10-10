@@ -1,0 +1,10 @@
+.git
+.github
+tests
+examples
+scripts
+**/__pycache__
+*.sarif
+acr-*.json
+acr-*.md
+.venv
