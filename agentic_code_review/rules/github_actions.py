@@ -90,3 +90,22 @@ def secret_echo(path, text, lines):
       fix="Write to $GITHUB_OUTPUT / $GITHUB_STATE instead of ::set-output / ::save-state.")
 def deprecated_cmd(path, text, lines):
     yield from line_matches(deprecated_cmd.info, path, lines, re.compile(r"::(set-output|save-state|add-path|set-env)\b"))
+
+
+@rule("ACR-GHA-007", "Cloud OIDC token granted to every job in the workflow", Severity.MEDIUM, "ci-cd", GHA,
+      fix="Keep top-level permissions read-only and add `id-token: write` only to the deploy job that exchanges it for cloud credentials.",
+      references=["https://docs.github.com/en/actions/security-for-github-actions/security-hardening-your-deployments/about-security-hardening-with-openid-connect"])
+def workflow_oidc(path, text, lines):
+    info = workflow_oidc.info
+    in_top = False
+    for i, line in enumerate(lines, start=1):
+        if re.match(r"^permissions\s*:", line):
+            in_top = True
+            if re.search(r"write-all", line):
+                return  # covered by ACR-GHA-004
+            continue
+        if in_top:
+            if line.strip() and not line.startswith((" ", "\t")):
+                in_top = False
+            elif re.match(r"^\s+id-token\s*:\s*write\b", line) and IGNORE_MARKER not in line:
+                yield make(info, path, i)

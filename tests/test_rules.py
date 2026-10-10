@@ -134,6 +134,13 @@ class InfraRules(unittest.TestCase):
         for rid in ("ACR-GHA-001", "ACR-GHA-002", "ACR-GHA-003", "ACR-GHA-004"):
             self.assertIn(rid, found)
 
+    def test_oidc_scoped_to_job_not_workflow(self):
+        top = "on: push\npermissions:\n  contents: read\n  id-token: write\njobs:\n  deploy:\n    runs-on: x\n"
+        self.assertIn("ACR-GHA-007", ids(".github/workflows/d.yml", top, {"github-actions"}))
+        job = ("on: push\npermissions:\n  contents: read\njobs:\n  deploy:\n    permissions:\n      id-token: write\n"
+               "    runs-on: x\n")
+        self.assertNotIn("ACR-GHA-007", ids(".github/workflows/d.yml", job, {"github-actions"}))
+
     def test_terraform_only_flags_sensitive_ports(self):
         ssh = 'resource "aws_security_group" "s" {\n ingress {\n  from_port = 22\n  to_port = 22\n  cidr_blocks = ["0.0.0.0/0"]\n }\n}\n'
         https = ssh.replace("22", "443")
