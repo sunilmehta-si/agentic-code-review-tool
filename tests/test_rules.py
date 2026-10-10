@@ -100,6 +100,16 @@ class InfraRules(unittest.TestCase):
             self.assertIn(rid, found)
         self.assertNotIn("ACR-K8S-005", ids("p.yaml", "    image: nginx@sha256:" + "a" * 64 + "\n", {"kubernetes"}))
 
+    def test_rbac_wildcards_and_cluster_admin(self):
+        role = ("apiVersion: rbac.authorization.k8s.io/v1\nkind: ClusterRole\nmetadata:\n  name: ops\nrules:\n"
+                "  - apiGroups: [\"\"]\n    resources: [\"*\"]\n    verbs: [\"*\"]\n")
+        self.assertIn("ACR-K8S-010", ids("rbac.yaml", role, {"kubernetes"}))
+        binding = ("apiVersion: rbac.authorization.k8s.io/v1\nkind: ClusterRoleBinding\nmetadata:\n  name: ci\n"
+                   "roleRef:\n  kind: ClusterRole\n  name: cluster-admin\n  apiGroup: rbac.authorization.k8s.io\n")
+        self.assertIn("ACR-K8S-010", ids("rbac.yaml", binding, {"kubernetes"}))
+        narrow = role.replace('resources: [\"*\"]', 'resources: [\"configmaps\"]').replace('verbs: [\"*\"]', 'verbs: [\"get\"]')
+        self.assertNotIn("ACR-K8S-010", ids("rbac.yaml", narrow, {"kubernetes"}))
+
     def test_dockerfile(self):
         found = ids("Dockerfile", "FROM python:latest\nRUN curl -s https://x.sh | sh\n", {"dockerfile"})
         self.assertEqual(found, ["ACR-DOCKER-001", "ACR-DOCKER-002", "ACR-DOCKER-003"])

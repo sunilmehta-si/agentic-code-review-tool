@@ -141,3 +141,32 @@ def non_root_missing(path, text, lines):
             if not pod_ok and (c.get("securityContext") or {}).get("runAsNonRoot") is not True:
                 yield make(non_root_missing.info, path, _container_line(lines, c.get('name')),
                            f"Container '{c.get('name')}' may run as root.")
+
+
+def _docs(text: str, kinds: set[str]):
+    try:
+        import yaml
+    except ImportError:
+        return []
+    try:
+        return [d for d in yaml.safe_load_all(text) if isinstance(d, dict) and d.get("kind") in kinds]
+    except yaml.YAMLError:
+        return []
+
+
+@rule("ACR-K8S-010", "RBAC grants wildcard permissions or cluster-admin", Severity.HIGH, "kubernetes", ["kubernetes"],
+      fix="Grant only the verbs and resources the workload uses, in its own namespace (Role, not ClusterRole), and never bind service accounts to cluster-admin.",
+      references=["https://kubernetes.io/docs/concepts/security/rbac-good-practices/"])
+def rbac_wildcard(path, text, lines):
+    info = rbac_wildcard.info
+    for doc in _docs(text, {"Role", "ClusterRole"}):
+        name = (doc.get("metadata") or {}).get("name", "")
+        for r in doc.get("rules") or []:
+            wild = [k for k in ("verbs", "resources", "apiGroups") if "*" in (r.get(k) or [])]
+            if wild and wild != ["apiGroups"]:
+                yield make(info, path, find_line(lines, re.compile(r"^\s*-?\s*(verbs|resources)\s*:.*\*")),
+                           f"{doc['kind']} '{name}' uses '*' in {', '.join(wild)}.")
+    for doc in _docs(text, {"ClusterRoleBinding", "RoleBinding"}):
+        if (doc.get("roleRef") or {}).get("name") == "cluster-admin":
+            yield make(info, path, find_line(lines, "cluster-admin"),
+                       f"{doc['kind']} '{(doc.get('metadata') or {}).get('name', '')}' hands out cluster-admin.")
