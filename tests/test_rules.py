@@ -34,6 +34,18 @@ class AppRules(unittest.TestCase):
         self.assertEqual(ids("a.py", "yaml.load(fh, Loader=yaml.SafeLoader)\n", PY), [])
 
 
+class JwtRule(unittest.TestCase):
+    def test_unverified_tokens(self):
+        for src in ('jwt.decode(tok, options={"verify_signature": False})\n', 'jwt.decode(tok, key, algorithms=["none"])\n',
+                    'jwt.decode(tok, key, verify=False)\n'):
+            self.assertIn("ACR-APP-008", ids("auth.py", src, PY), src)
+        self.assertIn("ACR-APP-008", ids("auth.js", "const claims = jwt.decode(token)\n", {"app", "lang:javascript"}))
+        self.assertIn("ACR-APP-008", ids("auth.js", "jwt.verify(t, k, { ignoreExpiration: true })\n", {"app", "lang:javascript"}))
+
+    def test_verified_tokens_pass(self):
+        self.assertEqual(ids("auth.py", 'jwt.decode(tok, key, algorithms=["RS256"], audience="api")\n', PY), [])
+
+
 class AiRules(unittest.TestCase):
     def test_owasp_llm_patterns(self):
         src = ('msgs = [{"role": "system", "content": f"Hi {name}"}]\n'

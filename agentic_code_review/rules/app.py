@@ -68,3 +68,12 @@ def debug_on(path, text, lines):
 def weak_hash(path, text, lines):
     pat = re.compile(r"hashlib\.(md5|sha1)\(|createHash\(\s*['\"](md5|sha1)['\"]")
     yield from line_matches(weak_hash.info, path, lines, pat)
+
+
+@rule("ACR-APP-008", "JWT accepted without verifying its signature or expiry", Severity.CRITICAL, "app-security", PY + JS,
+      fix="Always verify: pass the key and an explicit algorithms list (never 'none'), and keep expiry checks on.",
+      references=["https://cheatsheetseries.owasp.org/cheatsheets/JSON_Web_Token_for_Java_Cheat_Sheet.html"])
+def jwt_unverified(path, text, lines):
+    pat = re.compile(r"""["']verify_signature["']\s*:\s*False|["']verify_exp["']\s*:\s*False|jwt\.decode\([^)]*verify\s*=\s*False"""
+                     r"""|algorithms\s*[:=]\s*\[\s*["']none["']|ignoreExpiration\s*:\s*true|\bjwt\.decode\(\s*\w+\s*\)""", re.I)
+    yield from line_matches(jwt_unverified.info, path, lines, pat)
