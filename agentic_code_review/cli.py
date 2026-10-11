@@ -12,6 +12,9 @@ from .models import Severity
 from .rules import base as rules_base
 
 FAIL_LEVELS = {"critical": Severity.CRITICAL, "high": Severity.HIGH, "medium": Severity.MEDIUM, "low": Severity.LOW}
+# Order and names of the areas in the README's rule catalogue.
+RULE_AREAS = {"secrets": "Secrets", "app-security": "Application code", "ai-security": "AI / LLM / agent code",
+              "kubernetes": "Kubernetes", "container": "Dockerfile", "ci-cd": "GitHub Actions", "iac": "Terraform"}
 
 
 def _parser() -> argparse.ArgumentParser:
@@ -55,16 +58,32 @@ def _parser() -> argparse.ArgumentParser:
     i.add_argument("--root", default=".", help="Repository root (default: current directory).")
     i.add_argument("--force", action="store_true", help="Overwrite an existing config file.")
 
-    sub.add_parser("rules", help="List built-in rules.")
+    rl = sub.add_parser("rules", help="List built-in rules.")
+    rl.add_argument("--format", choices=("text", "markdown", "json"), default="text",
+                    help="markdown prints the README catalogue table; json suits other tools.")
     e = sub.add_parser("explain", help="Explain a built-in rule: why it matters and how to fix it.")
     e.add_argument("rule_id", help="Rule id, e.g. ACR-AI-002 (case-insensitive).")
     return p
 
 
-def _cmd_rules() -> int:
-    for info, _ in sorted(rules_base.REGISTRY, key=lambda x: x[0].rule_id):
+def _cmd_rules(fmt: str = "text") -> int:
+    infos = sorted((info for info, _ in rules_base.REGISTRY), key=lambda i: i.rule_id)
+    if fmt == "json":
+        import json
+        print(json.dumps([{"id": i.rule_id, "title": i.title, "severity": i.severity.label(), "category": i.category,
+                           "applies_to": sorted(i.applies_to), "fix": i.fix, "references": list(i.references)}
+                          for i in infos], indent=2))
+        return 0
+    if fmt == "markdown":
+        order = list(RULE_AREAS)
+        print("| Area | Rule | Severity | What it catches |\n|---|---|---|---|")
+        for i in sorted(infos, key=lambda i: (order.index(i.category) if i.category in order else len(order), i.rule_id)):
+            title = i.title.replace("|", "\\|")
+            print(f"| {RULE_AREAS.get(i.category, i.category)} | `{i.rule_id}` | {i.severity.label()} | {title} |")
+        return 0
+    for info in infos:
         print(f"{info.rule_id:<16} {info.severity.label():<9} {info.category:<13} {info.title}")
-    print(f"\n{len(rules_base.REGISTRY)} built-in rules")
+    print(f"\n{len(infos)} built-in rules")
     return 0
 
 
@@ -177,7 +196,7 @@ def _cmd_baseline(args: argparse.Namespace) -> int:
 def main(argv: list[str] | None = None) -> int:
     args = _parser().parse_args(argv)
     if args.command == "rules":
-        return _cmd_rules()
+        return _cmd_rules(args.format)
     if args.command == "baseline":
         return _cmd_baseline(args)
     if args.command == "init":

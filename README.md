@@ -184,7 +184,7 @@ acr review --base origin/main --ai openai
 
 58 rules, generated from the code (`acr rules`; `acr explain <id>` for details):
 
-<!-- regenerate: python -c "from agentic_code_review.cli import main; main(['rules'])" -->
+<!-- regenerate: acr rules --format markdown -->
 
 | Area | Rule | Severity | What it catches |
 |---|---|---|---|

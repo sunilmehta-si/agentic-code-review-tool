@@ -159,3 +159,28 @@ class GitHubAnnotationTests(unittest.TestCase):
         with redirect_stdout(buf):
             main(["review", "--root", str(root), "--no-scanners", "--format", "github", "--fail-on", "never"])
         self.assertIn("::error file=a.py,line=2,title=ACR-APP-002", buf.getvalue())
+
+
+class RulesFormatTests(unittest.TestCase):
+    def test_json_and_markdown_cover_every_rule(self):
+        from agentic_code_review.rules import base
+        buf = io.StringIO()
+        with redirect_stdout(buf):
+            main(["rules", "--format", "json"])
+        data = json.loads(buf.getvalue())
+        self.assertEqual(len(data), len(base.REGISTRY))
+        self.assertTrue(all(r["fix"] and r["applies_to"] for r in data))
+        buf = io.StringIO()
+        with redirect_stdout(buf):
+            main(["rules", "--format", "markdown"])
+        rows = [r for r in buf.getvalue().splitlines() if r.startswith("| ") and "`ACR-" in r]
+        self.assertEqual(len(rows), len(base.REGISTRY))
+        self.assertTrue(rows[0].startswith("| Secrets |"))
+
+    def test_readme_catalogue_is_up_to_date(self):
+        from pathlib import Path
+        buf = io.StringIO()
+        with redirect_stdout(buf):
+            main(["rules", "--format", "markdown"])
+        readme = (Path(__file__).resolve().parents[1] / "README.md").read_text()
+        self.assertIn(buf.getvalue().strip(), readme, "README rule table is stale: run `acr rules --format markdown`")
