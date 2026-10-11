@@ -182,7 +182,7 @@ acr review --base origin/main --ai openai
 
 ## Built-in rules
 
-65 rules, generated from the code (`acr rules`; `acr explain <id>` for details):
+66 rules, generated from the code (`acr rules`; `acr explain <id>` for details):
 
 <!-- regenerate: acr rules --format markdown -->
 
@@ -253,6 +253,7 @@ acr review --base origin/main --ai openai
 | Terraform | `ACR-TF-005` | medium | Kubernetes control plane reachable from the internet or legacy auth on |
 | Terraform | `ACR-TF-006` | low | Module source not pinned to a version |
 | Terraform | `ACR-TF-007` | medium | Database can be destroyed without protection or a final backup |
+| Terraform | `ACR-TF-008` | medium | Instance metadata reachable without session tokens (credential theft via SSRF) |
 
 ## Optional scanners
 

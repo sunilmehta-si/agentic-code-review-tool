@@ -117,3 +117,14 @@ def module_pin(path, text, lines):
 def db_protection(path, text, lines):
     pat = re.compile(r"\bdeletion_protection(_enabled)?\s*=\s*false|\bskip_final_snapshot\s*=\s*true|\bprevent_destroy\s*=\s*false")
     yield from line_matches(db_protection.info, path, lines, pat)
+
+
+@rule("ACR-TF-008", "Instance metadata reachable without session tokens (credential theft via SSRF)", Severity.MEDIUM, "iac", TF,
+      fix="Require IMDSv2 (metadata_options { http_tokens = \"required\" }) on AWS, and use GKE Workload Identity "
+          "(workload_metadata_config { mode = \"GKE_METADATA\" }) so pods cannot read node credentials.",
+      references=["https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/configuring-instance-metadata-service.html",
+                  "https://cloud.google.com/kubernetes-engine/docs/how-to/protecting-cluster-metadata"])
+def instance_metadata(path, text, lines):
+    pat = re.compile(r'\bhttp_tokens\s*=\s*"optional"|\bmode\s*=\s*"GCE_METADATA"|"?disable-legacy-endpoints"?\s*=\s*"?false"?'
+                     r'|\bnode_metadata\s*=\s*"(EXPOSE|UNSPECIFIED)"')
+    yield from line_matches(instance_metadata.info, path, lines, pat)

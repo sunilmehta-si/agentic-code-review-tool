@@ -276,3 +276,13 @@ class UnconfinedRule(unittest.TestCase):
         self.assertIn("ACR-K8S-012", ids("p.yaml", "securityContext:\n  appArmorProfile:\n    type: Unconfined\n", k8s))
         self.assertIn("ACR-K8S-012", ids("p.yaml", "annotations:\n  container.apparmor.security.beta.kubernetes.io/app: unconfined\n", k8s))
         self.assertEqual(ids("p.yaml", "securityContext:\n  seccompProfile:\n    type: RuntimeDefault\n", k8s), [])
+
+
+class InstanceMetadataRule(unittest.TestCase):
+    def test_imdsv1_and_gke_node_metadata(self):
+        tf = {"terraform"}
+        self.assertIn("ACR-TF-008", ids("m.tf", 'resource "aws_instance" "a" {\n  metadata_options {\n    http_tokens = "optional"\n  }\n}\n', tf))
+        self.assertIn("ACR-TF-008", ids("m.tf", '  workload_metadata_config {\n    mode = "GCE_METADATA"\n  }\n', tf))
+        self.assertIn("ACR-TF-008", ids("m.tf", '  metadata = {\n    "disable-legacy-endpoints" = "false"\n  }\n', tf))
+        self.assertEqual(ids("m.tf", '  metadata_options {\n    http_tokens = "required"\n  }\n', tf), [])
+        self.assertEqual(ids("m.tf", '  workload_metadata_config {\n    mode = "GKE_METADATA"\n  }\n', tf), [])
