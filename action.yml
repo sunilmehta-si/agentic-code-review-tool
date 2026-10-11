@@ -27,6 +27,9 @@ inputs:
   post-review:
     description: Post a summary and inline comments to the pull request (needs pull-requests write permission).
     default: "true"
+  annotations:
+    description: Show findings as annotations on the PR's changed files. Needs no write permission, so it also works for forks.
+    default: "true"
   sarif-file:
     description: Where to write SARIF for GitHub code scanning (empty to skip).
     default: acr.sarif
@@ -64,6 +67,7 @@ runs:
         AI: ${{ inputs.ai }}
         MODEL: ${{ inputs.model }}
         POST_REVIEW: ${{ inputs.post-review }}
+        ANNOTATIONS: ${{ inputs.annotations }}
         SARIF: ${{ inputs.sarif-file }}
         ANTHROPIC_API_KEY: ${{ inputs.anthropic-api-key }}
         ACR_OPENAI_API_KEY: ${{ inputs.openai-api-key }}
@@ -71,6 +75,8 @@ runs:
         GITHUB_TOKEN: ${{ github.token }}
       run: |
         args=(review --fail-on "$FAIL_ON" --markdown acr-summary.md --json acr-report.json)
+        # stdout carries the annotations (GitHub reads workflow commands from it); other reports go to files.
+        if [ "$ANNOTATIONS" = "true" ]; then args+=(--format github); fi
         if [ -n "$BASE_REF" ]; then
           git fetch --quiet --no-tags origin "$BASE_REF" || true
           args+=(--base "origin/$BASE_REF")
@@ -82,6 +88,10 @@ runs:
         # One run: scanners and the AI agent execute once; every report comes from the same result.
         # Reports and PR comments are written before the exit code gates the check.
         status=0
-        acr "${args[@]}" > /dev/null || status=$?
+        if [ "$ANNOTATIONS" = "true" ]; then
+          acr "${args[@]}" || status=$?
+        else
+          acr "${args[@]}" > /dev/null || status=$?
+        fi
         cat acr-summary.md >> "$GITHUB_STEP_SUMMARY"
         exit "$status"
