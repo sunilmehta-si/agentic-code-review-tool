@@ -23,6 +23,25 @@ FAIL_VALUES = ("critical", "high", "medium", "low", "never")
 KNOWN_KEYS = {"fail_on", "exclude", "disable", "severity", "scanners", "ai", "baseline"}
 
 
+STARTER = """\
+# agentic-code-review-tool settings. Command-line flags win over this file.
+# Docs: https://github.com/sunilmehta-si/agentic-code-review-tool#configure-once-per-repository
+
+fail_on: high                 # critical | high | medium | low | never
+
+exclude:                      # globs that are never reviewed
+  - "docs/*"
+
+disable: []                   # rule ids or globs, e.g. ["ACR-AI-007", "hadolint:*"]
+
+severity: {}                  # per-rule overrides, e.g. {ACR-K8S-009: medium}
+
+# scanners: [semgrep, trivy]  # default: every installed scanner
+# ai: claude                  # none | claude | openai
+# baseline: .acr-baseline.json
+"""
+
+
 class ConfigError(ValueError):
     pass
 

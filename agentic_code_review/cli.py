@@ -51,6 +51,10 @@ def _parser() -> argparse.ArgumentParser:
     b.add_argument("--output", default=None, help="Baseline file (default: .acr.yml 'baseline', else .acr-baseline.json).")
     b.add_argument("--no-scanners", action="store_true", help="Built-in rules only.")
 
+    i = sub.add_parser("init", help="Write a starter .acr.yml in the repository root.")
+    i.add_argument("--root", default=".", help="Repository root (default: current directory).")
+    i.add_argument("--force", action="store_true", help="Overwrite an existing config file.")
+
     sub.add_parser("rules", help="List built-in rules.")
     e = sub.add_parser("explain", help="Explain a built-in rule: why it matters and how to fix it.")
     e.add_argument("rule_id", help="Rule id, e.g. ACR-AI-002 (case-insensitive).")
@@ -82,6 +86,19 @@ def _cmd_explain(rule_id: str) -> int:
     hint = f" Did you mean: {', '.join(sorted(close)[:6])}?" if close else " Run `acr rules` for the list."
     print(f"acr: unknown rule '{rule_id}'.{hint}", file=sys.stderr)
     return 2
+
+
+def _cmd_init(args: argparse.Namespace) -> int:
+    from .config import FILENAMES, STARTER
+    root = Path(args.root)
+    existing = next((root / n for n in FILENAMES if (root / n).is_file()), None)
+    if existing and not args.force:
+        print(f"acr: {existing.name} already exists; use --force to overwrite it.", file=sys.stderr)
+        return 1
+    target = existing or root / FILENAMES[0]
+    target.write_text(STARTER, encoding="utf-8")
+    print(f"acr: wrote {target.name}. Edit it, then commit it with the repository.")
+    return 0
 
 
 def _cmd_review(args: argparse.Namespace) -> int:
@@ -163,6 +180,8 @@ def main(argv: list[str] | None = None) -> int:
         return _cmd_rules()
     if args.command == "baseline":
         return _cmd_baseline(args)
+    if args.command == "init":
+        return _cmd_init(args)
     if args.command == "explain":
         return _cmd_explain(args.rule_id)
     try:

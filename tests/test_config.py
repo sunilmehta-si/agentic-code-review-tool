@@ -1,4 +1,5 @@
 import unittest
+from pathlib import Path
 
 from agentic_code_review.config import ConfigError, load
 from agentic_code_review.models import Severity
@@ -55,3 +56,25 @@ class ConfigAppliedTests(unittest.TestCase):
         with redirect_stderr(io.StringIO()) as err:
             self.assertEqual(main(["review", "--root", str(root), "--no-scanners"]), 2)
         self.assertIn("Unknown setting", err.getvalue())
+
+
+class InitCommandTests(unittest.TestCase):
+    def test_init_writes_a_valid_starter_and_refuses_to_overwrite(self):
+        import io
+        import tempfile
+        from contextlib import redirect_stderr, redirect_stdout
+
+        from agentic_code_review.cli import main
+        from agentic_code_review.config import load
+        root = Path(tempfile.mkdtemp())
+        with redirect_stdout(io.StringIO()):
+            self.assertEqual(main(["init", "--root", str(root)]), 0)
+        cfg = load(root)  # the template must pass the same validation as a hand-written file
+        self.assertEqual((cfg.fail_on, cfg.exclude, cfg.source), ("high", ["docs/*"], ".acr.yml"))
+        (root / ".acr.yml").write_text("fail_on: low\n")
+        with redirect_stderr(io.StringIO()):
+            self.assertEqual(main(["init", "--root", str(root)]), 1)
+        self.assertEqual((root / ".acr.yml").read_text(), "fail_on: low\n")
+        with redirect_stdout(io.StringIO()):
+            self.assertEqual(main(["init", "--root", str(root), "--force"]), 0)
+        self.assertEqual(load(root).fail_on, "high")
