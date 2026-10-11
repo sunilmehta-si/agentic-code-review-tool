@@ -5,6 +5,7 @@ tools installed, so the review is useful on a laptop, in CI, and before any LLM 
 """
 from __future__ import annotations
 
+import fnmatch
 import re
 from dataclasses import dataclass
 from typing import Callable, Iterable
@@ -12,6 +13,22 @@ from typing import Callable, Iterable
 from ..models import Finding, Severity
 
 IGNORE_MARKER = "acr:ignore"
+IGNORE_SCOPED = re.compile(r"acr:ignore\[([^\]]*)\]")
+
+
+def ignored(text: str, rule_id: str) -> bool:
+    """True if a line carries an inline suppression that covers `rule_id`.
+
+    A bare `acr:ignore` silences every rule on the line; `acr:ignore[ACR-AI-005, semgrep:*]`
+    silences only the listed rule ids or globs, so other problems on the same line still show.
+    """
+    if IGNORE_MARKER not in text:
+        return False
+    scoped = IGNORE_SCOPED.findall(text)
+    if not scoped:
+        return True
+    wanted = [p.strip().upper() for group in scoped for p in group.split(",") if p.strip()]
+    return any(fnmatch.fnmatchcase(rule_id.upper(), pat) for pat in wanted)
 
 
 @dataclass(frozen=True)
@@ -50,7 +67,7 @@ def line_matches(info: RuleInfo, path: str, lines: list[str], pattern: re.Patter
                  detail: str = "", skip_comments: bool = True) -> Iterable[Finding]:
     """Yield one finding per line matching `pattern`, honouring the inline ignore marker."""
     for i, text in enumerate(lines, start=1):
-        if IGNORE_MARKER in text:
+        if ignored(text, info.rule_id):
             continue
         stripped = text.lstrip()
         if skip_comments and stripped.startswith(("#", "//")):
