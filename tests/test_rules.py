@@ -197,3 +197,18 @@ class CodingAgentPermissionRule(unittest.TestCase):
         self.assertEqual(ids(".claude/settings.json", '{"permissions": {"defaultMode": "acceptEdits"}}\n', {"agent-settings"}), [])
         self.assertEqual(ids("run.sh", 'claude -p "review" --allowedTools "Read,Grep"\n', {"shell"}), [])
         self.assertEqual(ids("run.sh", "yolo --yolo\n", {"shell"}), [])
+
+
+class AgentSettingsAllowRule(unittest.TestCase):
+    def test_unrestricted_and_risky_shell_allows(self):
+        from agentic_code_review.rules import base
+        settings = ('{\n  "permissions": {\n    "allow": [\n      "Read",\n      "Bash(npm test:*)",\n      "Bash(curl:*)",\n'
+                    '      "Bash"\n    ]\n  }\n}\n')
+        found = {(f.line, f.severity.label()) for f in base.run_rules(".claude/settings.json", settings, {"agent-settings"})
+                 if f.rule_id == "ACR-AI-011"}
+        self.assertEqual(found, {(6, "medium"), (7, "high")})
+
+    def test_narrow_allows_and_bad_json_pass(self):
+        ok = '{"permissions": {"allow": ["Bash(git status)", "Bash(make lint:*)", "Edit"]}}'
+        self.assertEqual(ids(".claude/settings.json", ok, {"agent-settings"}), [])
+        self.assertEqual(ids(".claude/settings.json", "{not json", {"agent-settings"}), [])

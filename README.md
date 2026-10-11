@@ -182,7 +182,7 @@ acr review --base origin/main --ai openai
 
 ## Built-in rules
 
-59 rules, generated from the code (`acr rules`; `acr explain <id>` for details):
+60 rules, generated from the code (`acr rules`; `acr explain <id>` for details):
 
 <!-- regenerate: acr rules --format markdown -->
 
@@ -211,6 +211,7 @@ acr review --base origin/main --ai openai
 | AI / LLM / agent code | `ACR-AI-008` | high | Secret or credential placed in a system prompt (LLM07 System Prompt Leakage) |
 | AI / LLM / agent code | `ACR-AI-009` | medium | Agent loop has no step or iteration limit (LLM10 Unbounded Consumption) |
 | AI / LLM / agent code | `ACR-AI-010` | high | Coding agent run with its permission checks or sandbox turned off (LLM06 Excessive Agency) |
+| AI / LLM / agent code | `ACR-AI-011` | high | Agent settings pre-approve any shell command or risky ones (LLM06 Excessive Agency) |
 | AI / LLM / agent code | `ACR-MCP-001` | high | MCP server installed from an unpinned package |
 | AI / LLM / agent code | `ACR-MCP-003` | high | MCP server over plain HTTP or with broad host access |
 | AI / LLM / agent code | `ACR-SKILL-001` | high | Agent skill tells the agent to run a remote script |

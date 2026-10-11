@@ -110,3 +110,32 @@ def skill_hidden(path, text, lines):
             yield make(info, path, i, "Override phrasing is a classic prompt-injection pattern.")
         elif blob.search(line):
             yield make(info, path, i, "Long encoded blob: decode and review what it contains.", severity=Severity.MEDIUM)
+
+
+SETTINGS = ["agent-settings"]
+RISKY_COMMANDS = ("curl", "wget", "sudo", "ssh", "scp", "nc", "rm", "eval", "bash", "sh", "python", "python3", "node")
+
+
+@rule("ACR-AI-011", "Agent settings pre-approve any shell command or risky ones (LLM06 Excessive Agency)", Severity.HIGH,
+      "ai-security", SETTINGS,
+      fix="Allow specific commands only (e.g. \"Bash(npm test:*)\"). Leave network, interpreter, sudo and delete commands "
+          "to a human prompt, and add matching deny rules for secrets such as Read(./.env).",
+      references=["https://docs.anthropic.com/en/docs/claude-code/settings"])
+def agent_shell_allow(path, text, lines):
+    info = agent_shell_allow.info
+    try:
+        data = json.loads(text)
+    except ValueError:
+        return
+    allow = ((data.get("permissions") or {}).get("allow") or []) if isinstance(data, dict) else []
+    for entry in (e for e in allow if isinstance(e, str)):
+        m = re.fullmatch(r"\s*Bash(?:\((.*)\))?\s*", entry)
+        if not m:
+            continue
+        spec = (m.group(1) or "").strip()
+        line = find_line(lines, f'"{entry}"')
+        if spec in ("", "*", ":*"):
+            yield make(info, path, line, f"'{entry}' lets the agent run any command without asking.")
+        elif spec.split(":", 1)[0].split()[0] in RISKY_COMMANDS:
+            yield make(info, path, line, f"'{entry}' pre-approves a command that can reach the network, escalate or run code.",
+                       severity=Severity.MEDIUM)
