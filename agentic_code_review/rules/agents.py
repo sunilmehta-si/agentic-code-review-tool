@@ -9,7 +9,7 @@ import json
 import re
 
 from ..models import Severity
-from .base import IGNORE_MARKER, find_line, line_matches, make, rule
+from .base import find_line, line_matches, make, rule
 
 MCP = ["mcp-config"]
 SKILL = ["agent-skill"]
@@ -104,8 +104,6 @@ def skill_hidden(path, text, lines):
                           r"disable (safety|guardrails|security)|without asking (the user|for (permission|approval))")
     blob = re.compile(r"[A-Za-z0-9+/]{120,}={0,2}")
     for i, line in enumerate(lines, start=1):
-        if IGNORE_MARKER in line:
-            continue
         if hidden.search(line):
             yield make(info, path, i, "Invisible Unicode characters can hide instructions from human reviewers.")
         elif override.search(line):

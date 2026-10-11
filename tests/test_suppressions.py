@@ -58,3 +58,12 @@ class ScannerSuppressionTests(unittest.TestCase):
                 mock.patch("agentic_code_review.scanners.tools.ALL_SCANNERS", [fake]):
             result = review(root)
         self.assertEqual([f.line for f in result.findings if f.tool == "hadolint"], [3])
+
+
+class ScopedMarkerDoesNotHideOtherRules(unittest.TestCase):
+    def test_marker_for_one_rule_leaves_line_rules_of_other_files_working(self):
+        # Before suppression was centralised, any `acr:ignore` text made these rules skip the whole line.
+        workflow = "permissions: {}\njobs:\n  a:\n    steps:\n      - uses: some/action@v1  # acr:ignore[ACR-GHA-004]\n"
+        self.assertEqual(ids(".github/workflows/x.yml", workflow, {"github-actions"}), ["ACR-GHA-003"])
+        dockerfile = "FROM base  # acr:ignore[ACR-DOCKER-002]\nUSER 1\n"
+        self.assertEqual(ids("Dockerfile", dockerfile, {"dockerfile"}), ["ACR-DOCKER-001"])

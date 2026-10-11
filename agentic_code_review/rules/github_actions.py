@@ -4,7 +4,7 @@ from __future__ import annotations
 import re
 
 from ..models import Severity
-from .base import IGNORE_MARKER, line_matches, make, rule
+from .base import line_matches, make, rule
 
 GHA = ["github-actions"]
 HARDENING = "https://docs.github.com/en/actions/security-for-github-actions/security-guides/security-hardening-for-github-actions"
@@ -47,7 +47,7 @@ def prt_checkout(path, text, lines):
 def script_injection(path, text, lines):
     run_lines = _run_block_lines(lines)
     for i, line in enumerate(lines, start=1):
-        if i in run_lines and IGNORE_MARKER not in line and UNTRUSTED.search(line):
+        if i in run_lines and UNTRUSTED.search(line):
             yield make(script_injection.info, path, i)
 
 
@@ -59,7 +59,7 @@ def unpinned_action(path, text, lines):
     info = unpinned_action.info
     for i, line in enumerate(lines, start=1):
         m = re.search(r"uses\s*:\s*['\"]?([^'\"\s#]+)@([^'\"\s#]+)", line)
-        if not m or IGNORE_MARKER in line:
+        if not m:
             continue
         action, ref = m.group(1), m.group(2)
         if action.startswith(FIRST_PARTY) or action.startswith("./") or re.fullmatch(r"[0-9a-f]{40}", ref):
@@ -107,5 +107,5 @@ def workflow_oidc(path, text, lines):
         if in_top:
             if line.strip() and not line.startswith((" ", "\t")):
                 in_top = False
-            elif re.match(r"^\s+id-token\s*:\s*write\b", line) and IGNORE_MARKER not in line:
+            elif re.match(r"^\s+id-token\s*:\s*write\b", line):
                 yield make(info, path, i)

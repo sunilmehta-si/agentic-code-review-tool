@@ -7,7 +7,7 @@ from __future__ import annotations
 import re
 
 from ..models import Severity
-from .base import IGNORE_MARKER, line_matches, make, rule
+from .base import line_matches, make, rule
 
 TF = ["terraform"]
 SENSITIVE_PORTS = {22, 3389, 3306, 5432, 1433, 27017, 6379, 9200, 5601, 2375, 2376, 6443, 10250}
@@ -59,7 +59,7 @@ def open_ingress(path, text, lines):
         if not exposed:
             continue
         for i in range(start, end + 1):
-            if OPEN_CIDR.search(lines[i - 1]) and IGNORE_MARKER not in lines[i - 1]:
+            if OPEN_CIDR.search(lines[i - 1]):
                 yield make(info, path, i, f"Ports {sorted(exposed)[:6]} reachable from anywhere.")
 
 

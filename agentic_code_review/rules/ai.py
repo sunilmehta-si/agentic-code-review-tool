@@ -8,7 +8,7 @@ from __future__ import annotations
 import re
 
 from ..models import Severity
-from .base import IGNORE_MARKER, line_matches, make, rule
+from .base import line_matches, make, rule
 
 AI = ["ai-code"]
 OWASP_LLM = "https://genai.owasp.org/llm-top-10/"
@@ -55,7 +55,7 @@ def model_supply_chain(path, text, lines):
     yield from line_matches(info, path, lines, torch_load)
     unpinned = re.compile(r"\.from_pretrained\((?![^)]*revision\s*=)")
     for i, line in enumerate(lines, start=1):
-        if IGNORE_MARKER not in line and unpinned.search(line) and ")" in line:
+        if unpinned.search(line) and ")" in line:
             yield make(info, path, i, "Model is not pinned to a revision, so a changed upstream repo changes your code.",
                        severity=Severity.LOW)
 
@@ -68,7 +68,7 @@ def unbounded(path, text, lines):
     call = re.compile(r"\.(chat\.completions|completions|messages|responses)\.(create|stream)\(|\bgenerate_content\(")
     limit = re.compile(r"max_(output_|completion_)?tokens|max_new_tokens|maxTokens|maxOutputTokens")
     for i, line in enumerate(lines, start=1):
-        if IGNORE_MARKER in line or not call.search(line):
+        if not call.search(line):
             continue
         # Look at the call's argument list (until parentheses balance, max 40 lines).
         depth, window = 0, []
@@ -123,7 +123,7 @@ def unbounded_agent_loop(path, text, lines):
     agentic = re.compile(r"tool_calls|tool_use|stop_reason|finish_reason|run_tool|execute_tool|\.invoke\(|\.step\(")
     bounded = re.compile(r"max_(steps|iterations|turns|tool_calls)|\bstep(s)?\s*[<>]=?|\biteration|\bturns?\s*[<>]=?|budget|timeout")
     for i, line in enumerate(lines, start=1):
-        if IGNORE_MARKER in line or not re.match(r"^\s*while\s+(True|1)\s*:", line):
+        if not re.match(r"^\s*while\s+(True|1)\s*:", line):
             continue
         body = "\n".join(lines[i:i + 30])
         if agentic.search(body) and not bounded.search(body):

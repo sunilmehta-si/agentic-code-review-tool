@@ -4,7 +4,7 @@ from __future__ import annotations
 import re
 
 from ..models import Severity
-from .base import IGNORE_MARKER, line_matches, make, rule
+from .base import line_matches, make, rule
 
 DF = ["dockerfile"]
 CIS = "https://docs.docker.com/build/building/best-practices/"
@@ -17,7 +17,7 @@ def base_pin(path, text, lines):
     stages = set()
     for i, line in enumerate(lines, start=1):
         m = re.match(r"^\s*FROM\s+(?:--platform=\S+\s+)?(\S+)(?:\s+AS\s+(\S+))?", line, re.I)
-        if not m or IGNORE_MARKER in line:
+        if not m:
             continue
         ref, alias = m.group(1), m.group(2)
         if alias:
@@ -70,8 +70,6 @@ def secret_env(path, text, lines):
 def apt_hygiene(path, text, lines):
     info = apt_hygiene.info
     for i, line in enumerate(lines, start=1):
-        if IGNORE_MARKER in line:
-            continue
         if re.search(r"\bapt-get\s+install\b", line) and "rm -rf /var/lib/apt/lists" not in text:
             yield make(info, path, i, "apt lists are never cleaned, which bloats the image and widens the attack surface.")
         elif re.search(r"\b(apt-get|apk|yum|dnf)\s+(install|add)\b.*\bsudo\b", line):

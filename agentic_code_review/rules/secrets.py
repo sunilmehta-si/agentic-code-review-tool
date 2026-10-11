@@ -4,7 +4,7 @@ from __future__ import annotations
 import re
 
 from ..models import Severity
-from .base import IGNORE_MARKER, make, rule
+from .base import make, rule
 
 PROVIDER_PATTERNS: list[tuple[str, re.Pattern[str]]] = [
     ("AWS access key ID", re.compile(r"\b(AKIA|ASIA)[0-9A-Z]{16}\b")),
@@ -32,8 +32,6 @@ FIX = ("Remove the value from the code, rotate it immediately (it is already in 
 def provider_secret(path, text, lines):
     info = provider_secret.info
     for i, line in enumerate(lines, start=1):
-        if IGNORE_MARKER in line:
-            continue
         for name, pat in PROVIDER_PATTERNS:
             if pat.search(line):
                 yield make(info, path, i, f"Looks like a {name}. The value is not shown here on purpose.")
@@ -44,8 +42,6 @@ def provider_secret(path, text, lines):
 def generic_secret(path, text, lines):
     info = generic_secret.info
     for i, line in enumerate(lines, start=1):
-        if IGNORE_MARKER in line:
-            continue
         m = GENERIC.search(line)
         if m and not PLACEHOLDER.search(m.group(2)):
             yield make(info, path, i, f"A value is assigned to a '{m.group(1).lower()}'-like name in source.")
