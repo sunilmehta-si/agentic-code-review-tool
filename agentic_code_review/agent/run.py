@@ -23,14 +23,14 @@ def make_reviewer(provider: str, model: str | None = None, max_steps: int = 12):
 
 
 def apply_ai(result: ReviewResult, root: Path, reviewer, base: str | None = None, head: str | None = None,
-             full: bool = False) -> ReviewResult:
+             full: bool = False, staged: bool = False) -> ReviewResult:
     """Ask the agent to verify every finding; on any failure keep the deterministic result and record why."""
     result.ai_provider = type(reviewer).__name__
     payload = [{"id": i, "rule": f.rule_id, "title": f.title, "severity": f.severity.label(), "path": f.path,
                 "line": f.line, "detail": f.detail} for i, f in enumerate(result.findings)]
     try:
         diff_text = "(full-repository audit: no diff; use the tools to inspect files)" if full else \
-            diff_mod.unified_text(root, base, head)
+            diff_mod.unified_text(root, base, head, staged=staged)
         data = reviewer.review(build_user_message(payload, diff_text), RepoTools(root, result.file_kinds))
     except AgentError as exc:
         result.ai_error = str(exc)

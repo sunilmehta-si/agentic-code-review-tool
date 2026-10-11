@@ -40,8 +40,10 @@ def parse_unified_diff(text: str) -> dict[str, ChangedFile]:
     return files
 
 
-def changed_files(root: Path, base: str | None, head: str | None) -> dict[str, ChangedFile]:
-    """Changed files between two refs (merge-base semantics), or the working tree vs HEAD."""
+def changed_files(root: Path, base: str | None, head: str | None, staged: bool = False) -> dict[str, ChangedFile]:
+    """Changed files between two refs (merge-base semantics), the staged index, or the working tree vs HEAD."""
+    if staged:
+        return parse_unified_diff(_git(root, "diff", "--cached", "-U0", "--no-color", "--diff-filter=ACMR"))
     if base:
         rng = f"{base}...{head or 'HEAD'}"
         text = _git(root, "diff", "-U0", "--no-color", "--diff-filter=ACMR", rng)
@@ -53,6 +55,15 @@ def changed_files(root: Path, base: str | None, head: str | None) -> dict[str, C
             if p.is_file():
                 text += f"\n+++ b/{path}\n@@ -0,0 +1,{max(1, _line_count(p))} @@\n"
     return parse_unified_diff(text)
+
+
+def staged_text(root: Path, path: str, max_bytes: int) -> str | None:
+    """A file's content as it will be committed (the index), which can differ from the working tree."""
+    proc = subprocess.run(["git", "-C", str(root), "show", f":{path}"], capture_output=True)
+    data = proc.stdout
+    if proc.returncode != 0 or len(data) > max_bytes or b"\x00" in data[:4096]:
+        return None
+    return data.decode("utf-8", errors="replace")
 
 
 def all_files(root: Path) -> dict[str, ChangedFile]:
@@ -73,8 +84,10 @@ def _line_count(p: Path) -> int:
         return 1
 
 
-def unified_text(root: Path, base: str | None, head: str | None) -> str:
+def unified_text(root: Path, base: str | None, head: str | None, staged: bool = False) -> str:
     """The human-readable diff (3 lines of context) that the AI reviewer reads."""
+    if staged:
+        return _git(root, "diff", "--cached", "-U3", "--no-color", "--diff-filter=ACMR")
     if base:
         return _git(root, "diff", "-U3", "--no-color", "--diff-filter=ACMR", f"{base}...{head or 'HEAD'}")
     text = _git(root, "diff", "-U3", "--no-color", "--diff-filter=ACMR", "HEAD")

@@ -24,6 +24,7 @@ def _parser() -> argparse.ArgumentParser:
     r.add_argument("--base", help="Base ref, e.g. origin/main. Reviews base...head (merge-base) like a PR.")
     r.add_argument("--head", help="Head ref (default: HEAD).")
     r.add_argument("--all", dest="full", action="store_true", help="Review every tracked file, not just the change.")
+    r.add_argument("--staged", action="store_true", help="Review only staged changes, as they will be committed (for git hooks).")
     r.add_argument("--format", choices=("markdown", "json", "sarif"), default="markdown")
     r.add_argument("--output", "-o", help="Write the report to a file instead of stdout.")
     r.add_argument("--sarif", metavar="PATH", help="Also write SARIF to PATH (same run, no re-scan).")
@@ -89,12 +90,15 @@ def _cmd_review(args: argparse.Namespace) -> int:
     except ConfigError as exc:
         print(f"acr: config error: {exc}", file=sys.stderr)
         return 2
+    if args.staged and (args.full or args.base):
+        print("acr: --staged cannot be combined with --all or --base.", file=sys.stderr)
+        return 2
     args.fail_on = args.fail_on or cfg.fail_on or "high"
     args.ai = args.ai or cfg.ai
     only = {s.strip() for s in args.scanners.split(",")} if args.scanners else (set(cfg.scanners) if cfg.scanners else None)
     result = review(Path(args.root), base=args.base, head=args.head, full=args.full,
                     use_scanners=not args.no_scanners, only_scanners=only, excludes=tuple(args.exclude) + tuple(cfg.exclude),
-                    disable=tuple(cfg.disable), severity_overrides=cfg.severity)
+                    disable=tuple(cfg.disable), severity_overrides=cfg.severity, staged=args.staged)
     from . import baseline as baseline_mod
     baseline_mod.apply(Path(args.root).resolve(), result,
                        baseline_mod.load(Path(args.root).resolve(), args.baseline or cfg.baseline or baseline_mod.DEFAULT_PATH))
@@ -106,7 +110,8 @@ def _cmd_review(args: argparse.Namespace) -> int:
         except AgentError as exc:
             result.ai_error = str(exc)
         else:
-            apply_ai(result, Path(args.root).resolve(), reviewer, base=args.base, head=args.head, full=args.full)
+            apply_ai(result, Path(args.root).resolve(), reviewer, base=args.base, head=args.head, full=args.full,
+                     staged=args.staged)
         if result.ai_error:
             print(f"acr: AI review skipped: {result.ai_error}", file=sys.stderr)
     threshold = FAIL_LEVELS.get(args.fail_on)

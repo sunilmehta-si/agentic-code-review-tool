@@ -43,3 +43,29 @@ class AiImportDetectionTests(unittest.TestCase):
     def test_scoped_package_detected_regardless_of_binding_name(self):
         self.assertIn("ai-code", kinds("b.ts", 'import Client from "@anthropic-ai/sdk"\n'))
         self.assertIn("ai-code", kinds("c.ts", 'import { ChatOpenAI } from "@langchain/openai"\n'))
+
+
+class StagedModeTests(unittest.TestCase):
+    def test_only_staged_content_is_reviewed(self):
+        import subprocess
+
+        from agentic_code_review.engine import review
+        from tests.helpers import git_repo
+        root = git_repo({"app.py": "x = 1\n"})
+        (root / "app.py").write_text("x = 1\nsubprocess.run(c, shell=True)\n")
+        subprocess.run(["git", "-C", str(root), "add", "app.py"], check=True)
+        # An unstaged edit on top: it is not part of the commit, so it must not be reviewed.
+        (root / "app.py").write_text("x = 1\nsubprocess.run(c, shell=True)\nos.system(cmd)\n")
+        (root / "new.py").write_text("os.system(cmd)\n")  # untracked, not staged
+        result = review(root, staged=True, use_scanners=False)
+        self.assertEqual([(f.path, f.line) for f in result.findings], [("app.py", 2)])
+
+    def test_staged_conflicts_with_base(self):
+        import io
+        from contextlib import redirect_stderr
+
+        from agentic_code_review.cli import main
+        err = io.StringIO()
+        with redirect_stderr(err):
+            self.assertEqual(main(["review", "--staged", "--base", "origin/main"]), 2)
+        self.assertIn("--staged", err.getvalue())
