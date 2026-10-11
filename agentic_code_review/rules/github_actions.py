@@ -109,3 +109,28 @@ def workflow_oidc(path, text, lines):
                 in_top = False
             elif re.match(r"^\s+id-token\s*:\s*write\b", line):
                 yield make(info, path, i)
+
+
+@rule("ACR-GHA-008", "Every repository secret handed to an external reusable workflow", Severity.MEDIUM, "ci-cd", GHA,
+      fix="Pass only the secrets that workflow needs (secrets: { NPM_TOKEN: ${{ secrets.NPM_TOKEN }} }) and pin it to a commit SHA.",
+      references=["https://docs.github.com/en/actions/sharing-automations/reusing-workflows#passing-secrets-to-nested-workflows"])
+def secrets_inherit(path, text, lines):
+    info = secrets_inherit.info
+    for i, line in enumerate(lines, start=1):
+        m = re.match(r"^(\s*)secrets\s*:\s*inherit\b", line)
+        if not m:
+            continue
+        indent = len(m.group(1))
+        # The job's `uses:` is a sibling key: same indentation, above this line, within the same job.
+        for j in range(i - 2, -1, -1):
+            prev = lines[j]
+            if not prev.strip() or prev.lstrip().startswith("#"):
+                continue
+            lead = len(prev) - len(prev.lstrip())
+            if lead < indent:
+                break
+            u = re.match(r"^\s*uses\s*:\s*['\"]?([^'\"\s#]+)", prev)
+            if lead == indent and u:
+                if not u.group(1).startswith("./"):
+                    yield make(info, path, i, f"'{u.group(1)}' receives every secret in this repository.")
+                break

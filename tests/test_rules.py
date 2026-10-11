@@ -226,3 +226,13 @@ class McpAutoApproveRule(unittest.TestCase):
 
     def test_empty_lists_pass(self):
         self.assertNotIn("ACR-MCP-004", ids(".mcp.json", '{"mcpServers": {"a": {"command": "x", "autoApprove": []}}}', {"mcp-config"}))
+
+
+class SecretsInheritRule(unittest.TestCase):
+    def test_external_reusable_workflow_with_inherited_secrets(self):
+        wf = ("permissions: {}\njobs:\n  release:\n    uses: other-org/ci/.github/workflows/release.yml@"
+              + "a" * 40 + "\n    with:\n      env: prod\n    secrets: inherit\n"
+              "  local:\n    uses: ./.github/workflows/build.yml\n    secrets: inherit\n")
+        from agentic_code_review.rules import base
+        found = [f.line for f in base.run_rules(".github/workflows/x.yml", wf, {"github-actions"}) if f.rule_id == "ACR-GHA-008"]
+        self.assertEqual(found, [7])  # the local workflow in the same repository is fine

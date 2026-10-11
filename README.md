@@ -182,7 +182,7 @@ acr review --base origin/main --ai openai
 
 ## Built-in rules
 
-61 rules, generated from the code (`acr rules`; `acr explain <id>` for details):
+62 rules, generated from the code (`acr rules`; `acr explain <id>` for details):
 
 <!-- regenerate: acr rules --format markdown -->
 
@@ -242,6 +242,7 @@ acr review --base origin/main --ai openai
 | GitHub Actions | `ACR-GHA-005` | high | Secret printed to the workflow log |
 | GitHub Actions | `ACR-GHA-006` | low | Deprecated workflow command |
 | GitHub Actions | `ACR-GHA-007` | medium | Cloud OIDC token granted to every job in the workflow |
+| GitHub Actions | `ACR-GHA-008` | medium | Every repository secret handed to an external reusable workflow |
 | Terraform | `ACR-TF-001` | critical | Sensitive port open to the whole internet |
 | Terraform | `ACR-TF-002` | high | Storage or data service exposed publicly |
 | Terraform | `ACR-TF-003` | high | Encryption or TLS weakened |
