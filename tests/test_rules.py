@@ -286,3 +286,16 @@ class InstanceMetadataRule(unittest.TestCase):
         self.assertIn("ACR-TF-008", ids("m.tf", '  metadata = {\n    "disable-legacy-endpoints" = "false"\n  }\n', tf))
         self.assertEqual(ids("m.tf", '  metadata_options {\n    http_tokens = "required"\n  }\n', tf), [])
         self.assertEqual(ids("m.tf", '  workload_metadata_config {\n    mode = "GKE_METADATA"\n  }\n', tf), [])
+
+
+class WeakRandomRule(unittest.TestCase):
+    def test_predictable_secrets(self):
+        js = {"app", "lang:javascript"}
+        self.assertIn("ACR-APP-010", ids("a.py", "reset_token = ''.join(random.choices(ALPHABET, k=32))\n", PY))
+        self.assertIn("ACR-APP-010", ids("a.py", "otp = random.randint(100000, 999999)\n", PY))
+        self.assertIn("ACR-APP-010", ids("a.js", "const sessionId = Math.random().toString(36).slice(2);\n", js))
+        self.assertIn("ACR-APP-010", ids("a.js", "user = { apiKey: Math.random().toString(16) };\n", js))
+
+    def test_csprng_and_non_secret_randomness_pass(self):
+        self.assertEqual(ids("a.py", "reset_token = secrets.token_urlsafe(32)\n", PY), [])
+        self.assertEqual(ids("a.py", "delay = random.uniform(0.1, 0.5)\nsample = random.choice(rows)\n", PY), [])

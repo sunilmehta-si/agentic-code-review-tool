@@ -89,3 +89,13 @@ def cors_wildcard(path, text, lines):
     wildcard = re.compile(r"""allow_origins\s*=\s*\[\s*["']\*["']|origins\s*=\s*["']\*["']|origin\s*:\s*(["']\*["']|true)\b"""
                           r"""|CORS\([^)]*resources\s*=\s*\{[^}]*["']origins["']\s*:\s*["']\*["']""")
     yield from line_matches(cors_wildcard.info, path, lines, wildcard)
+
+
+@rule("ACR-APP-010", "Predictable random numbers used for a secret value", Severity.MEDIUM, "app-security", PY + JS,
+      fix="Use a CSPRNG: secrets.token_urlsafe() / secrets.choice() in Python, crypto.randomUUID() or "
+          "crypto.getRandomValues() in JavaScript. random and Math.random can be predicted from earlier outputs.",
+      references=["https://cwe.mitre.org/data/definitions/338.html"])
+def weak_random(path, text, lines):
+    pat = re.compile(r"(?i)\b\w*(token|secret|passw|nonce|otp|salt|session_?id|csrf|api_?key|reset_?code|verification_?code)\w*"
+                     r"""["']?\s*[:=][^\n]*(\brandom\.(random|randint|choice|choices|randrange|getrandbits|sample)\(|\bMath\.random\(\))""")
+    yield from line_matches(weak_random.info, path, lines, pat)

@@ -182,7 +182,7 @@ acr review --base origin/main --ai openai
 
 ## Built-in rules
 
-66 rules, generated from the code (`acr rules`; `acr explain <id>` for details):
+67 rules, generated from the code (`acr rules`; `acr explain <id>` for details):
 
 <!-- regenerate: acr rules --format markdown -->
 
@@ -201,6 +201,7 @@ acr review --base origin/main --ai openai
 | Application code | `ACR-APP-007` | low | Weak hash used for security |
 | Application code | `ACR-APP-008` | critical | JWT accepted without verifying its signature or expiry |
 | Application code | `ACR-APP-009` | high | CORS allows any origin together with credentials |
+| Application code | `ACR-APP-010` | medium | Predictable random numbers used for a secret value |
 | AI / LLM / agent code | `ACR-AI-001` | high | User input concatenated into a system prompt (LLM01 Prompt Injection) |
 | AI / LLM / agent code | `ACR-AI-002` | critical | LLM output used as code, shell, SQL or HTML (LLM05 Improper Output Handling) |
 | AI / LLM / agent code | `ACR-AI-003` | high | Agent given dangerous tools without guardrails (LLM06 Excessive Agency) |
