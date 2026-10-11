@@ -48,3 +48,28 @@ jobs:
       - run: pip install -e .
       - name: Review this repository with acr
         run: acr review --all --no-scanners --exclude 'tests/*' --exclude 'examples/*' --fail-on high
+
+  package:
+    # Installs the built wheel rather than an editable checkout, so a module left out of the package fails here.
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: "3.12"
+      - name: Build the wheel
+        run: python -m pip wheel --no-deps -w dist .
+      - name: Install it in a clean virtualenv and smoke-test the CLI
+        run: |
+          python -m venv /tmp/acr-venv
+          /tmp/acr-venv/bin/pip install --quiet dist/*.whl
+          cd /tmp  # import from the installed wheel, not the checkout
+          /tmp/acr-venv/bin/acr --version
+          /tmp/acr-venv/bin/acr rules | tail -1
+          /tmp/acr-venv/bin/acr explain ACR-AI-010 > /dev/null
+          if python -m zipfile -l "$GITHUB_WORKSPACE"/dist/*.whl | grep -E "^(tests|examples)/"; then
+            echo "tests or examples were packaged into the wheel"; exit 1
+          fi
