@@ -62,6 +62,11 @@ def _read(root: Path, path: str) -> str | None:
     return data.decode("utf-8", errors="replace")
 
 
+def _suppressed(file_lines: dict[str, list[str]], f: Finding) -> bool:
+    lines = file_lines.get(f.path) or []
+    return 1 <= f.line <= len(lines) and rules_base.ignored(lines[f.line - 1], f.rule_id)
+
+
 def dedupe(findings: list[Finding]) -> list[Finding]:
     """Merge the same issue reported by *different* tools on the same line; keep the most severe and credit the others.
 
@@ -92,12 +97,14 @@ def review(root: Path, base: str | None = None, head: str | None = None, full: b
 
     findings: list[Finding] = []
     file_kinds: dict[str, set[str]] = {}
+    file_lines: dict[str, list[str]] = {}
     for path in sorted(files):
         text = _read(root, path)
         if text is None:
             continue
         k = classify(path, text)
         file_kinds[path] = k
+        file_lines[path] = text.splitlines()
         findings.extend(rules_base.run_rules(path, text, k))
 
     ran, missing = [], []
@@ -117,7 +124,8 @@ def review(root: Path, base: str | None = None, head: str | None = None, full: b
         with ThreadPoolExecutor(max_workers=workers) as pool:
             futures = [(scanner, pool.submit(scanner.run, root, targets)) for scanner, targets in jobs]
             for scanner, fut in futures:
-                findings.extend(fut.result())
+                # Built-in rules already honour `acr:ignore`; scanner findings get the same treatment here.
+                findings.extend(f for f in fut.result() if not _suppressed(file_lines, f))
                 ran.append(scanner.name)
 
     # Repository policy: drop disabled rules (ids or globs) and apply per-rule severity overrides.

@@ -36,3 +36,25 @@ class StructuralSuppressionTests(unittest.TestCase):
         k8s = {"kubernetes"}
         self.assertIn("ACR-K8S-007", ids("d.yaml", self.MANIFEST.format(marker=""), k8s))
         self.assertNotIn("ACR-K8S-007", ids("d.yaml", self.MANIFEST.format(marker="  # acr:ignore[ACR-K8S-007]"), k8s))
+
+
+class ScannerSuppressionTests(unittest.TestCase):
+    def test_scanner_findings_honour_inline_markers(self):
+        from unittest import mock
+
+        from agentic_code_review.engine import review
+        from agentic_code_review.models import Finding, Severity
+        from agentic_code_review.scanners.tools import Scanner
+        from tests.helpers import git_repo
+
+        def run(root, files):
+            return [Finding("hadolint:DL3008", "pin apt", Severity.LOW, "Dockerfile", n, "hadolint", "other")
+                    for n in (2, 3)]
+        fake = Scanner("hadolint", "hadolint", frozenset({"*"}), run)
+        root = git_repo({"README.md": "x\n"})
+        (root / "Dockerfile").write_text("FROM a:1\nRUN apt-get install -y curl  # acr:ignore[hadolint:*]\n"
+                                         "RUN apt-get install -y git\nUSER 1\n")
+        with mock.patch("agentic_code_review.engine.available_scanners", return_value=[fake]), \
+                mock.patch("agentic_code_review.scanners.tools.ALL_SCANNERS", [fake]):
+            result = review(root)
+        self.assertEqual([f.line for f in result.findings if f.tool == "hadolint"], [3])
