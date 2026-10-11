@@ -3,8 +3,9 @@
     fail_on: high                  # critical | high | medium | low | never
     exclude: ["docs/*", "*.generated.go"]
     disable: ["ACR-AI-007", "hadolint:*"]   # rule ids or globs
-    severity:                      # per-rule overrides
+    severity:                      # per-rule overrides (ids or globs; an exact id wins)
       ACR-K8S-009: medium
+      "hadolint:*": low
     scanners: [semgrep, trivy]     # subset of installed scanners
     ai: claude                     # none | claude | openai
     baseline: .acr-baseline.json   # suppress already-known findings

@@ -78,3 +78,13 @@ class InitCommandTests(unittest.TestCase):
         with redirect_stdout(io.StringIO()):
             self.assertEqual(main(["init", "--root", str(root), "--force"]), 0)
         self.assertEqual(load(root).fail_on, "high")
+
+
+class SeverityGlobTests(unittest.TestCase):
+    def test_exact_id_beats_glob_and_longer_glob_beats_shorter(self):
+        from agentic_code_review.engine import _override
+        o = {"ACR-K8S-*": Severity.LOW, "ACR-K8S-00*": Severity.MEDIUM, "ACR-K8S-001": Severity.INFO}
+        self.assertEqual(_override("ACR-K8S-001", o), Severity.INFO)
+        self.assertEqual(_override("ACR-K8S-005", o), Severity.MEDIUM)
+        self.assertEqual(_override("ACR-K8S-010", o), Severity.LOW)
+        self.assertIsNone(_override("ACR-TF-001", o))

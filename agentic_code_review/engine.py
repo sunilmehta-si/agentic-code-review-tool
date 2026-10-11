@@ -45,6 +45,16 @@ class ReviewResult:
         return [f for f in self.findings if f.severity >= threshold and f.ai_verdict != "false_positive"]
 
 
+def _override(rule_id: str, overrides: dict[str, Severity]) -> Severity | None:
+    """Exact rule id first, then the most specific matching glob (longest pattern), e.g. 'hadolint:*'."""
+    if rule_id in overrides:
+        return overrides[rule_id]
+    for pat in sorted(overrides, key=len, reverse=True):
+        if fnmatch.fnmatchcase(rule_id, pat):
+            return overrides[pat]
+    return None
+
+
 def _excluded(path: str, extra: tuple[str, ...]) -> bool:
     return any(fnmatch.fnmatch(path, pat) or fnmatch.fnmatch(path, f"*/{pat}") for pat in DEFAULT_EXCLUDES + extra)
 
@@ -134,8 +144,9 @@ def review(root: Path, base: str | None = None, head: str | None = None, full: b
     if disable:
         findings = [f for f in findings if not any(fnmatch.fnmatch(f.rule_id, pat) for pat in disable)]
     for f in findings:
-        if severity_overrides and f.rule_id in severity_overrides:
-            f.severity = severity_overrides[f.rule_id]
+        level = _override(f.rule_id, severity_overrides or {})
+        if level is not None:
+            f.severity = level
 
     # Keep only findings on lines this change touches (every line counts in full mode).
     kept = [f for f in findings if f.path in files and files[f.path].touches(f.line, f.end_line)]
