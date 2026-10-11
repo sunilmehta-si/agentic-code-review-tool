@@ -19,8 +19,10 @@ PROVIDER_PATTERNS: list[tuple[str, re.Pattern[str]]] = [
     ("Private key", re.compile(r"-----BEGIN (?:RSA |EC |DSA |OPENSSH |PGP )?PRIVATE KEY")),
 ]
 GENERIC = re.compile(
-    r"(?i)\b[a-z0-9_.-]*(password|passwd|secret|token|api[_-]?key|access[_-]?key|client[_-]?secret)[a-z0-9_.-]*"
+    r"(?i)\b([a-z0-9_.-]*(password|passwd|secret|token|api[_-]?key|access[_-]?key|client[_-]?secret)[a-z0-9_.-]*)"
     r"\s*[:=]\s*['\"]([^'\"\s]{8,})['\"]")
+# Plural "tokens" names are settings, not credentials: max_tokens, http_tokens = "required", tokens_per_minute.
+NOT_A_SECRET_NAME = re.compile(r"(?i)tokens\b|tokens_")
 PLACEHOLDER = re.compile(r"(?i)(example|changeme|placeholder|dummy|sample|test|your[_-]|<[^>]+>|\$\{|\$\(|\{\{|x{4,}|\*{4,}|redacted|env\[|getenv)")
 
 FIX = ("Remove the value from the code, rotate it immediately (it is already in git history), and load it at runtime "
@@ -43,5 +45,5 @@ def generic_secret(path, text, lines):
     info = generic_secret.info
     for i, line in enumerate(lines, start=1):
         m = GENERIC.search(line)
-        if m and not PLACEHOLDER.search(m.group(2)):
-            yield make(info, path, i, f"A value is assigned to a '{m.group(1).lower()}'-like name in source.")
+        if m and not PLACEHOLDER.search(m.group(3)) and not NOT_A_SECRET_NAME.search(m.group(1)):
+            yield make(info, path, i, f"A value is assigned to a '{m.group(2).lower()}'-like name in source.")

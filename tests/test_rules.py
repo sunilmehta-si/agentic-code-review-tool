@@ -22,6 +22,11 @@ class SecretRules(unittest.TestCase):
         self.assertEqual(ids("a.py", assignment + "  # acr:ignore\n", PY), [])
         self.assertEqual(ids("a.py", assignment + "\n", PY), ["ACR-SEC-002"])
 
+    def test_plural_token_settings_are_not_secrets(self):
+        self.assertEqual(ids("m.tf", '    http_tokens = "required"\n', {"terraform"}), [])
+        self.assertEqual(ids("c.yaml", 'max_tokens: "unlimited"\n', set()), [])
+        self.assertEqual(ids("a.py", 'api_token = "Zx81kQ0pLm"\n', PY), ["ACR-SEC-002"])
+
 
 class AppRules(unittest.TestCase):
     def test_injection_patterns(self):
