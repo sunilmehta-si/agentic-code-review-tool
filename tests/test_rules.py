@@ -248,3 +248,17 @@ class SelfHostedRunnerRule(unittest.TestCase):
         self.assertEqual(lines_for("on:\n  pull_request:\n" + body), [6, 9])
         self.assertEqual(lines_for("on: [push, pull_request]\n" + body), [5, 8])
         self.assertEqual(lines_for("on:\n  push:\n    branches: [main]\n" + body), [])
+
+
+class BuildVerificationRule(unittest.TestCase):
+    def test_disabled_checks_in_dockerfiles(self):
+        df = {"dockerfile"}
+        for line in ("RUN curl -fsSLk https://x/tool.tgz -o t.tgz", "RUN curl --insecure https://x", "RUN wget --no-check-certificate https://x",
+                     "RUN pip install --trusted-host pypi.internal pkg", "RUN npm config set strict-ssl false",
+                     "RUN apk add --allow-untrusted /tmp/x.apk", "RUN yum install -y --nogpgcheck pkg",
+                     "RUN git config --global http.sslVerify false", "ENV GIT_SSL_NO_VERIFY=1"):
+            self.assertIn("ACR-DOCKER-008", ids("Dockerfile", f"FROM a:1\n{line}\nUSER 1\n", df), line)
+
+    def test_verified_downloads_pass(self):
+        src = "FROM a:1\nRUN curl -fsSL https://x/t.tgz -o t.tgz && sha256sum -c t.sha256\nUSER 1\n"
+        self.assertNotIn("ACR-DOCKER-008", ids("Dockerfile", src, {"dockerfile"}))

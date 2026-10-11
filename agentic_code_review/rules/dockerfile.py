@@ -81,3 +81,13 @@ def apt_hygiene(path, text, lines):
 def world_writable(path, text, lines):
     pat = re.compile(r"\bchmod\s+(-R\s+)?(0?777|a\+w|o\+w|ugo\+w)\b|--chmod=0?777\b")
     yield from line_matches(world_writable.info, path, lines, pat)
+
+
+@rule("ACR-DOCKER-008", "TLS or package signature checks disabled during the build", Severity.HIGH, "container", DF,
+      fix="Keep verification on. Add the private CA to the image (COPY ca.crt + update-ca-certificates) or use a trusted "
+          "mirror instead of skipping checks; a man-in-the-middle can otherwise swap what gets installed.")
+def build_verification_off(path, text, lines):
+    pat = re.compile(r"\bcurl\b[^|\n]*\s(-[a-zA-Z]*k[a-zA-Z]*|--insecure)\b|\bwget\b[^|\n]*--no-check-certificate"
+                     r"|--trusted-host\b|strict-ssl\s+false|--allow-untrusted\b|--allow-unauthenticated\b|--nogpgcheck\b"
+                     r"|http\.sslVerify\s+false|GIT_SSL_NO_VERIFY|PIP_TRUSTED_HOST", re.I)
+    yield from line_matches(build_verification_off.info, path, lines, pat)
