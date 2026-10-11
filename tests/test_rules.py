@@ -236,3 +236,15 @@ class SecretsInheritRule(unittest.TestCase):
         from agentic_code_review.rules import base
         found = [f.line for f in base.run_rules(".github/workflows/x.yml", wf, {"github-actions"}) if f.rule_id == "ACR-GHA-008"]
         self.assertEqual(found, [7])  # the local workflow in the same repository is fine
+
+
+class SelfHostedRunnerRule(unittest.TestCase):
+    def test_self_hosted_on_pull_requests(self):
+        from agentic_code_review.rules import base
+
+        def lines_for(wf):
+            return [f.line for f in base.run_rules(".github/workflows/x.yml", wf, {"github-actions"}) if f.rule_id == "ACR-GHA-009"]
+        body = "permissions: {}\njobs:\n  a:\n    runs-on: [self-hosted, gpu]\n  b:\n    runs-on:\n      - self-hosted\n      - linux\n"
+        self.assertEqual(lines_for("on:\n  pull_request:\n" + body), [6, 9])
+        self.assertEqual(lines_for("on: [push, pull_request]\n" + body), [5, 8])
+        self.assertEqual(lines_for("on:\n  push:\n    branches: [main]\n" + body), [])

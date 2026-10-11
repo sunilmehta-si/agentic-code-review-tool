@@ -134,3 +134,26 @@ def secrets_inherit(path, text, lines):
                 if not u.group(1).startswith("./"):
                     yield make(info, path, i, f"'{u.group(1)}' receives every secret in this repository.")
                 break
+
+
+@rule("ACR-GHA-009", "Self-hosted runner used by a pull-request workflow", Severity.MEDIUM, "ci-cd", GHA,
+      fix="Run pull-request jobs on GitHub-hosted or ephemeral, isolated runners. On a persistent self-hosted runner, a PR "
+          "(from a fork, in public repositories) can run code on your machine and leave something behind for the next job.",
+      references=["https://docs.github.com/en/actions/hosting-your-own-runners/managing-self-hosted-runners/about-self-hosted-runners#self-hosted-runner-security"])
+def self_hosted_pr(path, text, lines):
+    if not re.search(r"^\s*pull_request(_target)?\s*:|^on\s*:[^\n]*\bpull_request", text, re.M):
+        return
+    info = self_hosted_pr.info
+    in_runs_on = False
+    for i, line in enumerate(lines, start=1):
+        m = re.match(r"^(\s*)runs-on\s*:\s*(.*)$", line)
+        if m:
+            in_runs_on = m.group(2).strip() in ("", "|", ">")
+            if "self-hosted" in m.group(2):
+                yield make(info, path, i)
+            continue
+        if in_runs_on:
+            if re.match(r"^\s*-\s*['\"]?self-hosted\b", line):
+                yield make(info, path, i)
+            elif not re.match(r"^\s*-", line):
+                in_runs_on = False
