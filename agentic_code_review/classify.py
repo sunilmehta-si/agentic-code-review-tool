@@ -10,7 +10,7 @@ APP_EXT = {".py": "python", ".js": "javascript", ".jsx": "javascript", ".ts": "t
 
 AI_IMPORT_HINTS = ("openai", "anthropic", "langchain", "llama_index", "llamaindex", "transformers", "vllm", "litellm",
                    "ollama", "mcp", "@modelcontextprotocol", "crewai", "autogen", "semantic_kernel", "google.genai",
-                   "@ai-sdk", "ai/", "langgraph", "smolagents", "pydantic_ai", "@anthropic-ai/", "@google/genai", "@langchain/")
+                   "@ai-sdk", "ai/", "langgraph", "smolagents", "pydantic_ai", "claude_agent_sdk", "@anthropic-ai/", "@google/genai", "@langchain/")
 
 
 def kinds(path: str, text: str) -> set[str]:

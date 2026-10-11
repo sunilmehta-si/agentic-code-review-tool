@@ -128,3 +128,16 @@ def unbounded_agent_loop(path, text, lines):
         body = "\n".join(lines[i:i + 30])
         if agentic.search(body) and not bounded.search(body):
             yield make(info, path, i, "A `while True` agent loop only stops when the model decides to.")
+
+
+@rule("ACR-AI-010", "Coding agent run with its permission checks or sandbox turned off (LLM06 Excessive Agency)",
+      Severity.HIGH, "ai-security", ["github-actions", "shell", "dockerfile", "agent-settings", "app"],
+      fix="Keep approvals and the sandbox on. In CI, give the agent an explicit allow-list of tools and commands, a read-only "
+          "token and no secrets it does not need; untrusted PR text can steer an unrestricted agent.",
+      references=[OWASP_LLM, "https://docs.anthropic.com/en/docs/claude-code/security"])
+def agent_permissions_off(path, text, lines):
+    pat = re.compile(
+        r"--dangerously-skip-permissions\b|--dangerously-bypass-approvals-and-sandbox\b"  # acr:ignore[ACR-AI-010]
+        r"|\b(claude|codex|gemini)\b[^\n]*\s--yolo\b"  # acr:ignore[ACR-AI-010]
+        r"|bypassPermissions|danger-full-access")  # acr:ignore[ACR-AI-010]
+    yield from line_matches(agent_permissions_off.info, path, lines, pat)
