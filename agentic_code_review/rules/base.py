@@ -85,13 +85,19 @@ def find_line(lines: list[str], needle: str | re.Pattern[str], start: int = 1) -
     return 1
 
 
+def _suppressed(lines: list[str], f: Finding) -> bool:
+    return 1 <= f.line <= len(lines) and ignored(lines[f.line - 1], f.rule_id)
+
+
 def run_rules(path: str, text: str, kinds: set[str]) -> list[Finding]:
     lines = text.splitlines()
     out: list[Finding] = []
     for info, fn in REGISTRY:
         if info.applies_to & kinds or "*" in info.applies_to:
             try:
-                out.extend(fn(path, text, lines))
+                # Suppression is checked at the reported line, so structural rules (which point at a
+                # container, block or server entry) honour `acr:ignore` exactly like line rules do.
+                out.extend(f for f in fn(path, text, lines) if not _suppressed(lines, f))
             except Exception as exc:  # a broken rule must never break the whole review
                 out.append(Finding(rule_id="ACR-INTERNAL", title=f"Rule {info.rule_id} failed: {exc.__class__.__name__}",
                                    severity=Severity.INFO, path=path, line=1, tool="acr", category="other"))

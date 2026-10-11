@@ -96,7 +96,7 @@ def _workloads(text: str):
 
 def _container_line(lines: list[str], name) -> int:
     """Line of the container's own list entry ('- name: x'), not the workload's metadata name."""
-    return find_line(lines, re.compile(rf"^\s*-\s*name\s*:\s*['\"]?{re.escape(str(name))}['\"]?\s*$"))
+    return find_line(lines, re.compile(rf"^\s*-\s*name\s*:\s*['\"]?{re.escape(str(name))}['\"]?\s*(#.*)?$"))
 
 
 def _pod_spec(doc: dict) -> dict:
