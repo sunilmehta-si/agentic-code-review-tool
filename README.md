@@ -182,7 +182,7 @@ acr review --base origin/main --ai openai
 
 ## Built-in rules
 
-60 rules, generated from the code (`acr rules`; `acr explain <id>` for details):
+61 rules, generated from the code (`acr rules`; `acr explain <id>` for details):
 
 <!-- regenerate: acr rules --format markdown -->
 
@@ -214,6 +214,7 @@ acr review --base origin/main --ai openai
 | AI / LLM / agent code | `ACR-AI-011` | high | Agent settings pre-approve any shell command or risky ones (LLM06 Excessive Agency) |
 | AI / LLM / agent code | `ACR-MCP-001` | high | MCP server installed from an unpinned package |
 | AI / LLM / agent code | `ACR-MCP-003` | high | MCP server over plain HTTP or with broad host access |
+| AI / LLM / agent code | `ACR-MCP-004` | medium | MCP tools run without asking the user |
 | AI / LLM / agent code | `ACR-SKILL-001` | high | Agent skill tells the agent to run a remote script |
 | AI / LLM / agent code | `ACR-SKILL-002` | critical | Agent skill reads credentials or sends data out |
 | AI / LLM / agent code | `ACR-SKILL-003` | high | Agent skill contains hidden or override instructions |

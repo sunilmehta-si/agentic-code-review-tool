@@ -79,6 +79,27 @@ def mcp_exposure(path, text, lines):
                        f"Server '{name}' is given {'privileged docker' if '--privileged' in args else broad[0]} access.")
 
 
+@rule("ACR-MCP-004", "MCP tools run without asking the user", Severity.MEDIUM, "ai-security", MCP,
+      fix="Remove auto-approval, or limit it to read-only tools you have reviewed. Tool calls are where prompt injection "
+          "turns into actions, so writes, shell and network calls should keep a human confirmation.",
+      references=[MCP_SEC])
+def mcp_auto_approve(path, text, lines):
+    info = mcp_auto_approve.info
+    for name, cfg in _servers(text).items():
+        if not isinstance(cfg, dict):
+            continue
+        for key in ("autoApprove", "alwaysAllow"):  # Cline, Roo Code
+            tools = cfg.get(key)
+            if isinstance(tools, list) and tools:
+                every = "*" in tools
+                yield make(info, path, find_line(lines, f'"{key}"', find_line(lines, f'"{name}"')),
+                           f"Server '{name}' auto-approves {'every tool' if every else f'{len(tools)} tool(s)'}.",
+                           severity=Severity.HIGH if every else None)
+        if cfg.get("trust") is True:  # Gemini CLI: skip every confirmation for this server
+            yield make(info, path, find_line(lines, '"trust"', find_line(lines, f'"{name}"')),
+                       f"Server '{name}' is trusted, so none of its tool calls are confirmed.", severity=Severity.HIGH)
+
+
 @rule("ACR-SKILL-001", "Agent skill tells the agent to run a remote script", Severity.HIGH, "ai-security", SKILL,
       fix="Skills should never pipe downloads into a shell. Vendor the script, pin it, and review it like code.")
 def skill_remote_exec(path, text, lines):

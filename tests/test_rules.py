@@ -212,3 +212,17 @@ class AgentSettingsAllowRule(unittest.TestCase):
         ok = '{"permissions": {"allow": ["Bash(git status)", "Bash(make lint:*)", "Edit"]}}'
         self.assertEqual(ids(".claude/settings.json", ok, {"agent-settings"}), [])
         self.assertEqual(ids(".claude/settings.json", "{not json", {"agent-settings"}), [])
+
+
+class McpAutoApproveRule(unittest.TestCase):
+    def test_auto_approval_and_trust(self):
+        from agentic_code_review.rules import base
+        cfg = ('{\n  "mcpServers": {\n    "fs": {\n      "command": "mcp-fs",\n      "autoApprove": ["read_file"]\n    },\n'
+               '    "shell": {\n      "command": "mcp-shell",\n      "alwaysAllow": ["*"]\n    },\n'
+               '    "web": {\n      "httpUrl": "https://mcp.example.com",\n      "trust": true\n    }\n  }\n}\n')
+        found = sorted((f.line, f.severity.label()) for f in base.run_rules(".mcp.json", cfg, {"mcp-config"})
+                       if f.rule_id == "ACR-MCP-004")
+        self.assertEqual(found, [(5, "medium"), (9, "high"), (13, "high")])
+
+    def test_empty_lists_pass(self):
+        self.assertNotIn("ACR-MCP-004", ids(".mcp.json", '{"mcpServers": {"a": {"command": "x", "autoApprove": []}}}', {"mcp-config"}))
