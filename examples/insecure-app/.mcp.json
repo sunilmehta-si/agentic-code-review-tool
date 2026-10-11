@@ -7,7 +7,8 @@
     },
     "files": {
       "command": "npx",
-      "args": ["-y", "@modelcontextprotocol/server-filesystem@2025.8.0", "/"]
+      "args": ["-y", "@modelcontextprotocol/server-filesystem@2025.8.0", "/"],
+      "autoApprove": ["*"]
     }
   }
 }

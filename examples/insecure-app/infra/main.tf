@@ -19,3 +19,11 @@ resource "azurerm_kubernetes_cluster" "aks" {
   private_cluster_enabled = false
   local_account_disabled  = false
 }
+
+resource "aws_instance" "inference" {
+  ami           = "ami-0123456789abcdef0"
+  instance_type = "g5.xlarge"
+  metadata_options {
+    http_tokens = "optional"
+  }
+}

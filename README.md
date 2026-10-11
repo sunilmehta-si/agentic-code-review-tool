@@ -87,7 +87,7 @@ matched by rule and line *content* so they survive code moving around, and only 
 acr review --root examples/insecure-app --all --no-scanners --fail-on never
 ```
 
-reports **39 findings across 9 files** (6 critical, 19 high, 11 medium, 3 low). One finding from each rule family:
+reports **51 findings across 11 files** (6 critical, 26 high, 16 medium, 3 low). One finding from each rule family:
 
 | | Severity | Location | Issue | Rule |
 |---|---|---|---|---|
@@ -97,6 +97,7 @@ reports **39 findings across 9 files** (6 critical, 19 high, 11 medium, 3 low). 
 | 🔴 | critical | `infra/main.tf:7` | Sensitive port open to the whole internet | `ACR-TF-001` |
 | 🔴 | critical | `k8s/trainer.yaml:18` | Privileged container or privilege escalation allowed | `ACR-K8S-001` |
 | 🔴 | critical | `skills/deploy-helper/SKILL.md:8` | Agent skill reads credentials or sends data out | `ACR-SKILL-002` |
+| 🟠 | high | `.claude/settings.json:3` | Coding agent run with its permission checks or sandbox turned off (LLM06 Excessive Agency) | `ACR-AI-010` |
 | 🟠 | high | `Dockerfile:2` | Secret baked into the image via ENV or ARG | `ACR-DOCKER-005` |
 | 🟠 | high | `agent.py:24` | Dynamic code execution | `ACR-APP-003` |
 | 🟠 | high | `app.py:6` | Hardcoded password or token | `ACR-SEC-002` |

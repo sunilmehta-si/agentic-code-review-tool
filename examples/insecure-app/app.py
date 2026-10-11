@@ -20,3 +20,15 @@ def load_settings(path):
 
 def fetch(url):
     return requests.get(url, verify=False)
+
+
+def password_reset_token():
+    import random
+    reset_token = "".join(random.choices("abcdefghijklmnopqrstuvwxyz0123456789", k=32))
+    return reset_token
+
+
+def parse_invoice(body):
+    from lxml import etree
+    parser = etree.XMLParser(resolve_entities=True)
+    return etree.fromstring(body, parser)
