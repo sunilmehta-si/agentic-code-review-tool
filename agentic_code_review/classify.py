@@ -29,6 +29,8 @@ def kinds(path: str, text: str) -> set[str]:
             out.add("helm-template")
         elif "apiVersion:" in text and "kind:" in text:
             out.add("kubernetes")
+    if _is_shell(p, text):
+        out.add("shell")
     if name in ("mcp.json", ".mcp.json", "claude_desktop_config.json") or fnmatch.fnmatch(lower, "*mcp*.json"):
         out.add("mcp-config")
     if lower.endswith("skill.md") or "/skills/" in lower and p.suffix == ".md":
@@ -68,6 +70,16 @@ def _matches_hint(module: str, hint: str) -> bool:
 def _imports_ai(text: str) -> bool:
     """True only when an LLM/agent library is actually imported (a mention in a string or comment is not enough)."""
     return any(_matches_hint(m, h) for m in _module_refs(text) for h in AI_IMPORT_HINTS)
+
+
+SHEBANG = re.compile(r"^#!\s*(/usr/bin/env\s+)?(/bin/|/usr/bin/|/usr/local/bin/)?(ba|z|da|k)?sh\b")
+
+
+def _is_shell(p: Path, text: str) -> bool:
+    """Shell scripts by extension or shebang, plus Makefiles, whose recipes are shell commands."""
+    if p.suffix in (".sh", ".bash", ".zsh") or p.name in ("Makefile", "GNUmakefile") or p.suffix == ".mk":
+        return True
+    return not p.suffix and bool(SHEBANG.match(text[:100]))
 
 
 def _in_helm_chart(path: str) -> bool:

@@ -69,3 +69,14 @@ class StagedModeTests(unittest.TestCase):
         with redirect_stderr(err):
             self.assertEqual(main(["review", "--staged", "--base", "origin/main"]), 2)
         self.assertIn("--staged", err.getvalue())
+
+
+class ShellClassificationTests(unittest.TestCase):
+    def test_scripts_by_extension_shebang_and_makefiles(self):
+        from agentic_code_review.classify import kinds
+        self.assertIn("shell", kinds("scripts/deploy.sh", "echo hi\n"))
+        self.assertIn("shell", kinds("bin/release", "#!/usr/bin/env bash\nset -e\n"))
+        self.assertIn("shell", kinds("bin/run", "#!/bin/sh\n"))
+        self.assertIn("shell", kinds("Makefile", "all:\n\tgo build\n"))
+        self.assertNotIn("shell", kinds("bin/tool", "#!/usr/bin/env python3\n"))
+        self.assertNotIn("shell", kinds("notes.txt", "#!/bin/sh in a sentence\n"))
