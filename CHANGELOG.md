@@ -2,6 +2,28 @@
 
 All notable changes to this project. The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [0.3.0] - 2026-10-11
+
+### Added
+- Rule-scoped inline suppressions: `acr:ignore[ACR-APP-004, semgrep:*]` silences only the listed rules; a bare `acr:ignore` still silences the line.
+- `acr review --staged` reviews the index (what will be committed), not unstaged edits.
+- `--format github` prints workflow-command annotations; the GitHub Action shows them by default (`annotations` input), which also works for pull requests from forks.
+- `acr init` writes a commented, validated starter `.acr.yml`.
+- `acr rules --format markdown|json`; a test keeps the README rule catalogue in sync with the code.
+- Ten rules (68 in total): coding agents launched with permission checks or the sandbox off (Claude Code, Codex, Gemini CLI), agent settings that pre-approve any or risky shell commands, auto-approved MCP tools, `secrets: inherit` to external reusable workflows, self-hosted runners on pull-request workflows, TLS or signature checks disabled in image builds, seccomp/AppArmor unconfined, instance metadata without session tokens (IMDSv1, GKE node metadata), predictable randomness for secrets, XML external entities.
+- Shell scripts, Makefiles and committed coding-agent settings files are classified, so rules can target them.
+- CI installs the built wheel in a clean virtualenv and smoke-tests the CLI.
+
+### Changed
+- Inline suppression is applied once, centrally, to every finding: structural rules (checked at the line they report) and external scanners now honour it too.
+- The pre-commit hook runs `--staged` at the pre-commit stage only.
+- Severity overrides in `.acr.yml` accept globs; an exact rule id wins, then the longest matching pattern.
+
+### Fixed
+- A marker scoped to one rule no longer hides other rules' findings on the same line, and a marked `FROM ... AS stage` line keeps its stage alias.
+- Container findings pointed at line 1 when the container's `- name:` line had a trailing comment.
+- Plural token settings (`http_tokens = "required"`, `max_tokens`) are no longer reported as hardcoded secrets.
+
 ## [0.2.0] - 2026-10-10
 
 ### Added
@@ -26,5 +48,6 @@ All notable changes to this project. The format follows [Keep a Changelog](https
 - AI review agent for Claude (Anthropic SDK) and OpenAI-compatible endpoints, with read-only, repository-confined tools.
 - Markdown, JSON and SARIF reports; inline GitHub PR comments; composite GitHub Action; insecure demo project.
 
+[0.3.0]: https://github.com/sunilmehta-si/agentic-code-review-tool/compare/v0.2.0...v0.3.0
 [0.2.0]: https://github.com/sunilmehta-si/agentic-code-review-tool/compare/v0.1.0...v0.2.0
 [0.1.0]: https://github.com/sunilmehta-si/agentic-code-review-tool/releases/tag/v0.1.0

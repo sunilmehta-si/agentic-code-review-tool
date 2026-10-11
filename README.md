@@ -16,7 +16,7 @@ $ acr review --base origin/main
 ## Why another code reviewer?
 
 - **The whole PR, not one language.** Real PRs change Python *and* the Dockerfile, the Helm chart and a workflow. One review covers all of it.
-- **AI/agent code is a first-class target.** Rules mapped to the [OWASP Top 10 for LLM Applications](https://genai.owasp.org/llm-top-10/): prompt injection, LLM output reaching `exec`/SQL/HTML, `trust_remote_code`, unbounded token spend, provider keys in the browser — plus the new AI supply chain: unpinned **MCP servers**, tokens in MCP configs, and **agent skills** that pipe scripts into a shell, read credentials or hide instructions.
+- **AI/agent code is a first-class target.** Rules mapped to the [OWASP Top 10 for LLM Applications](https://genai.owasp.org/llm-top-10/): prompt injection, LLM output reaching `exec`/SQL/HTML, `trust_remote_code`, unbounded token spend, provider keys in the browser — plus the new AI supply chain: unpinned or auto-approved **MCP servers**, tokens in MCP configs, **agent skills** that pipe scripts into a shell, read credentials or hide instructions, and **coding agents** (Claude Code, Codex, Gemini CLI) launched with their permission checks off.
 - **Grounded, not guessed.** Deterministic rules and real scanners decide *what* and *where*; the agent only verifies and explains. Every finding has an exact file and line.
 - **Adoptable on legacy code.** Only changed lines are reviewed, so turning it on doesn't drown every PR in old debt.
 - **Works without any LLM.** The deterministic layer is useful on its own; the agent is opt-in.
@@ -42,11 +42,14 @@ flowchart LR
 pip install git+https://github.com/sunilmehta-si/agentic-code-review-tool
 cd your-repo
 
+acr init                           # write a starter .acr.yml
 acr review                         # working tree vs HEAD
+acr review --staged                # only what you are about to commit
 acr review --base origin/main      # what a PR would change (merge-base)
 acr review --all                   # audit every tracked file
 acr review --format sarif -o acr.sarif   # for GitHub code scanning
-acr rules                          # list built-in rules
+acr review --format github         # annotations in a GitHub Actions log
+acr rules                          # list built-in rules (--format markdown|json)
 ```
 
 | Option | Default | Meaning |
@@ -58,7 +61,9 @@ acr rules                          # list built-in rules
 | `--sarif`, `--json`, `--markdown PATH` | — | Write extra report formats from the same run (no re-scan) |
 | `--baseline FILE` | `.acr-baseline.json` if present | Suppress findings accepted with `acr baseline` |
 
-Suppress a deliberate, reviewed line with an inline `acr:ignore` comment.
+Suppress a deliberate, reviewed line with an inline comment. `acr:ignore` silences every rule on that line;
+`acr:ignore[ACR-APP-004, semgrep:*]` silences only the listed rules (ids or globs), so anything else on the line
+is still reported. Markers work for built-in rules and external scanner findings alike.
 
 ## Configure once per repository
 
@@ -69,6 +74,7 @@ exclude: ["docs/*", "*.generated.go"]
 disable: ["ACR-AI-007"]          # rule ids or globs, e.g. "hadolint:*"
 severity:
   ACR-K8S-009: medium            # per-rule severity overrides
+  "hadolint:*": low              # globs work too; an exact id wins
 scanners: [semgrep, trivy]
 ai: claude                       # none | claude | openai
 ```
@@ -119,7 +125,7 @@ The image runs as a non-root user and pins its base image by digest.
 # .pre-commit-config.yaml
 repos:
   - repo: https://github.com/sunilmehta-si/agentic-code-review-tool
-    rev: v0.2.0
+    rev: v0.3.0
     hooks:
       - id: acr
 ```
@@ -145,7 +151,7 @@ jobs:
         with:
           fetch-depth: 0
           persist-credentials: false
-      - uses: sunilmehta-si/agentic-code-review-tool@main   # pin to a release SHA once tagged
+      - uses: sunilmehta-si/agentic-code-review-tool@v0.3.0 # or pin the release commit SHA
         with:
           fail-on: high
           ai: claude                                        # or: none, openai
@@ -156,7 +162,9 @@ jobs:
           sarif_file: acr.sarif
 ```
 
-The action writes the summary to the job page, posts inline comments on the PR, uploads SARIF to the Security tab, and fails the check only after all of that is published.
+The action writes the summary to the job page, posts inline comments on the PR, shows findings as annotations on the
+changed files, uploads SARIF to the Security tab, and fails the check only after all of that is published. Annotations
+need no write permission, so pull requests from forks still get line-level feedback (`annotations: "false"` turns them off).
 
 ## AI review
 
@@ -278,11 +286,12 @@ When two tools report the same issue on the same line, the report shows it once 
 
 | Part | State |
 |---|---|
-| Diff-aware engine, 58 built-in rules, 7 scanner adapters (run in parallel) | ✅ Done, unit-tested |
+| Diff-aware engine, 68 built-in rules, 7 scanner adapters (run in parallel) | ✅ Done, unit-tested |
 | Markdown / JSON / SARIF reports, CLI with severity gate | ✅ Done, unit-tested |
 | AI review agent (Claude + OpenAI-compatible) with read-only tools | ✅ Done, unit-tested with a fake model |
 | Inline PR comments and composite GitHub Action (single run) | ✅ Done, unit-tested; first live run pending |
 | `.acr.yml` config, baseline, `acr explain`, pre-commit hook, container image | ✅ Done (v0.2.0) |
+| Scoped suppressions, `--staged`, GitHub annotations, `acr init`, coding-agent rules | ✅ Done (v0.3.0) |
 
 ## Design notes
 
