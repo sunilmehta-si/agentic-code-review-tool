@@ -137,3 +137,25 @@ class ScannerParsingTests(unittest.TestCase):
     def test_missing_or_garbage_output_is_safe(self):
         with mock.patch.object(tools, "_exec", return_value="not json"):
             self.assertEqual(tools.run_checkov(tools.Path("."), ["m.tf"]), [])
+
+
+class GitHubAnnotationTests(unittest.TestCase):
+    def test_annotations_are_escaped_and_levelled(self):
+        from agentic_code_review.engine import ReviewResult
+        f = Finding("ACR-APP-002", "Shell, built from a string", Severity.HIGH, "src/a,b.py", 7, "acr", "app-security",
+                    detail="line one\nline two: 100%", fix="Use a list.")
+        low = Finding("ACR-APP-007", "Weak hash", Severity.LOW, "x.py", 2, "acr", "app-security")
+        fp = Finding("ACR-APP-003", "eval", Severity.HIGH, "x.py", 3, "acr", "app-security", ai_verdict="false_positive")
+        out = report.to_github(ReviewResult([f, low, fp], {}, {})).splitlines()
+        self.assertEqual(len(out), 2)  # the dismissed false positive is not annotated
+        self.assertTrue(out[0].startswith("::error file=src/a%2Cb.py,line=7,title=ACR-APP-002 Shell%2C built from a string::"))
+        self.assertIn("line one%0Aline two: 100%25 Fix: Use a list.", out[0])
+        self.assertTrue(out[1].startswith("::notice file=x.py,line=2,"))
+
+    def test_cli_format_github(self):
+        root = git_repo({"a.py": "x = 1\n"})
+        (root / "a.py").write_text("x = 1\nos.system(cmd)\n")
+        buf = io.StringIO()
+        with redirect_stdout(buf):
+            main(["review", "--root", str(root), "--no-scanners", "--format", "github", "--fail-on", "never"])
+        self.assertIn("::error file=a.py,line=2,title=ACR-APP-002", buf.getvalue())

@@ -1,4 +1,5 @@
-"""Render a ReviewResult as Markdown (PR comment / terminal), JSON, or SARIF 2.1.0 (GitHub code scanning)."""
+"""Render a ReviewResult as Markdown (PR comment / terminal), JSON, SARIF 2.1.0 (GitHub code scanning),
+or GitHub Actions workflow-command annotations."""
 from __future__ import annotations
 
 import json
@@ -14,6 +15,8 @@ SARIF_LEVEL = {Severity.CRITICAL: "error", Severity.HIGH: "error", Severity.MEDI
 # GitHub maps this numeric property onto its critical/high/medium/low security severities.
 SECURITY_SEVERITY = {Severity.CRITICAL: "9.5", Severity.HIGH: "8.0", Severity.MEDIUM: "5.5", Severity.LOW: "3.0", Severity.INFO: "0.0"}
 TOOL_URI = "https://github.com/sunilmehta-si/agentic-code-review-tool"
+ANNOTATION_LEVEL = {Severity.CRITICAL: "error", Severity.HIGH: "error", Severity.MEDIUM: "warning", Severity.LOW: "notice",
+                    Severity.INFO: "notice"}
 
 
 def _visible(result: ReviewResult) -> list[Finding]:
@@ -117,3 +120,23 @@ def to_sarif(result: ReviewResult) -> str:
                                            "informationUri": TOOL_URI, "rules": list(rules.values())}},
                        "results": results}]}
     return json.dumps(sarif, indent=2)
+
+
+def _escape(value: str, prop: bool = False) -> str:
+    """Workflow-command escaping: newlines and % always; ':' and ',' too inside properties."""
+    out = value.replace("%", "%25").replace("\r", "%0D").replace("\n", "%0A")
+    return out.replace(":", "%3A").replace(",", "%2C") if prop else out
+
+
+def to_github(result: ReviewResult) -> str:
+    """One `::error`/`::warning`/`::notice` line per finding. GitHub shows them on the PR's changed files,
+    and they need no token, so they also work for pull requests from forks."""
+    lines = []
+    for f in _visible(result):
+        props = f"file={_escape(f.path, True)},line={max(1, f.line)}"
+        if f.end_line and f.end_line > f.line:
+            props += f",endLine={f.end_line}"
+        props += f",title={_escape(f'{f.rule_id} {f.title}', True)}"
+        message = " ".join(x for x in (f.ai_explanation or f.detail, f"Fix: {f.ai_fix or f.fix}" if (f.ai_fix or f.fix) else "") if x)
+        lines.append(f"::{ANNOTATION_LEVEL[f.severity]} {props}::{_escape(message or f.title)}")
+    return "\n".join(lines)
