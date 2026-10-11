@@ -123,7 +123,8 @@ repos:
       - id: acr
 ```
 
-The hook runs the built-in rules only (fast, offline) on what you are about to commit; CI can run the full review with scanners and the AI agent.
+The hook runs the built-in rules only (fast, offline) with `--staged`, so it reviews exactly what is being committed and
+ignores unstaged edits. CI can run the full review with scanners and the AI agent.
 
 ## Use it in GitHub Actions
 

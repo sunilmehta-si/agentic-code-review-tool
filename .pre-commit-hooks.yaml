@@ -1,9 +1,10 @@
 # Lets other repositories run acr through the pre-commit framework (https://pre-commit.com).
 - id: acr
   name: agentic-code-review-tool
-  description: Review changed lines for security issues in app, infrastructure and AI/agent code.
-  entry: acr review --no-scanners --fail-on high
+  description: Review staged lines for security issues in app, infrastructure and AI/agent code.
+  # --staged reviews the index, so unstaged edits neither block nor slip into the commit review.
+  entry: acr review --staged --no-scanners --fail-on high
   language: python
   pass_filenames: false
   always_run: true
-  stages: [pre-commit, pre-push]
+  stages: [pre-commit]
