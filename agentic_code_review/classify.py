@@ -33,6 +33,8 @@ def kinds(path: str, text: str) -> set[str]:
         out.add("shell")
     if name in ("mcp.json", ".mcp.json", "claude_desktop_config.json") or fnmatch.fnmatch(lower, "*mcp*.json"):
         out.add("mcp-config")
+    if _is_agent_settings(lower):
+        out.add("agent-settings")
     if lower.endswith("skill.md") or "/skills/" in lower and p.suffix == ".md":
         out.add("agent-skill")
     lang = APP_EXT.get(p.suffix)
@@ -80,6 +82,14 @@ def _is_shell(p: Path, text: str) -> bool:
     if p.suffix in (".sh", ".bash", ".zsh") or p.name in ("Makefile", "GNUmakefile") or p.suffix == ".mk":
         return True
     return not p.suffix and bool(SHEBANG.match(text[:100]))
+
+
+# Coding-agent permission files that are commonly committed so a whole team shares them.
+AGENT_SETTINGS = ("*.claude/settings.json", "*.claude/settings.local.json", "*.codex/config.toml")
+
+
+def _is_agent_settings(lower: str) -> bool:
+    return any(fnmatch.fnmatch("/" + lower, "*/" + pat.lstrip("*")) for pat in AGENT_SETTINGS)
 
 
 def _in_helm_chart(path: str) -> bool:

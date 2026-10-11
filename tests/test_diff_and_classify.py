@@ -80,3 +80,12 @@ class ShellClassificationTests(unittest.TestCase):
         self.assertIn("shell", kinds("Makefile", "all:\n\tgo build\n"))
         self.assertNotIn("shell", kinds("bin/tool", "#!/usr/bin/env python3\n"))
         self.assertNotIn("shell", kinds("notes.txt", "#!/bin/sh in a sentence\n"))
+
+
+class AgentSettingsClassificationTests(unittest.TestCase):
+    def test_coding_agent_permission_files(self):
+        from agentic_code_review.classify import kinds
+        for path in (".claude/settings.json", ".claude/settings.local.json", "svc/.claude/settings.json", ".codex/config.toml"):
+            self.assertIn("agent-settings", kinds(path, "{}"), path)
+        self.assertNotIn("agent-settings", kinds("settings.json", "{}"))
+        self.assertNotIn("agent-settings", kinds("docs/claude/settings.json", "{}"))
