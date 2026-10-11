@@ -262,3 +262,12 @@ class BuildVerificationRule(unittest.TestCase):
     def test_verified_downloads_pass(self):
         src = "FROM a:1\nRUN curl -fsSL https://x/t.tgz -o t.tgz && sha256sum -c t.sha256\nUSER 1\n"
         self.assertNotIn("ACR-DOCKER-008", ids("Dockerfile", src, {"dockerfile"}))
+
+
+class UnconfinedRule(unittest.TestCase):
+    def test_seccomp_and_apparmor_unconfined(self):
+        k8s = {"kubernetes"}
+        self.assertIn("ACR-K8S-012", ids("p.yaml", "securityContext:\n  seccompProfile:\n    type: Unconfined\n", k8s))
+        self.assertIn("ACR-K8S-012", ids("p.yaml", "securityContext:\n  appArmorProfile:\n    type: Unconfined\n", k8s))
+        self.assertIn("ACR-K8S-012", ids("p.yaml", "annotations:\n  container.apparmor.security.beta.kubernetes.io/app: unconfined\n", k8s))
+        self.assertEqual(ids("p.yaml", "securityContext:\n  seccompProfile:\n    type: RuntimeDefault\n", k8s), [])

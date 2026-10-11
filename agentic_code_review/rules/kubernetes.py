@@ -82,6 +82,16 @@ def run_as_root(path, text, lines):
                             re.compile(r"^\s*runAsUser\s*:\s*0\b|^\s*runAsNonRoot\s*:\s*false\b"))
 
 
+@rule("ACR-K8S-012", "Seccomp or AppArmor confinement turned off", Severity.HIGH, "kubernetes", K8S,
+      fix="Use seccompProfile: { type: RuntimeDefault } (and the runtime's default AppArmor profile); write a Localhost "
+          "profile if a workload needs an extra syscall instead of disabling filtering.",
+      references=[PSS, "https://kubernetes.io/docs/tutorials/security/seccomp/"])
+def unconfined(path, text, lines):
+    pat = re.compile(r"^\s*type\s*:\s*['\"]?Unconfined\b"
+                     r"|(seccomp|apparmor)\.security\.(alpha|beta)\.kubernetes\.io/[^:\s]*\s*:\s*['\"]?unconfined\b", re.I)
+    yield from line_matches(unconfined.info, path, lines, pat)
+
+
 def _workloads(text: str):
     try:
         import yaml  # optional dependency
