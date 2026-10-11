@@ -99,3 +99,13 @@ def weak_random(path, text, lines):
     pat = re.compile(r"(?i)\b\w*(token|secret|passw|nonce|otp|salt|session_?id|csrf|api_?key|reset_?code|verification_?code)\w*"
                      r"""["']?\s*[:=][^\n]*(\brandom\.(random|randint|choice|choices|randrange|getrandbits|sample)\(|\bMath\.random\(\))""")
     yield from line_matches(weak_random.info, path, lines, pat)
+
+
+@rule("ACR-APP-011", "XML parser resolves external entities (XXE)", Severity.HIGH, "app-security", PY + JS,
+      fix="Parse untrusted XML with defusedxml (Python) or with entity expansion and network access off "
+          "(lxml: resolve_entities=False, no_network=True; libxmljs: noent: false).",
+      references=["https://cheatsheetseries.owasp.org/cheatsheets/XML_External_Entity_Prevention_Cheat_Sheet.html"])
+def xxe(path, text, lines):
+    pat = re.compile(r"resolve_entities\s*=\s*True|no_network\s*=\s*False|feature_external_(ges|pes)\s*,\s*(True|1)\b"
+                     r"|\bnoent\s*:\s*true\b")
+    yield from line_matches(xxe.info, path, lines, pat)

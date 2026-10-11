@@ -299,3 +299,11 @@ class WeakRandomRule(unittest.TestCase):
     def test_csprng_and_non_secret_randomness_pass(self):
         self.assertEqual(ids("a.py", "reset_token = secrets.token_urlsafe(32)\n", PY), [])
         self.assertEqual(ids("a.py", "delay = random.uniform(0.1, 0.5)\nsample = random.choice(rows)\n", PY), [])
+
+
+class XxeRule(unittest.TestCase):
+    def test_external_entities_enabled(self):
+        self.assertIn("ACR-APP-011", ids("a.py", "parser = etree.XMLParser(resolve_entities=True, no_network=False)\n", PY))
+        self.assertIn("ACR-APP-011", ids("a.py", "handler.setFeature(feature_external_ges, True)\n", PY))
+        self.assertIn("ACR-APP-011", ids("a.js", "const doc = libxml.parseXml(body, { noent: true });\n", {"app", "lang:javascript"}))
+        self.assertEqual(ids("a.py", "parser = etree.XMLParser(resolve_entities=False, no_network=True)\n", PY), [])
