@@ -42,10 +42,13 @@ def dynamic_exec(path, text, lines):
 
 
 @rule("ACR-APP-004", "Unsafe deserialisation", Severity.HIGH, "app-security", PY,
-      fix="Use yaml.safe_load / json; never unpickle data that can come from outside the process.",
+      fix="Use yaml.safe_load / json; never unpickle data that can come from outside the process. For models, prefer "
+          "safetensors or ONNX over pickle-based joblib/.pkl files.",
       references=["https://cwe.mitre.org/data/definitions/502.html"])
 def unsafe_deserialise(path, text, lines):
-    pat = re.compile(r"\b(pickle|cPickle|dill|shelve)\.(loads?|Unpickler)\(|\byaml\.load\((?![^)]*SafeLoader)|\byaml\.unsafe_load\(")
+    pat = re.compile(r"\b(pickle|cPickle|dill|shelve)\.(loads?|Unpickler)\(|\byaml\.load\((?![^)]*SafeLoader)|\byaml\.unsafe_load\("
+                     # joblib, pandas and numpy pickles run arbitrary code on load as well
+                     r"|\bjoblib\.load\(|\b(pd|pandas)\.read_pickle\(|\b(np|numpy)\.load\([^)]*allow_pickle\s*=\s*True")
     yield from line_matches(unsafe_deserialise.info, path, lines, pat)
 
 

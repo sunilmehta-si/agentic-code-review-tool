@@ -38,6 +38,11 @@ class AppRules(unittest.TestCase):
         self.assertIn("ACR-APP-004", ids("a.py", "yaml.load(fh)\n", PY))
         self.assertEqual(ids("a.py", "yaml.load(fh, Loader=yaml.SafeLoader)\n", PY), [])
 
+    def test_pickle_based_model_loaders(self):
+        for src in ("model = joblib.load(path)\n", "df = pd.read_pickle(url)\n", "w = np.load(f, allow_pickle=True)\n"):
+            self.assertIn("ACR-APP-004", ids("a.py", src, PY), src)
+        self.assertEqual(ids("a.py", "w = np.load(f)\n", PY), [])
+
 
 class JwtRule(unittest.TestCase):
     def test_unverified_tokens(self):
