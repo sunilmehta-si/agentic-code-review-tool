@@ -23,6 +23,7 @@ MARKER = "<!-- acr:{} -->"            # hidden in each inline comment; identifie
 MARKER_RE = re.compile(r"<!-- acr:([0-9a-f]{8,64}) -->")
 MAX_PAGES = 10
 ATTEMPTS = 4
+MAX_BODY = 60_000      # GitHub rejects review and comment bodies over 65,536 characters
 _sleep = time.sleep  # replaced in tests
 
 
@@ -107,6 +108,11 @@ def build_review(result: ReviewResult, threshold: Severity, commit_id: str | Non
     shown = fresh
     if len(shown) > MAX_INLINE:
         body += f"\n\n_{len(shown) - MAX_INLINE} more finding(s) are in the summary table but not commented inline._"
+    if len(body) > MAX_BODY:
+        cut = body.rfind("\n", 0, MAX_BODY)
+        body = body[:cut if cut > 0 else MAX_BODY] + "\n\n_The summary was too long for GitHub and was cut here; the full report is in the job summary and SARIF._"
+    for c in comments:
+        c["body"] = c["body"][:MAX_BODY]
     review = {"body": body, "event": "COMMENT", "comments": comments}
     if commit_id:
         review["commit_id"] = commit_id

@@ -112,3 +112,16 @@ class RetryTests(unittest.TestCase):
             with self.assertRaisesRegex(GitHubError, "422: bad line"):
                 github._request("POST", "https://api", "t", {})
         self.assertEqual(waits, [])
+
+
+class BodyLimitTests(unittest.TestCase):
+    def test_huge_summaries_are_cut_below_githubs_limit(self):
+        from agentic_code_review import github
+        from agentic_code_review.engine import ReviewResult
+        from agentic_code_review.models import Finding
+        long = [Finding("ACR-APP-007", "W" * 100, Severity.LOW, f"src/f{n}.py", 1, "acr", "app-security", detail="d" * 70_000)
+                for n in range(700)]
+        payload = github.build_review(ReviewResult(long, {}, {}), Severity.HIGH, None)
+        self.assertLessEqual(len(payload["body"]), github.MAX_BODY + 200)
+        self.assertIn("too long for GitHub", payload["body"])
+        self.assertTrue(all(len(c["body"]) <= github.MAX_BODY for c in payload["comments"]))
