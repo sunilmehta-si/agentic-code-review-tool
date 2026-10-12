@@ -112,3 +112,14 @@ def xxe(path, text, lines):
     pat = re.compile(r"resolve_entities\s*=\s*True|no_network\s*=\s*False|feature_external_(ges|pes)\s*,\s*(True|1)\b"
                      r"|\bnoent\s*:\s*true\b")
     yield from line_matches(xxe.info, path, lines, pat)
+
+
+@rule("ACR-APP-012", "Redirect to a URL taken straight from the request (open redirect)", Severity.MEDIUM, "app-security",
+      PY + JS,
+      fix="Redirect only to relative paths or an allow-list of hosts (e.g. url_has_allowed_host_and_scheme in Django); "
+          "otherwise attackers use your domain to send users to phishing pages.",
+      references=["https://cheatsheetseries.owasp.org/cheatsheets/Unvalidated_Redirects_and_Forwards_Cheat_Sheet.html"])
+def open_redirect(path, text, lines):
+    pat = re.compile(r"\b(redirect|HttpResponseRedirect|RedirectResponse)\(\s*request\.(args|GET|POST|form|values|query_params)\b"
+                     r"|\bres\.redirect\(\s*(\d{3}\s*,\s*)?req\.(query|params|body)\.")
+    yield from line_matches(open_redirect.info, path, lines, pat)

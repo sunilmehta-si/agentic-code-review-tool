@@ -524,3 +524,16 @@ class SkillShellRule(unittest.TestCase):
     def test_scoped_commands_and_body_text_pass(self):
         sk = {"agent-skill"}
         self.assertEqual(ids("skills/d/SKILL.md", "---\nallowed-tools: Read, Bash(git diff:*)\n---\nallowed-tools: Bash\n", sk), [])
+
+
+class OpenRedirectRule(unittest.TestCase):
+    def test_redirect_to_request_values(self):
+        js = {"app", "lang:javascript"}
+        self.assertIn("ACR-APP-012", ids("v.py", 'return redirect(request.args.get("next"))\n', PY))
+        self.assertIn("ACR-APP-012", ids("v.py", 'return HttpResponseRedirect(request.GET["next"])\n', PY))
+        self.assertIn("ACR-APP-012", ids("r.js", "res.redirect(req.query.returnTo);\n", js))
+        self.assertIn("ACR-APP-012", ids("r.js", "res.redirect(302, req.body.url);\n", js))
+
+    def test_fixed_or_validated_targets_pass(self):
+        self.assertEqual(ids("v.py", 'return redirect(url_for("home"))\n', PY), [])
+        self.assertEqual(ids("v.py", "return redirect(safe_next(request))\n", PY), [])
