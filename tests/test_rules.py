@@ -392,3 +392,11 @@ class NginxSnippetRule(unittest.TestCase):
         self.assertIn("ACR-K8S-015", ids("i.yaml", ing, k8s))
         self.assertIn("ACR-K8S-015", ids("cm.yaml", "data:\n  allow-snippet-annotations: \"true\"\n", k8s))
         self.assertEqual(ids("i.yaml", "metadata:\n  annotations:\n    nginx.ingress.kubernetes.io/ssl-redirect: \"true\"\n", k8s), [])
+
+
+class PodSecurityLabelRule(unittest.TestCase):
+    def test_privileged_enforce_label(self):
+        ns = "kind: Namespace\nmetadata:\n  name: apps\n  labels:\n    pod-security.kubernetes.io/enforce: privileged\n"
+        self.assertIn("ACR-K8S-016", ids("ns.yaml", ns, {"kubernetes"}))
+        self.assertEqual(ids("ns.yaml", ns.replace("enforce: privileged", "enforce: restricted"), {"kubernetes"}), [])
+        self.assertEqual(ids("ns.yaml", ns.replace("enforce:", "warn:"), {"kubernetes"}), [])

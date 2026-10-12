@@ -123,6 +123,14 @@ def nginx_snippet(path, text, lines):
     yield from line_matches(nginx_snippet.info, path, lines, pat)
 
 
+@rule("ACR-K8S-016", "Namespace switches Pod Security Admission to privileged", Severity.MEDIUM, "kubernetes", K8S,
+      fix="Enforce baseline or restricted on application namespaces; keep privileged for the few system namespaces that need it.",
+      references=["https://kubernetes.io/docs/concepts/security/pod-security-admission/"])
+def psa_privileged(path, text, lines):
+    pat = re.compile(r"pod-security\.kubernetes\.io/enforce\s*:\s*['\"]?privileged\b")
+    yield from line_matches(psa_privileged.info, path, lines, pat)
+
+
 def _workloads(text: str):
     try:
         import yaml  # optional dependency

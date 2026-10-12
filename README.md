@@ -210,7 +210,7 @@ acr review --base origin/main --ai openai
 
 ## Built-in rules
 
-71 rules, generated from the code (`acr rules`; `acr explain <id>` for details):
+72 rules, generated from the code (`acr rules`; `acr explain <id>` for details):
 
 <!-- regenerate: acr rules --format markdown -->
 
@@ -262,6 +262,7 @@ acr review --base origin/main --ai openai
 | Kubernetes | `ACR-K8S-013` | medium | Container binds a port directly on the node (hostPort) |
 | Kubernetes | `ACR-K8S-014` | high | Container sees the host's unmasked /proc (procMount: Unmasked) |
 | Kubernetes | `ACR-K8S-015` | medium | Ingress injects raw NGINX configuration through a snippet annotation |
+| Kubernetes | `ACR-K8S-016` | medium | Namespace switches Pod Security Admission to privileged |
 | Dockerfile | `ACR-DOCKER-001` | medium | Base image not pinned (latest or no tag) |
 | Dockerfile | `ACR-DOCKER-002` | medium | Image runs as root (no USER instruction) |
 | Dockerfile | `ACR-DOCKER-003` | high | Remote script piped straight into a shell |
