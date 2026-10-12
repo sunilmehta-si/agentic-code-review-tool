@@ -160,3 +160,12 @@ def self_hosted_pr(path, text, lines):
                 yield make(info, path, i)
             elif not re.match(r"^\s*-", line):
                 in_runs_on = False
+
+
+@rule("ACR-GHA-010", "Insecure workflow commands re-enabled (ACTIONS_ALLOW_UNSECURE_COMMANDS)", Severity.HIGH, "ci-cd", GHA,
+      fix="Remove the variable and write to $GITHUB_ENV / $GITHUB_PATH. With it on, any log line that prints untrusted "
+          "text can set environment variables such as LD_PRELOAD for later steps.",
+      references=["https://github.blog/changelog/2020-10-01-github-actions-deprecating-set-env-and-add-path-commands/"])
+def unsecure_commands(path, text, lines):
+    pat = re.compile(r"ACTIONS_ALLOW_UNSECURE_COMMANDS\s*[:=]\s*['\"]?(true|1)\b", re.I)
+    yield from line_matches(unsecure_commands.info, path, lines, pat)

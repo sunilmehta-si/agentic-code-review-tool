@@ -419,3 +419,10 @@ class ExposedServiceRule(unittest.TestCase):
         self.assertNotIn("ACR-K8S-017", ids("s.yaml", internal, {"kubernetes"}))
         web = self.SVC.format(extra="").replace("8265", "443")
         self.assertNotIn("ACR-K8S-017", ids("s.yaml", web, {"kubernetes"}))
+
+
+class UnsecureCommandsRule(unittest.TestCase):
+    def test_env_flag(self):
+        wf = "permissions: {}\njobs:\n  a:\n    env:\n      ACTIONS_ALLOW_UNSECURE_COMMANDS: true\n"
+        self.assertIn("ACR-GHA-010", ids(".github/workflows/x.yml", wf, {"github-actions"}))
+        self.assertEqual(ids(".github/workflows/x.yml", wf.replace("true", "false"), {"github-actions"}), [])
