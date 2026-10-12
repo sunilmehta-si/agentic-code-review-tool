@@ -377,3 +377,9 @@ class HostPortRule(unittest.TestCase):
         self.assertIn("ACR-K8S-013", ids("p.yaml", "ports:\n  - containerPort: 8080\n    hostPort: 80\n", k8s))
         self.assertIn("ACR-K8S-013", ids("p.yaml", "ports: [{containerPort: 53, hostPort: 53}]\n", k8s))
         self.assertEqual(ids("p.yaml", "ports:\n  - containerPort: 8080\n", k8s), [])
+
+
+class UnmaskedProcRule(unittest.TestCase):
+    def test_proc_mount(self):
+        self.assertIn("ACR-K8S-014", ids("p.yaml", "securityContext:\n  procMount: Unmasked\n", {"kubernetes"}))
+        self.assertEqual(ids("p.yaml", "securityContext:\n  procMount: Default\n", {"kubernetes"}), [])

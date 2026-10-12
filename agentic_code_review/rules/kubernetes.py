@@ -106,6 +106,13 @@ def host_port(path, text, lines):
     yield from line_matches(host_port.info, path, lines, re.compile(r"(^\s*-?\s*|[{,]\s*)hostPort\s*:\s*['\"]?[1-9]\d*"))
 
 
+@rule("ACR-K8S-014", "Container sees the host's unmasked /proc (procMount: Unmasked)", Severity.HIGH, "kubernetes", K8S,
+      fix="Remove procMount or set it to Default; the masked /proc hides kernel interfaces a container can abuse to escape.",
+      references=[PSS])
+def unmasked_proc(path, text, lines):
+    yield from line_matches(unmasked_proc.info, path, lines, re.compile(r"\bprocMount\s*:\s*['\"]?Unmasked\b"))
+
+
 def _workloads(text: str):
     try:
         import yaml  # optional dependency
