@@ -210,7 +210,7 @@ acr review --base origin/main --ai openai
 
 ## Built-in rules
 
-79 rules, generated from the code (`acr rules`; `acr explain <id>` for details):
+80 rules, generated from the code (`acr rules`; `acr explain <id>` for details):
 
 <!-- regenerate: acr rules --format markdown -->
 
@@ -295,6 +295,7 @@ acr review --base origin/main --ai openai
 | Terraform | `ACR-TF-009` | high | Resource policy allows any principal ("*") without conditions |
 | Terraform | `ACR-TF-010` | medium | Encryption key rotation turned off |
 | Terraform | `ACR-TF-011` | medium | Cloud audit logging turned off |
+| Terraform | `ACR-TF-012` | low | Bucket uses per-object ACLs instead of uniform access |
 
 ## Optional scanners
 

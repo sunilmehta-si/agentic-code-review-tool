@@ -484,3 +484,10 @@ class AuditLoggingRule(unittest.TestCase):
         self.assertEqual(ids("t.tf", trail.replace("false", "true"), {"terraform"}), [])
         other = 'resource "aws_lb" "x" {\n  enable_logging = false\n}\n'  # only the audit trail counts
         self.assertNotIn("ACR-TF-011", ids("t.tf", other, {"terraform"}))
+
+
+class UniformAccessRule(unittest.TestCase):
+    def test_uniform_access_off(self):
+        b = 'resource "google_storage_bucket" "b" {\n  uniform_bucket_level_access = false\n}\n'
+        self.assertIn("ACR-TF-012", ids("b.tf", b, {"terraform"}))
+        self.assertEqual(ids("b.tf", b.replace("false", "true"), {"terraform"}), [])

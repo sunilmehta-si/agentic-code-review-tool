@@ -193,3 +193,11 @@ def audit_logging(path, text, lines):
         for i in range(start, end + 1):
             if pat.search(lines[i - 1]):
                 yield make(audit_logging.info, path, i)
+
+
+@rule("ACR-TF-012", "Bucket uses per-object ACLs instead of uniform access", Severity.LOW, "iac", TF,
+      fix="Set uniform_bucket_level_access = true (and public_access_prevention = \"enforced\") so access is governed by "
+          "IAM alone and one object can't be made public by its own ACL.",
+      references=["https://cloud.google.com/storage/docs/uniform-bucket-level-access"])
+def object_acls(path, text, lines):
+    yield from line_matches(object_acls.info, path, lines, re.compile(r"\buniform_bucket_level_access\s*=\s*false\b"))
