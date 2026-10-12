@@ -210,7 +210,7 @@ acr review --base origin/main --ai openai
 
 ## Built-in rules
 
-80 rules, generated from the code (`acr rules`; `acr explain <id>` for details):
+81 rules, generated from the code (`acr rules`; `acr explain <id>` for details):
 
 <!-- regenerate: acr rules --format markdown -->
 
@@ -242,6 +242,7 @@ acr review --base origin/main --ai openai
 | AI / LLM / agent code | `ACR-AI-009` | medium | Agent loop has no step or iteration limit (LLM10 Unbounded Consumption) |
 | AI / LLM / agent code | `ACR-AI-010` | high | Coding agent run with its permission checks or sandbox turned off (LLM06 Excessive Agency) |
 | AI / LLM / agent code | `ACR-AI-011` | high | Agent settings pre-approve any shell command or risky ones (LLM06 Excessive Agency) |
+| AI / LLM / agent code | `ACR-AI-012` | high | Model server started with remote code execution enabled (LLM03 Supply Chain) |
 | AI / LLM / agent code | `ACR-MCP-001` | high | MCP server installed from an unpinned package |
 | AI / LLM / agent code | `ACR-MCP-003` | high | MCP server over plain HTTP or with broad host access |
 | AI / LLM / agent code | `ACR-MCP-004` | medium | MCP tools run without asking the user |

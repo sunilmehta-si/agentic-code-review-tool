@@ -491,3 +491,12 @@ class UniformAccessRule(unittest.TestCase):
         b = 'resource "google_storage_bucket" "b" {\n  uniform_bucket_level_access = false\n}\n'
         self.assertIn("ACR-TF-012", ids("b.tf", b, {"terraform"}))
         self.assertEqual(ids("b.tf", b.replace("false", "true"), {"terraform"}), [])
+
+
+class ServerRemoteCodeRule(unittest.TestCase):
+    def test_launch_flags_and_env(self):
+        dep = "containers:\n  - name: vllm\n    args:\n      - --model=org/m\n      - --trust-remote-code\n"
+        self.assertIn("ACR-AI-012", ids("d.yaml", dep, {"kubernetes"}))
+        self.assertIn("ACR-AI-012", ids("Dockerfile", 'FROM a:1\nCMD ["vllm", "serve", "org/m", "--trust-remote-code"]\n', {"dockerfile"}))
+        self.assertIn("ACR-AI-012", ids("run.sh", "TRUST_REMOTE_CODE=true text-generation-launcher --model-id org/m\n", {"shell"}))
+        self.assertEqual(ids("run.sh", "vllm serve org/m --revision 3f2a1c\n", {"shell"}), [])

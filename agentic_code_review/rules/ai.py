@@ -144,3 +144,13 @@ def agent_permissions_off(path, text, lines):
         r"|\b(claude|codex|gemini)\b[^\n]*\s--yolo\b"  # acr:ignore[ACR-AI-010]
         r"|bypassPermissions|danger-full-access")  # acr:ignore[ACR-AI-010]
     yield from line_matches(agent_permissions_off.info, path, lines, pat)
+
+
+@rule("ACR-AI-012", "Model server started with remote code execution enabled (LLM03 Supply Chain)", Severity.HIGH,
+      "ai-security", ["kubernetes", "helm-template", "dockerfile", "shell", "github-actions"],
+      fix="Drop --trust-remote-code. If a model really needs custom code, vendor and review it, and pin the model with "
+          "--revision <commit> so the code you reviewed is the code that runs.",
+      references=[OWASP_LLM, "https://huggingface.co/docs/transformers/models#custom-models"])
+def server_remote_code(path, text, lines):
+    pat = re.compile(r"--trust-remote-code\b|\bTRUST_REMOTE_CODE\s*[:=]\s*['\"]?(true|1)\b", re.I)
+    yield from line_matches(server_remote_code.info, path, lines, pat)
