@@ -235,3 +235,27 @@ def committed_secret(path, text, lines):
         if real:
             yield make(info, path, find_line(lines, re.compile(r"^\s*(data|stringData)\s*:")),
                        f"Secret '{(doc.get('metadata') or {}).get('name', '')}' holds {len(real)} literal value(s) (not shown).")
+
+
+# Services that ship without authentication by default; reachable from outside, anyone can use them.
+UNAUTHENTICATED_PORTS = {11434: "Ollama API", 8265: "Ray dashboard/jobs API", 10001: "Ray client", 8888: "Jupyter",
+                         6379: "Redis", 9200: "Elasticsearch", 27017: "MongoDB", 2375: "Docker API"}
+
+
+@rule("ACR-K8S-017", "Unauthenticated service exposed outside the cluster", Severity.HIGH, "kubernetes", ["kubernetes"],
+      fix="Keep it a ClusterIP Service and reach it through an authenticating proxy or VPN; if it must be public, restrict "
+          "loadBalancerSourceRanges and turn on the service's own authentication.",
+      references=["https://kubernetes.io/docs/concepts/services-networking/service/#publishing-services-service-types"])
+def exposed_service(path, text, lines):
+    info = exposed_service.info
+    for doc in _docs(text, {"Service"}):
+        spec = doc.get("spec") or {}
+        if spec.get("type") not in ("LoadBalancer", "NodePort") or spec.get("loadBalancerSourceRanges"):
+            continue
+        for port in spec.get("ports") or []:
+            nums = {p for p in (port.get("port"), port.get("targetPort")) if isinstance(p, int)}
+            hit = sorted(nums & set(UNAUTHENTICATED_PORTS))
+            if hit:
+                name = (doc.get("metadata") or {}).get("name", "")
+                yield make(info, path, find_line(lines, re.compile(rf"^\s*-?\s*(port|targetPort)\s*:\s*{hit[0]}\b")),
+                           f"{spec['type']} Service '{name}' exposes {UNAUTHENTICATED_PORTS[hit[0]]} (port {hit[0]}).")

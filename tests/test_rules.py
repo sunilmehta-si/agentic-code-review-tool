@@ -400,3 +400,22 @@ class PodSecurityLabelRule(unittest.TestCase):
         self.assertIn("ACR-K8S-016", ids("ns.yaml", ns, {"kubernetes"}))
         self.assertEqual(ids("ns.yaml", ns.replace("enforce: privileged", "enforce: restricted"), {"kubernetes"}), [])
         self.assertEqual(ids("ns.yaml", ns.replace("enforce:", "warn:"), {"kubernetes"}), [])
+
+
+class ExposedServiceRule(unittest.TestCase):
+    SVC = ("apiVersion: v1\nkind: Service\nmetadata:\n  name: ray\nspec:\n  type: LoadBalancer\n{extra}  ports:\n"
+           "    - name: dashboard\n      port: 8265\n")
+
+    def test_public_unauthenticated_ports(self):
+        from agentic_code_review.rules import base
+        found = [f for f in base.run_rules("s.yaml", self.SVC.format(extra=""), {"kubernetes"}) if f.rule_id == "ACR-K8S-017"]
+        self.assertEqual([f.line for f in found], [9])
+        self.assertIn("Ray dashboard", found[0].detail)
+
+    def test_restricted_or_internal_services_pass(self):
+        restricted = self.SVC.format(extra="  loadBalancerSourceRanges: [10.0.0.0/8]\n")
+        self.assertNotIn("ACR-K8S-017", ids("s.yaml", restricted, {"kubernetes"}))
+        internal = self.SVC.format(extra="").replace("LoadBalancer", "ClusterIP")
+        self.assertNotIn("ACR-K8S-017", ids("s.yaml", internal, {"kubernetes"}))
+        web = self.SVC.format(extra="").replace("8265", "443")
+        self.assertNotIn("ACR-K8S-017", ids("s.yaml", web, {"kubernetes"}))
