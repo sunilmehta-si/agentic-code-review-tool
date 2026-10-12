@@ -81,6 +81,25 @@ ai: claude                       # none | claude | openai
 
 Unknown or invalid settings stop the run with a clear error instead of being silently ignored.
 
+### Custom rules
+
+Encode your own conventions as line patterns. They run on changed lines like built-in rules and honour `acr:ignore`,
+`disable`, `severity` overrides and the baseline:
+
+```yaml
+custom_rules:
+  - id: ORG-001                    # your prefix; ACR- is reserved
+    title: Internal service called over plain HTTP
+    pattern: 'http://[a-z0-9-]+\.internal\b'
+    severity: high                 # critical | high | medium | low | info (default medium)
+    files: ["*.py", "services/*"]  # optional globs (default: every file)
+    category: app-security         # optional, shapes the "By area" summary
+    fix: Call the https:// endpoint through the service mesh.
+```
+
+`acr rules` lists them next to the built-in rules and `acr explain ORG-001` shows the pattern and fix. A broken pattern
+or an unknown key stops the review with a message naming the rule.
+
 **Adopting on an existing codebase:** run `acr baseline` once and commit `.acr-baseline.json`. Known findings are suppressed,
 matched by rule and line *content* so they survive code moving around, and only new problems fail pull requests.
 
