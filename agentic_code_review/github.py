@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import json
 import os
+import re
 import urllib.error
 import urllib.request
 
@@ -17,6 +18,9 @@ from .report import comment_body, to_markdown
 
 API = os.environ.get("GITHUB_API_URL", "https://api.github.com")
 MAX_INLINE = 50
+MARKER = "<!-- acr:{} -->"            # hidden in each inline comment; identifies the finding across pushes
+MARKER_RE = re.compile(r"<!-- acr:([0-9a-f]{8,64}) -->")
+MAX_PAGES = 10
 
 
 class GitHubError(RuntimeError):
@@ -51,10 +55,32 @@ def _request(method: str, url: str, token: str, body: dict | None = None) -> dic
         raise GitHubError(f"GitHub API {exc.code}: {exc.read().decode(errors='replace')[:300]}") from exc
 
 
-def build_review(result: ReviewResult, threshold: Severity, commit_id: str | None) -> dict:
+def _posted_markers(repo: str, number: int, token: str, request) -> set[str]:
+    """Fingerprints of findings this tool already commented on in earlier runs (best effort)."""
+    seen: set[str] = set()
+    try:
+        for page in range(1, MAX_PAGES + 1):
+            batch = request("GET", f"{API}/repos/{repo}/pulls/{number}/comments?per_page=100&page={page}", token, None)
+            if not isinstance(batch, list):
+                break
+            seen.update(m for c in batch for m in MARKER_RE.findall(str((c or {}).get("body", ""))))
+            if len(batch) < 100:
+                break
+    except GitHubError:
+        return set()  # listing is an optimisation; never block the review on it
+    return seen
+
+
+def build_review(result: ReviewResult, threshold: Severity, commit_id: str | None, already: set[str] = frozenset()) -> dict:
     shown = [f for f in result.findings if f.ai_verdict != "false_positive"]
-    comments = [{"path": f.path, "line": f.line, "side": "RIGHT", "body": comment_body(f)} for f in shown[:MAX_INLINE]]
+    fresh = [f for f in shown if not f.fingerprint or f.fingerprint not in already]
+    comments = [{"path": f.path, "line": f.line, "side": "RIGHT",
+                 "body": comment_body(f) + (f"\n\n{MARKER.format(f.fingerprint)}" if f.fingerprint else "")}
+                for f in fresh[:MAX_INLINE]]
     body = to_markdown(result, threshold)
+    if len(shown) > len(fresh):
+        body += f"\n\n_{len(shown) - len(fresh)} finding(s) were already commented on in an earlier run and are not repeated._"
+    shown = fresh
     if len(shown) > MAX_INLINE:
         body += f"\n\n_{len(shown) - MAX_INLINE} more finding(s) are in the summary table but not commented inline._"
     review = {"body": body, "event": "COMMENT", "comments": comments}
@@ -70,7 +96,7 @@ def post_review(result: ReviewResult, threshold: Severity, repo: str | None = No
         raise GitHubError("GITHUB_TOKEN is not set.")
     repo, number, sha = pr_context(repo, pr)
     url = f"{API}/repos/{repo}/pulls/{number}/reviews"
-    review = build_review(result, threshold, sha)
+    review = build_review(result, threshold, sha, _posted_markers(repo, number, token, request))
     try:
         resp = request("POST", url, token, review)
     except GitHubError as exc:
