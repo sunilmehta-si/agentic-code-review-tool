@@ -172,3 +172,10 @@ def public_principal(path, text, lines):
         for i in range(start, end + 1):
             if wildcard.search(lines[i - 1]):
                 yield make(info, path, i)
+
+
+@rule("ACR-TF-010", "Encryption key rotation turned off", Severity.MEDIUM, "iac", TF,
+      fix="Set enable_key_rotation = true on customer-managed KMS keys so a leaked or over-used key material is replaced yearly.",
+      references=["https://docs.aws.amazon.com/kms/latest/developerguide/rotate-keys.html"])
+def key_rotation(path, text, lines):
+    yield from line_matches(key_rotation.info, path, lines, re.compile(r"\benable_key_rotation\s*=\s*false\b"))

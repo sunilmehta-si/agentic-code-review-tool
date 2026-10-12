@@ -468,3 +468,10 @@ class PublicPrincipalRule(unittest.TestCase):
         scoped = ('data "aws_iam_policy_document" "d" {\n  statement {\n    principals {\n      type = "*"\n      identifiers = ["*"]\n'
                   '    }\n    condition {\n      test = "StringEquals"\n      variable = "aws:SourceVpce"\n      values = ["vpce-1"]\n    }\n  }\n}\n')
         self.assertNotIn("ACR-TF-009", ids("p.tf", scoped, tf))
+
+
+class KeyRotationRule(unittest.TestCase):
+    def test_rotation_off(self):
+        key = 'resource "aws_kms_key" "k" {\n  enable_key_rotation = false\n}\n'
+        self.assertIn("ACR-TF-010", ids("k.tf", key, {"terraform"}))
+        self.assertEqual(ids("k.tf", key.replace("false", "true"), {"terraform"}), [])
