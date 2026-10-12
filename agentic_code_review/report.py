@@ -71,6 +71,8 @@ def to_markdown(result: ReviewResult, threshold: Severity = Severity.HIGH) -> st
         lines.append(f"{result.baselined} known finding(s) suppressed by the baseline.")
     if result.scanners_missing:
         lines.append(f"<sub>Not installed (skipped): {', '.join(result.scanners_missing)}</sub>")
+    if result.skipped:
+        lines.append(f"<sub>{len(result.skipped)} binary or oversized file(s) were not reviewed.</sub>")
     if shown:
         lines += ["", "| | Severity | Location | Issue | Rule |", "|---|---|---|---|---|"]
         for f in shown:
@@ -87,7 +89,7 @@ def to_markdown(result: ReviewResult, threshold: Severity = Severity.HIGH) -> st
 
 def to_json(result: ReviewResult) -> str:
     return json.dumps({"version": __version__, "counts": result.counts(), "scanners_run": result.scanners_run,
-                       "scanners_missing": result.scanners_missing, "files_reviewed": sorted(result.file_kinds),
+                       "scanners_missing": result.scanners_missing, "files_reviewed": sorted(result.file_kinds), "files_skipped": result.skipped,
                        "ai": {"provider": result.ai_provider, "summary": result.ai_summary, "error": result.ai_error,
                               "usage": result.ai_usage},
                        "findings": [f.to_dict() for f in result.findings]}, indent=2)

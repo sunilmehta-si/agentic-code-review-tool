@@ -34,6 +34,7 @@ class ReviewResult:
     ai_error: str = ""
     ai_usage: dict = field(default_factory=dict)
     baselined: int = 0
+    skipped: list[str] = field(default_factory=list)   # binary, oversized or unreadable files
 
     def counts(self) -> dict[str, int]:
         out = {s.label(): 0 for s in sorted(Severity, reverse=True)}
@@ -109,10 +110,12 @@ def review(root: Path, base: str | None = None, head: str | None = None, full: b
     findings: list[Finding] = []
     file_kinds: dict[str, set[str]] = {}
     file_lines: dict[str, list[str]] = {}
+    skipped: list[str] = []
     for path in sorted(files):
         # In staged mode rules read what will be committed, not unstaged edits in the working tree.
         text = diff.staged_text(root, path, MAX_BYTES) if staged else _read(root, path)
         if text is None:
+            skipped.append(path)
             continue
         k = classify(path, text)
         file_kinds[path] = k
@@ -150,4 +153,5 @@ def review(root: Path, base: str | None = None, head: str | None = None, full: b
 
     # Keep only findings on lines this change touches (every line counts in full mode).
     kept = [f for f in findings if f.path in files and files[f.path].touches(f.line, f.end_line)]
-    return ReviewResult(findings=dedupe(kept), files=files, file_kinds=file_kinds, scanners_run=ran, scanners_missing=missing)
+    return ReviewResult(findings=dedupe(kept), files=files, file_kinds=file_kinds, scanners_run=ran, scanners_missing=missing,
+                        skipped=skipped)

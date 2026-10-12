@@ -184,3 +184,16 @@ class RulesFormatTests(unittest.TestCase):
             main(["rules", "--format", "markdown"])
         readme = (Path(__file__).resolve().parents[1] / "README.md").read_text()
         self.assertIn(buf.getvalue().strip(), readme, "README rule table is stale: run `acr rules --format markdown`")
+
+
+class SkippedFilesTests(unittest.TestCase):
+    def test_binary_and_oversized_files_are_reported(self):
+        from agentic_code_review import engine
+        root = git_repo({"a.py": "x = 1\n"})
+        (root / "model.bin").write_bytes(b"\x00\x01weights")
+        (root / "big.py").write_text("x = 1\n" * 10)
+        with mock.patch.object(engine, "MAX_BYTES", 30):
+            result = review(root, use_scanners=False)
+        self.assertEqual(result.skipped, ["big.py", "model.bin"])
+        self.assertIn("2 binary or oversized file(s)", report.to_markdown(result))
+        self.assertEqual(json.loads(report.to_json(result))["files_skipped"], ["big.py", "model.bin"])
