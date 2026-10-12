@@ -17,6 +17,7 @@ SARIF_LEVEL = {Severity.CRITICAL: "error", Severity.HIGH: "error", Severity.MEDI
 # GitHub maps this numeric property onto its critical/high/medium/low security severities.
 SECURITY_SEVERITY = {Severity.CRITICAL: "9.5", Severity.HIGH: "8.0", Severity.MEDIUM: "5.5", Severity.LOW: "3.0", Severity.INFO: "0.0"}
 TOOL_URI = "https://github.com/sunilmehta-si/agentic-code-review-tool"
+TABLE_ROWS = 25
 ANNOTATION_LEVEL = {Severity.CRITICAL: "error", Severity.HIGH: "error", Severity.MEDIUM: "warning", Severity.LOW: "notice",
                     Severity.INFO: "notice"}
 
@@ -99,10 +100,16 @@ def to_markdown(result: ReviewResult, threshold: Severity = Severity.HIGH) -> st
         lines.append(f"<sub>{len(result.skipped)} binary or oversized file(s) were not reviewed.</sub>")
     if shown:
         base = _blob_base()
-        lines += ["", "| | Severity | Location | Issue | Rule |", "|---|---|---|---|---|"]
+        header = ["| | Severity | Location | Issue | Rule |", "|---|---|---|---|---|"]
+        rows = []
         for f in shown:
             title = f.title.replace("|", "\\|")
-            lines.append(f"| {ICON[f.severity]} | {f.severity.label()} | {_location(f, base)} | {title} | `{f.rule_id}` |")
+            rows.append(f"| {ICON[f.severity]} | {f.severity.label()} | {_location(f, base)} | {title} | `{f.rule_id}` |")
+        # Findings are sorted most severe first, so the visible rows are the ones that matter.
+        lines += ["", *header, *rows[:TABLE_ROWS]]
+        if len(rows) > TABLE_ROWS:
+            lines += ["", f"<details><summary>{len(rows) - TABLE_ROWS} more finding(s)</summary>", "", *header,
+                      *rows[TABLE_ROWS:], "", "</details>"]
         if blocking:
             lines += ["", "<details><summary>How to fix the blocking issues</summary>", ""]
             for f in blocking:

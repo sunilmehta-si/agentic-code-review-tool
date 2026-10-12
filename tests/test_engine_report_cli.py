@@ -296,3 +296,13 @@ class MarkdownLinkTests(unittest.TestCase):
         with mock.patch.dict("os.environ", env):
             md = report.to_markdown(r)
         self.assertIn("[`src/my app.py:7`](https://github.com/o/r/blob/abc123/src/my%20app.py#L7)", md)
+
+
+class LongTableTests(unittest.TestCase):
+    def test_rows_beyond_the_limit_are_collapsed(self):
+        from agentic_code_review.engine import ReviewResult
+        many = [Finding("ACR-APP-007", "Weak hash", Severity.LOW, "a.py", n, "acr", "app-security") for n in range(1, 31)]
+        md = report.to_markdown(ReviewResult(many, {}, {}))
+        self.assertIn("<details><summary>5 more finding(s)</summary>", md)
+        self.assertEqual(md.count("| 🔵 | low |"), 30)
+        self.assertNotIn("more finding(s)", report.to_markdown(ReviewResult(many[:25], {}, {})))
