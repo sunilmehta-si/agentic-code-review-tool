@@ -155,3 +155,20 @@ def instance_metadata(path, text, lines):
     pat = re.compile(r'\bhttp_tokens\s*=\s*"optional"|\bmode\s*=\s*"GCE_METADATA"|"?disable-legacy-endpoints"?\s*=\s*"?false"?'
                      r'|\bnode_metadata\s*=\s*"(EXPOSE|UNSPECIFIED)"')
     yield from line_matches(instance_metadata.info, path, lines, pat)
+
+
+@rule("ACR-TF-009", "Resource policy allows any principal (\"*\") without conditions", Severity.HIGH, "iac", TF,
+      fix="Name the accounts, roles or services that need access, or add a Condition (aws:SourceVpce, aws:PrincipalOrgID, "
+          "aws:SourceArn) that narrows who \"*\" can be.",
+      references=["https://docs.aws.amazon.com/IAM/latest/UserGuide/reference_policies_elements_principal.html"])
+def public_principal(path, text, lines):
+    info = public_principal.info
+    wildcard = re.compile(r'"?Principal"?\s*[:=]\s*("\*"|\{\s*"?AWS"?\s*[:=]\s*"\*")|identifiers\s*=\s*\[\s*"\*"\s*\]')
+    for start, end, _header in _blocks(lines):
+        block = "\n".join(lines[start - 1:end])
+        # Deny statements with "*" are the safe idiom (e.g. deny insecure transport); conditions may scope "*" down.
+        if re.search(r"\bcondition\b|\bDeny\b", block, re.I):
+            continue
+        for i in range(start, end + 1):
+            if wildcard.search(lines[i - 1]):
+                yield make(info, path, i)

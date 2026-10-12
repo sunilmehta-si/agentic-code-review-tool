@@ -446,3 +446,25 @@ class CopiedCredentialsRule(unittest.TestCase):
         df = {"dockerfile"}
         for line in ("COPY .env.example /app/", "COPY . /app", "COPY keys.py /app/", "COPY ca.pem /etc/ssl/certs/"):
             self.assertNotIn("ACR-DOCKER-009", ids("Dockerfile", f"FROM a:1\n{line}\nUSER 1\n", df), line)
+
+
+class PublicPrincipalRule(unittest.TestCase):
+    def test_wildcard_principals(self):
+        tf = {"terraform"}
+        json_policy = ('resource "aws_s3_bucket_policy" "p" {\n  policy = <<EOF\n{"Statement": [{"Effect": "Allow",\n'
+                       '  "Principal": "*", "Action": "s3:GetObject"}]}\nEOF\n}\n')
+        self.assertIn("ACR-TF-009", ids("p.tf", json_policy, tf))
+        doc = ('data "aws_iam_policy_document" "d" {\n  statement {\n    principals {\n      type = "AWS"\n'
+               '      identifiers = ["*"]\n    }\n    actions = ["sqs:SendMessage"]\n  }\n}\n')
+        self.assertIn("ACR-TF-009", ids("p.tf", doc, tf))
+        encoded = 'resource "aws_sns_topic_policy" "t" {\n  policy = jsonencode({ Statement = [{ Effect = "Allow", Principal = { AWS = "*" } }] })\n}\n'
+        self.assertIn("ACR-TF-009", ids("p.tf", encoded, tf))
+
+    def test_conditions_and_denies_pass(self):
+        tf = {"terraform"}
+        deny = ('resource "aws_s3_bucket_policy" "p" {\n  policy = jsonencode({ Statement = [{ Effect = "Deny", Principal = "*",\n'
+                '    Condition = { Bool = { "aws:SecureTransport" = "false" } } }] })\n}\n')
+        self.assertNotIn("ACR-TF-009", ids("p.tf", deny, tf))
+        scoped = ('data "aws_iam_policy_document" "d" {\n  statement {\n    principals {\n      type = "*"\n      identifiers = ["*"]\n'
+                  '    }\n    condition {\n      test = "StringEquals"\n      variable = "aws:SourceVpce"\n      values = ["vpce-1"]\n    }\n  }\n}\n')
+        self.assertNotIn("ACR-TF-009", ids("p.tf", scoped, tf))
