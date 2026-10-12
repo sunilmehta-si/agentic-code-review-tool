@@ -500,3 +500,13 @@ class ServerRemoteCodeRule(unittest.TestCase):
         self.assertIn("ACR-AI-012", ids("Dockerfile", 'FROM a:1\nCMD ["vllm", "serve", "org/m", "--trust-remote-code"]\n', {"dockerfile"}))
         self.assertIn("ACR-AI-012", ids("run.sh", "TRUST_REMOTE_CODE=true text-generation-launcher --model-id org/m\n", {"shell"}))
         self.assertEqual(ids("run.sh", "vllm serve org/m --revision 3f2a1c\n", {"shell"}), [])
+
+
+class PublicDemoRule(unittest.TestCase):
+    def test_share_links(self):
+        from agentic_code_review.rules import base
+        self.assertIn("ACR-AI-013", ids("app.py", "demo.launch(share=True)\n", PY))
+        self.assertIn("ACR-AI-013", ids("app.py", "demo.queue(max_size=8).launch(server_name='0.0.0.0', share=True)\n", PY))
+        guarded = [f.severity.label() for f in base.run_rules("app.py", "demo.launch(share=True, auth=check)\n", PY)]
+        self.assertEqual(guarded, ["low"])
+        self.assertEqual(ids("app.py", "demo.launch()\n", PY), [])

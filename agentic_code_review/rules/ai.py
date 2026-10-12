@@ -154,3 +154,15 @@ def agent_permissions_off(path, text, lines):
 def server_remote_code(path, text, lines):
     pat = re.compile(r"--trust-remote-code\b|\bTRUST_REMOTE_CODE\s*[:=]\s*['\"]?(true|1)\b", re.I)
     yield from line_matches(server_remote_code.info, path, lines, pat)
+
+
+@rule("ACR-AI-013", "Model demo published on a public share link", Severity.MEDIUM, "ai-security", ["lang:python"],
+      fix="Remove share=True. Anyone with the *.gradio.live link can use the app (and your model, GPU and API keys behind it); "
+          "deploy it behind authentication instead, or pass auth=... at the very least.",
+      references=["https://www.gradio.app/guides/sharing-your-app"])
+def public_demo(path, text, lines):
+    pat = re.compile(r"\.(launch|queue\([^)]*\)\.launch)\([^)]*\bshare\s*=\s*True")
+    for f in line_matches(public_demo.info, path, lines, pat):
+        if "auth=" in lines[f.line - 1]:
+            f.severity, f.detail = Severity.LOW, "The link is public but protected by auth=; check the credentials are not hardcoded."
+        yield f
