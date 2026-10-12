@@ -88,3 +88,26 @@ class SeverityGlobTests(unittest.TestCase):
         self.assertEqual(_override("ACR-K8S-005", o), Severity.MEDIUM)
         self.assertEqual(_override("ACR-K8S-010", o), Severity.LOW)
         self.assertIsNone(_override("ACR-TF-001", o))
+
+
+class IncludeConfigTests(unittest.TestCase):
+    def test_include_from_file_and_flag_precedence(self):
+        import io
+        import json
+        from contextlib import redirect_stdout
+
+        from agentic_code_review.cli import main
+        root = git_repo({"README.md": "x\n"})
+        for rel in ("api/a.py", "web/a.py"):
+            (root / rel).parent.mkdir(parents=True, exist_ok=True)
+            (root / rel).write_text("os.system(cmd)\n")
+        (root / ".acr.yml").write_text("include: ['api/*']\n")
+        self.assertEqual(load(root).include, ["api/*"])
+
+        def paths(*extra):
+            buf = io.StringIO()
+            with redirect_stdout(buf):
+                main(["review", "--root", str(root), "--no-scanners", "--format", "json", "--fail-on", "never", *extra])
+            return {f["path"] for f in json.loads(buf.getvalue())["findings"]}
+        self.assertEqual(paths(), {"api/a.py"})
+        self.assertEqual(paths("--include", "web/*"), {"web/a.py"})  # the flag wins over the file

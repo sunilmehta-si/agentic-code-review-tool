@@ -2,6 +2,7 @@
 
     fail_on: high                  # critical | high | medium | low | never
     exclude: ["docs/*", "*.generated.go"]
+    include: ["services/api/*"]    # only review these paths (default: everything)
     disable: ["ACR-AI-007", "hadolint:*"]   # rule ids or globs
     severity:                      # per-rule overrides (ids or globs; an exact id wins)
       ACR-K8S-009: medium
@@ -21,7 +22,7 @@ from .models import Severity
 
 FILENAMES = (".acr.yml", ".acr.yaml")
 FAIL_VALUES = ("critical", "high", "medium", "low", "never")
-KNOWN_KEYS = {"fail_on", "exclude", "disable", "severity", "scanners", "ai", "baseline"}
+KNOWN_KEYS = {"fail_on", "exclude", "include", "disable", "severity", "scanners", "ai", "baseline"}
 
 
 STARTER = """\
@@ -51,6 +52,7 @@ class ConfigError(ValueError):
 class Config:
     fail_on: str | None = None
     exclude: list[str] = field(default_factory=list)
+    include: list[str] = field(default_factory=list)
     disable: list[str] = field(default_factory=list)
     severity: dict[str, Severity] = field(default_factory=dict)
     scanners: list[str] | None = None
@@ -101,6 +103,6 @@ def load(root: Path) -> Config:
         raise ConfigError("ai must be none, claude or openai.")
     scanners = data.get("scanners")
     return Config(fail_on=str(fail_on).lower() if fail_on is not None else None,
-                  exclude=_list(data.get("exclude"), "exclude"), disable=_list(data.get("disable"), "disable"),
+                  exclude=_list(data.get("exclude"), "exclude"), include=_list(data.get("include"), "include"), disable=_list(data.get("disable"), "disable"),
                   severity=sev, scanners=_list(scanners, "scanners") if scanners is not None else None,
                   ai=None if ai in (None, "none") else str(ai), baseline=data.get("baseline"), source=path.name)
