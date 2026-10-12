@@ -140,3 +140,28 @@ class CustomRuleConfigTests(unittest.TestCase):
         for body, message in cases.items():
             with self.subTest(message=message), self.assertRaisesRegex(ConfigError, message):
                 self._load(body)
+
+
+class CustomRuleEngineTests(unittest.TestCase):
+    def test_custom_rules_run_on_changed_lines_and_obey_policy(self):
+        import io
+        import json
+        from contextlib import redirect_stdout
+
+        from agentic_code_review.cli import main
+        root = git_repo({"svc/a.py": "x = 1\n", "docs/n.md": "x\n"})
+        (root / "svc/a.py").write_text("x = 1\nURL = 'http://billing.internal/v1'\nOK = 'http://billing.internal/v2'  # acr:ignore[ORG-001]\n")
+        (root / "docs/n.md").write_text("x\nsee http://billing.internal\n")
+        (root / ".acr.yml").write_text("custom_rules:\n  - id: ORG-001\n    title: Plain HTTP to an internal service\n"
+                                       "    pattern: 'http://[a-z]+\\.internal'\n    severity: high\n    files: ['*.py']\n"
+                                       "    fix: Use https through the mesh.\n")
+
+        def run(*extra):
+            buf = io.StringIO()
+            with redirect_stdout(buf):
+                code = main(["review", "--root", str(root), "--no-scanners", "--format", "json", *extra])
+            return code, [(f["rule_id"], f["path"], f["line"], f["severity"]) for f in json.loads(buf.getvalue())["findings"]]
+        self.assertEqual(run(), (1, [("ORG-001", "svc/a.py", 2, "high")]))  # the .md file is outside `files`
+        with open(root / ".acr.yml", "a") as fh:
+            fh.write("severity:\n  ORG-001: low\n")
+        self.assertEqual(run(), (0, [("ORG-001", "svc/a.py", 2, "low")]))

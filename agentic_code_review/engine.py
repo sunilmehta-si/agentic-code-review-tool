@@ -79,6 +79,20 @@ def _suppressed(file_lines: dict[str, list[str]], f: Finding) -> bool:
     return 1 <= f.line <= len(lines) and rules_base.ignored(lines[f.line - 1], f.rule_id)
 
 
+def _run_custom(custom_rules, path: str, lines: list[str]) -> list[Finding]:
+    """Team-defined line patterns from .acr.yml (config.CustomRule), reported like built-in rules."""
+    out: list[Finding] = []
+    name = path.rsplit("/", 1)[-1]
+    for cr in custom_rules:
+        if cr.files and not any(fnmatch.fnmatch(path, g) or fnmatch.fnmatch(name, g) for g in cr.files):
+            continue
+        for i, line in enumerate(lines, start=1):
+            if cr.pattern.search(line) and not rules_base.ignored(line, cr.rule_id):
+                out.append(Finding(rule_id=cr.rule_id, title=cr.title, severity=cr.severity, path=path, line=i, tool="acr",
+                                   category=cr.category, fix=cr.fix, references=list(cr.references)))
+    return out
+
+
 def dedupe(findings: list[Finding]) -> list[Finding]:
     """Merge the same issue reported by *different* tools on the same line; keep the most severe and credit the others.
 
@@ -103,7 +117,7 @@ def dedupe(findings: list[Finding]) -> list[Finding]:
 def review(root: Path, base: str | None = None, head: str | None = None, full: bool = False,
            use_scanners: bool = True, only_scanners: set[str] | None = None, excludes: tuple[str, ...] = (),
            disable: tuple[str, ...] = (), severity_overrides: dict[str, Severity] | None = None,
-           staged: bool = False, includes: tuple[str, ...] = ()) -> ReviewResult:
+           staged: bool = False, includes: tuple[str, ...] = (), custom_rules: tuple = ()) -> ReviewResult:
     root = root.resolve()
     files = diff.all_files(root) if full else diff.changed_files(root, base, head, staged=staged)
     files = {p: cf for p, cf in files.items() if not _excluded(p, excludes)}
@@ -124,6 +138,7 @@ def review(root: Path, base: str | None = None, head: str | None = None, full: b
         file_kinds[path] = k
         file_lines[path] = text.splitlines()
         findings.extend(rules_base.run_rules(path, text, k))
+        findings.extend(_run_custom(custom_rules, path, file_lines[path]))
 
     ran, missing, failed = [], [], {}
     if use_scanners:

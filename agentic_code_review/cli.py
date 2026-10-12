@@ -155,7 +155,7 @@ def _cmd_review(args: argparse.Namespace) -> int:
     result = review(Path(args.root), base=args.base, head=args.head, full=args.full,
                     use_scanners=not args.no_scanners, only_scanners=only, excludes=tuple(args.exclude) + tuple(cfg.exclude),
                     disable=tuple(cfg.disable), severity_overrides=cfg.severity, staged=args.staged,
-                    includes=tuple(args.include) or tuple(cfg.include))
+                    includes=tuple(args.include) or tuple(cfg.include), custom_rules=tuple(cfg.custom_rules))
     from . import baseline as baseline_mod
     baseline_mod.apply(Path(args.root).resolve(), result,
                        baseline_mod.load(Path(args.root).resolve(), args.baseline or cfg.baseline or baseline_mod.DEFAULT_PATH))
@@ -206,7 +206,8 @@ def _cmd_baseline(args: argparse.Namespace) -> int:
         print(f"acr: config error: {exc}", file=sys.stderr)
         return 2
     result = review(root, full=True, use_scanners=not args.no_scanners, excludes=tuple(cfg.exclude),
-                    disable=tuple(cfg.disable), severity_overrides=cfg.severity, includes=tuple(cfg.include))
+                    disable=tuple(cfg.disable), severity_overrides=cfg.severity, includes=tuple(cfg.include),
+                    custom_rules=tuple(cfg.custom_rules))
     path = args.output or cfg.baseline or baseline_mod.DEFAULT_PATH
     n = baseline_mod.write(root, result, path)
     print(f"acr: wrote {n} known finding(s) to {path}. Commit it; future reviews fail only on new findings.")
