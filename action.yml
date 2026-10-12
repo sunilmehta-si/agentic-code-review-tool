@@ -41,6 +41,15 @@ outputs:
   sarif-file:
     description: Path of the SARIF report.
     value: ${{ steps.review.outputs.sarif }}
+  findings:
+    description: Number of findings reported (excluding ones the AI reviewer dismissed).
+    value: ${{ steps.review.outputs.findings }}
+  blocking:
+    description: Number of findings at or above fail-on.
+    value: ${{ steps.review.outputs.blocking }}
+  report-file:
+    description: Path of the JSON report.
+    value: ${{ steps.review.outputs.report }}
 
 runs:
   using: composite
@@ -94,4 +103,13 @@ runs:
           acr "${args[@]}" > /dev/null || status=$?
         fi
         cat acr-summary.md >> "$GITHUB_STEP_SUMMARY"
+        if [ -f acr-report.json ]; then
+          echo "report=acr-report.json" >> "$GITHUB_OUTPUT"
+          python - >> "$GITHUB_OUTPUT" <<'PY'
+        import json
+        data = json.load(open("acr-report.json", encoding="utf-8"))
+        print("findings=%d" % sum(1 for f in data["findings"] if f.get("ai_verdict") != "false_positive"))
+        print("blocking=%d" % data["gate"]["blocking"])
+        PY
+        fi
         exit "$status"
