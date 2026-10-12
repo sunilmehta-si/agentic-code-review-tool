@@ -90,8 +90,14 @@ def to_markdown(result: ReviewResult, threshold: Severity = Severity.HIGH) -> st
     return "\n".join(lines)
 
 
-def to_json(result: ReviewResult) -> str:
-    return json.dumps({"version": __version__, "counts": result.counts(), "scanners_run": result.scanners_run,
+JSON_SCHEMA_VERSION = 1
+
+
+def to_json(result: ReviewResult, threshold: Severity | None = None) -> str:
+    """threshold None means the gate is off (--fail-on never)."""
+    blocking = len(result.blocking(threshold)) if threshold is not None else 0
+    gate = {"fail_on": threshold.label() if threshold is not None else "never", "blocking": blocking, "passed": blocking == 0}
+    return json.dumps({"schema_version": JSON_SCHEMA_VERSION, "version": __version__, "gate": gate, "counts": result.counts(), "scanners_run": result.scanners_run,
                        "scanners_missing": result.scanners_missing,
                        "scanners_failed": result.scanners_failed, "files_reviewed": sorted(result.file_kinds), "files_skipped": result.skipped,
                        "ai": {"provider": result.ai_provider, "summary": result.ai_summary, "error": result.ai_error,

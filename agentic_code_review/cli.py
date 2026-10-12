@@ -155,14 +155,14 @@ def _cmd_review(args: argparse.Namespace) -> int:
             print(f"acr: AI review skipped: {result.ai_error}", file=sys.stderr)
     threshold = FAIL_LEVELS.get(args.fail_on)
     rendered = {"markdown": lambda: report.to_markdown(result, threshold or Severity.CRITICAL),
-                "json": lambda: report.to_json(result), "sarif": lambda: report.to_sarif(result),
+                "json": lambda: report.to_json(result, threshold), "sarif": lambda: report.to_sarif(result),
                 "github": lambda: report.to_github(result)}[args.format]()
     if args.output:
         Path(args.output).write_text(rendered + "\n", encoding="utf-8")
     else:
         print(rendered)
     # Extra formats come from the same result, so scanners and the AI agent run only once.
-    for path, render in ((args.sarif, lambda: report.to_sarif(result)), (args.json_out, lambda: report.to_json(result)),
+    for path, render in ((args.sarif, lambda: report.to_sarif(result)), (args.json_out, lambda: report.to_json(result, threshold)),
                          (args.md_out, lambda: report.to_markdown(result, threshold or Severity.CRITICAL))):
         if path:
             Path(path).write_text(render() + "\n", encoding="utf-8")

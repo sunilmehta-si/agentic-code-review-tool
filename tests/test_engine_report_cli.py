@@ -263,3 +263,20 @@ class SarifRuleMetadataTests(unittest.TestCase):
         self.assertTrue(rules["ACR-APP-002"]["helpUri"].startswith("https://"))
         self.assertEqual(rules["ACR-APP-002"]["properties"]["precision"], "high")
         self.assertNotIn("precision", rules["semgrep:x"]["properties"])
+
+
+class JsonGateTests(unittest.TestCase):
+    def test_gate_section(self):
+        root = git_repo({"a.py": "x = 1\n"})
+        (root / "a.py").write_text("x = 1\nos.system(cmd)\nh = hashlib.md5(b)\n")
+
+        def gate(level):
+            buf = io.StringIO()
+            with redirect_stdout(buf):
+                main(["review", "--root", str(root), "--no-scanners", "--format", "json", "--fail-on", level])
+            return json.loads(buf.getvalue())
+        data = gate("high")
+        self.assertEqual(data["schema_version"], 1)
+        self.assertEqual(data["gate"], {"fail_on": "high", "blocking": 1, "passed": False})
+        self.assertEqual(gate("low")["gate"]["blocking"], 2)
+        self.assertEqual(gate("never")["gate"], {"fail_on": "never", "blocking": 0, "passed": True})
