@@ -211,3 +211,32 @@ class IncludeTests(unittest.TestCase):
         with redirect_stdout(buf):
             main(["review", "--root", str(root), "--no-scanners", "--include", "services/web/*", "--format", "json", "--fail-on", "never"])
         self.assertEqual({f["path"] for f in json.loads(buf.getvalue())["findings"]}, {"services/web/app.py"})
+
+
+class ScannerFailureTests(unittest.TestCase):
+    def test_exec_classifies_failures(self):
+        import subprocess
+        ok = subprocess.CompletedProcess([], 1, stdout="[]", stderr="")
+        crash = subprocess.CompletedProcess([], 2, stdout="", stderr="config error\nbad rule file")
+        with mock.patch.object(tools.subprocess, "run", return_value=ok):
+            self.assertEqual(tools._exec(["x"], tools.Path(".")), "[]")  # exit 1 with findings is normal
+        with mock.patch.object(tools.subprocess, "run", return_value=crash):
+            with self.assertRaisesRegex(tools.ScannerError, "exited with 2: bad rule file"):
+                tools._exec(["x"], tools.Path("."))
+        with mock.patch.object(tools.subprocess, "run", side_effect=subprocess.TimeoutExpired("x", 1)):
+            with self.assertRaisesRegex(tools.ScannerError, "timed out"):
+                tools._exec(["x"], tools.Path("."))
+
+    def test_failed_scanner_is_reported_not_silent(self):
+        from agentic_code_review.scanners.tools import Scanner
+
+        def boom(root, files):
+            raise tools.ScannerError("timed out after 300s")
+        fake = Scanner("semgrep", "semgrep", frozenset({"*"}), boom)
+        root = git_repo({"README.md": "x\n"})
+        (root / "a.py").write_text("x = 1\n")
+        with mock.patch("agentic_code_review.engine.available_scanners", return_value=[fake]), \
+                mock.patch("agentic_code_review.scanners.tools.ALL_SCANNERS", [fake]):
+            result = review(root)
+        self.assertEqual((result.scanners_run, result.scanners_failed), ([], {"semgrep": "timed out after 300s"}))
+        self.assertIn("semgrep (timed out after 300s)", report.to_markdown(result))

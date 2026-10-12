@@ -29,6 +29,7 @@ class ReviewResult:
     file_kinds: dict[str, set[str]]
     scanners_run: list[str] = field(default_factory=list)
     scanners_missing: list[str] = field(default_factory=list)
+    scanners_failed: dict[str, str] = field(default_factory=dict)   # name -> reason
     ai_provider: str = ""
     ai_summary: str = ""
     ai_error: str = ""
@@ -124,10 +125,10 @@ def review(root: Path, base: str | None = None, head: str | None = None, full: b
         file_lines[path] = text.splitlines()
         findings.extend(rules_base.run_rules(path, text, k))
 
-    ran, missing = [], []
+    ran, missing, failed = [], [], {}
     if use_scanners:
         wanted = only_scanners
-        from .scanners.tools import ALL_SCANNERS
+        from .scanners.tools import ALL_SCANNERS, ScannerError
         installed = {s.name for s in available_scanners(wanted)}
         missing = [s.name for s in ALL_SCANNERS if (wanted is None or s.name in wanted) and s.name not in installed]
         all_kinds = set().union(*file_kinds.values()) if file_kinds else set()
@@ -141,8 +142,13 @@ def review(root: Path, base: str | None = None, head: str | None = None, full: b
         with ThreadPoolExecutor(max_workers=workers) as pool:
             futures = [(scanner, pool.submit(scanner.run, root, targets)) for scanner, targets in jobs]
             for scanner, fut in futures:
+                try:
+                    found = fut.result()
+                except ScannerError as exc:
+                    failed[scanner.name] = str(exc)
+                    continue
                 # Built-in rules already honour `acr:ignore`; scanner findings get the same treatment here.
-                findings.extend(f for f in fut.result() if not _suppressed(file_lines, f))
+                findings.extend(f for f in found if not _suppressed(file_lines, f))
                 ran.append(scanner.name)
 
     # Repository policy: drop disabled rules (ids or globs) and apply per-rule severity overrides.
@@ -155,5 +161,5 @@ def review(root: Path, base: str | None = None, head: str | None = None, full: b
 
     # Keep only findings on lines this change touches (every line counts in full mode).
     kept = [f for f in findings if f.path in files and files[f.path].touches(f.line, f.end_line)]
-    return ReviewResult(findings=dedupe(kept), files=files, file_kinds=file_kinds, scanners_run=ran, scanners_missing=missing,
+    return ReviewResult(findings=dedupe(kept), files=files, file_kinds=file_kinds, scanners_run=ran, scanners_missing=missing, scanners_failed=failed,
                         skipped=skipped)

@@ -29,12 +29,22 @@ class Scanner:
         return shutil.which(self.binary) is not None
 
 
+class ScannerError(RuntimeError):
+    """The scanner could not finish, so its silence must not be read as a clean result."""
+
+
 def _exec(cmd: list[str], cwd: Path) -> str:
-    """Run a scanner; most exit non-zero when they find issues, so the exit code is not an error."""
+    """Run a scanner. Most exit 1 when they find issues, so only a timeout, a failure to start, or an
+    exit code of 2+ with no output counts as an error."""
     try:
         proc = subprocess.run(cmd, cwd=cwd, capture_output=True, text=True, timeout=TIMEOUT)
-    except (OSError, subprocess.TimeoutExpired):
-        return ""
+    except subprocess.TimeoutExpired as exc:
+        raise ScannerError(f"timed out after {TIMEOUT}s (ACR_SCANNER_TIMEOUT)") from exc
+    except OSError as exc:
+        raise ScannerError(f"could not start: {exc}") from exc
+    if proc.returncode >= 2 and not proc.stdout.strip():
+        last = (proc.stderr.strip().splitlines() or [""])[-1][:160]
+        raise ScannerError(f"exited with {proc.returncode}" + (f": {last}" if last else ""))
     return proc.stdout
 
 
