@@ -537,3 +537,17 @@ class OpenRedirectRule(unittest.TestCase):
     def test_fixed_or_validated_targets_pass(self):
         self.assertEqual(ids("v.py", 'return redirect(url_for("home"))\n', PY), [])
         self.assertEqual(ids("v.py", "return redirect(safe_next(request))\n", PY), [])
+
+
+class PathTraversalRule(unittest.TestCase):
+    def test_request_controlled_paths(self):
+        js = {"app", "lang:javascript"}
+        self.assertIn("ACR-APP-013", ids("v.py", 'return send_file(request.args["file"])\n', PY))
+        self.assertIn("ACR-APP-013", ids("v.py", 'data = open(f"/srv/reports/{request.args[\'name\']}").read()\n', PY))
+        self.assertIn("ACR-APP-013", ids("r.js", "res.sendFile(req.query.path);\n", js))
+        self.assertIn("ACR-APP-013", ids("r.js", "fs.readFile(`./uploads/${req.params.name}`, cb);\n", js))
+
+    def test_contained_lookups_pass(self):
+        js = {"app", "lang:javascript"}
+        self.assertEqual(ids("v.py", 'return send_from_directory(REPORTS, request.args["file"])\n', PY), [])
+        self.assertEqual(ids("r.js", "res.sendFile(name, { root: UPLOADS });\n", js), [])

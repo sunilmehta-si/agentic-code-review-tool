@@ -210,7 +210,7 @@ acr review --base origin/main --ai openai
 
 ## Built-in rules
 
-84 rules, generated from the code (`acr rules`; `acr explain <id>` for details):
+85 rules, generated from the code (`acr rules`; `acr explain <id>` for details):
 
 <!-- regenerate: acr rules --format markdown -->
 
@@ -232,6 +232,7 @@ acr review --base origin/main --ai openai
 | Application code | `ACR-APP-010` | medium | Predictable random numbers used for a secret value |
 | Application code | `ACR-APP-011` | high | XML parser resolves external entities (XXE) |
 | Application code | `ACR-APP-012` | medium | Redirect to a URL taken straight from the request (open redirect) |
+| Application code | `ACR-APP-013` | high | File path taken straight from the request (path traversal) |
 | AI / LLM / agent code | `ACR-AI-001` | high | User input concatenated into a system prompt (LLM01 Prompt Injection) |
 | AI / LLM / agent code | `ACR-AI-002` | critical | LLM output used as code, shell, SQL or HTML (LLM05 Improper Output Handling) |
 | AI / LLM / agent code | `ACR-AI-003` | high | Agent given dangerous tools without guardrails (LLM06 Excessive Agency) |
