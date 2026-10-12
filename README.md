@@ -49,7 +49,8 @@ acr review --base origin/main      # what a PR would change (merge-base)
 acr review --all                   # audit every tracked file
 acr review --format sarif -o acr.sarif   # for GitHub code scanning
 acr review --format github         # annotations in a GitHub Actions log
-acr rules                          # list built-in rules (--format markdown|json)
+acr rules                          # list built-in and custom rules (--format markdown|json)
+acr classify Dockerfile k8s/app.yaml   # which file kinds and rules apply to a file
 ```
 
 | Option | Default | Meaning |
@@ -58,6 +59,7 @@ acr rules                          # list built-in rules (--format markdown|json
 | `--no-scanners` | off | Built-in rules only |
 | `--scanners semgrep,trivy` | all installed | Run a subset of external scanners |
 | `--exclude 'docs/*'` | — | Skip paths (repeatable) |
+| `--include 'services/api/*'` | everything | Only review matching paths (repeatable); `include:` in `.acr.yml` |
 | `--sarif`, `--json`, `--markdown PATH` | — | Write extra report formats from the same run (no re-scan) |
 | `--baseline FILE` | `.acr-baseline.json` if present | Suppress findings accepted with `acr baseline` |
 
@@ -184,6 +186,18 @@ jobs:
 The action writes the summary to the job page, posts inline comments on the PR, shows findings as annotations on the
 changed files, uploads SARIF to the Security tab, and fails the check only after all of that is published. Annotations
 need no write permission, so pull requests from forks still get line-level feedback (`annotations: "false"` turns them off).
+Re-runs on new pushes don't repeat inline comments that were already posted, and transient GitHub API errors are retried.
+
+| Input | Default | Meaning |
+|---|---|---|
+| `fail-on` | `high` | Severity that fails the check (`never` to report only) |
+| `ai`, `model` | `none` | `claude` or `openai` to verify findings with an agent |
+| `scanners` | all installed | Comma-separated subset, or `none` for built-in rules only |
+| `post-review`, `annotations` | `true` | PR review comment with inline comments; diff annotations |
+| `sarif-file` | `acr.sarif` | SARIF path for code scanning (empty to skip) |
+
+Outputs: `findings`, `blocking` (counts) and `report-file` (the JSON report, which includes the gate decision).
+Use `fetch-depth: 0` so the PR diff is exact; on a shallow clone `acr` falls back to a direct diff and says so.
 
 ## AI review
 
@@ -206,7 +220,9 @@ acr review --base origin/main --ai openai
 | `--model`, `ACR_MODEL`, `ACR_EFFORT` | — | Override model and effort |
 | `--max-steps` | 12 | Upper bound on agent tool calls |
 
-**The agent is treated as untrusted too.** Repository content is passed as data, the prompt tells the model not to follow instructions found in code, the tools cannot write, execute or leave the repository, and new findings off the changed lines are discarded. If the AI step fails for any reason (no key, rate limit, refusal), the deterministic review is still published and the report says why.
+**The agent is treated as untrusted too.** Repository content is passed as data, the prompt tells the model not to follow instructions found in code, the tools cannot write, execute or leave the repository, and new findings off the changed lines are discarded.
+Credentials never reach the model provider: the tools refuse files such as `.env`, private keys and `*.tfstate`, and
+provider keys, private-key blocks and hardcoded passwords in the diff or tool output are replaced with `[REDACTED]`. If the AI step fails for any reason (no key, rate limit, refusal), the deterministic review is still published and the report says why.
 
 ## Built-in rules
 
@@ -324,12 +340,13 @@ When two tools report the same issue on the same line, the report shows it once 
 
 | Part | State |
 |---|---|
-| Diff-aware engine, 68 built-in rules, 7 scanner adapters (run in parallel) | ✅ Done, unit-tested |
+| Diff-aware engine, 87 built-in rules, 7 scanner adapters (run in parallel) | ✅ Done, unit-tested |
 | Markdown / JSON / SARIF reports, CLI with severity gate | ✅ Done, unit-tested |
 | AI review agent (Claude + OpenAI-compatible) with read-only tools | ✅ Done, unit-tested with a fake model |
 | Inline PR comments and composite GitHub Action (single run) | ✅ Done, unit-tested; first live run pending |
 | `.acr.yml` config, baseline, `acr explain`, pre-commit hook, container image | ✅ Done (v0.2.0) |
 | Scoped suppressions, `--staged`, GitHub annotations, `acr init`, coding-agent rules | ✅ Done (v0.3.0) |
+| Custom rules, `--include`, `acr classify`, SARIF fingerprints, secret redaction for the agent | ✅ Done (v0.4.0) |
 
 ## Design notes
 
