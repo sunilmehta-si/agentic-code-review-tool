@@ -551,3 +551,15 @@ class PathTraversalRule(unittest.TestCase):
         js = {"app", "lang:javascript"}
         self.assertEqual(ids("v.py", 'return send_from_directory(REPORTS, request.args["file"])\n', PY), [])
         self.assertEqual(ids("r.js", "res.sendFile(name, { root: UPLOADS });\n", js), [])
+
+
+class WeakTlsRule(unittest.TestCase):
+    def test_old_protocols(self):
+        js = {"app", "lang:javascript"}
+        self.assertIn("ACR-APP-014", ids("c.py", "ctx = ssl.SSLContext(ssl.PROTOCOL_TLSv1)\n", PY))
+        self.assertIn("ACR-APP-014", ids("c.py", "ctx.minimum_version = ssl.TLSVersion.TLSv1_1\n", PY))
+        self.assertIn("ACR-APP-014", ids("c.js", "https.createServer({ minVersion: 'TLSv1', key, cert });\n", js))
+
+    def test_modern_versions_pass(self):
+        self.assertEqual(ids("c.py", "ctx.minimum_version = ssl.TLSVersion.TLSv1_2\n", PY), [])
+        self.assertEqual(ids("c.py", "ctx = ssl.SSLContext(ssl.PROTOCOL_TLS_CLIENT)\n", PY), [])

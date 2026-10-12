@@ -135,3 +135,13 @@ def path_traversal(path, text, lines):
                      r"|\b(res\.(sendFile|download)|fs\.(readFile|readFileSync|createReadStream|unlink|unlinkSync))\(\s*"
                      r"(`[^`]*\$\{\s*)?req\.(query|params|body)\.")
     yield from line_matches(path_traversal.info, path, lines, pat)
+
+
+@rule("ACR-APP-014", "Deprecated SSL/TLS protocol version allowed", Severity.MEDIUM, "app-security", PY + JS,
+      fix="Use the library default (ssl.create_default_context(), Node's defaults) or require TLS 1.2+: "
+          "ctx.minimum_version = ssl.TLSVersion.TLSv1_2 / minVersion: 'TLSv1.2'.",
+      references=["https://datatracker.ietf.org/doc/html/rfc8996"])
+def weak_tls(path, text, lines):
+    pat = re.compile(r"\bssl\.PROTOCOL_(SSLv2|SSLv3|TLSv1|TLSv1_1)\b|\bTLSVersion\.(SSLv3|TLSv1|TLSv1_1)\b"
+                     r"|\bminVersion\s*:\s*['\"](TLSv1|TLSv1\.1)['\"]|\bsecureProtocol\s*:\s*['\"](SSLv2|SSLv3|TLSv1|TLSv1_1)_method")
+    yield from line_matches(weak_tls.info, path, lines, pat)
