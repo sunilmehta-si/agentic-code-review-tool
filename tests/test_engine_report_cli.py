@@ -288,7 +288,9 @@ class MarkdownLinkTests(unittest.TestCase):
 
         from agentic_code_review.engine import ReviewResult
         r = ReviewResult([Finding("ACR-APP-002", "Shell", Severity.HIGH, "src/my app.py", 7, "acr", "app-security")], {}, {})
-        self.assertIn("| `src/my app.py:7` |", report.to_markdown(r))  # no links outside Actions
+        outside = {k: v for k, v in __import__("os").environ.items() if not k.startswith("GITHUB_")}
+        with mock.patch.dict("os.environ", outside, clear=True):  # CI itself runs in GitHub Actions
+            self.assertIn("| `src/my app.py:7` |", report.to_markdown(r))  # no links outside Actions
         with tempfile.NamedTemporaryFile("w", suffix=".json", delete=False) as fh:
             json.dump({"pull_request": {"head": {"sha": "abc123"}}}, fh)
         env = {"GITHUB_SERVER_URL": "https://github.com", "GITHUB_REPOSITORY": "o/r", "GITHUB_SHA": "merge1",
