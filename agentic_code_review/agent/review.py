@@ -7,6 +7,8 @@ from __future__ import annotations
 
 import json
 
+from .redact import redact
+
 SYSTEM_PROMPT = """You are a senior application-security and platform engineer reviewing one pull request.
 
 You receive:
@@ -78,6 +80,7 @@ class AgentError(RuntimeError):
 
 
 def build_user_message(findings: list[dict], diff_text: str) -> str:
+    diff_text = redact(diff_text)
     diff_text = diff_text if len(diff_text) <= MAX_DIFF_CHARS else diff_text[:MAX_DIFF_CHARS] + "\n... diff truncated ..."
     return ("Findings to verify (JSON):\n" + json.dumps(findings, indent=1) +
             "\n\nUnified diff of the pull request:\n<diff>\n" + diff_text + "\n</diff>")

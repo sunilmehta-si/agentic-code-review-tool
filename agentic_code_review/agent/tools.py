@@ -11,6 +11,8 @@ import json
 import subprocess
 from pathlib import Path
 
+from .redact import redact
+
 MAX_FILE_LINES = 400
 MAX_SEARCH_RESULTS = 40
 MAX_PATTERN = 200
@@ -99,7 +101,7 @@ class RepoTools:
         start = max(1, start)
         end = min(len(lines), end if end >= start else start + MAX_FILE_LINES - 1, start + MAX_FILE_LINES - 1)
         body = "\n".join(f"{n:>5}  {lines[n - 1]}" for n in range(start, end + 1))
-        return f"{rel} (lines {start}-{end} of {len(lines)})\n{body}"
+        return redact(f"{rel} (lines {start}-{end} of {len(lines)})\n{body}")
 
     def search_repo(self, pattern: str) -> str:
         if not pattern or len(pattern) > MAX_PATTERN:
@@ -111,4 +113,4 @@ class RepoTools:
             return f"Search failed: {proc.stderr.strip()[:200]}"
         shown = [h[:300] for h in hits[:MAX_SEARCH_RESULTS]]
         more = f"\n... {len(hits) - len(shown)} more" if len(hits) > len(shown) else ""
-        return ("\n".join(shown) + more) if shown else "No matches."
+        return redact("\n".join(shown) + more) if shown else "No matches."

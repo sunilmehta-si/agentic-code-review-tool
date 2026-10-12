@@ -165,3 +165,27 @@ class SecretFileToolTests(unittest.TestCase):
         for name in ("id_rsa", "server.key", "terraform.tfstate", "nested/.env.production"):
             self.assertTrue(is_secret_file(name), name)
         self.assertFalse(is_secret_file("src/keys.py"))
+
+
+class RedactionTests(unittest.TestCase):
+    def test_credentials_are_masked_before_reaching_the_model(self):
+        from agentic_code_review.agent.redact import redact
+        from agentic_code_review.agent.review import build_user_message
+        aws = "AKIA" + "Z" * 16
+        pem = "-----BEGIN RSA PRIVATE" + " KEY-----\n+MIIEow\n+abc\n-----END RSA PRIVATE" + " KEY-----"
+        diff = f'+k = "{aws}"\n+db_pass' + 'word = "Hunter2x99"\n+name = "harmless"\n+' + pem + "\n+tok" + 'en = "${TOKEN}"\n'
+        out = build_user_message([], diff)
+        for leaked in (aws, "Hunter2x99", "MIIEow"):
+            self.assertNotIn(leaked, out)
+        self.assertIn("[REDACTED AWS access key ID]", out)
+        self.assertIn('name = "harmless"', out)
+        self.assertIn("${TOKEN}", out)  # placeholders are not secrets
+        self.assertEqual(redact("plain text"), "plain text")
+
+    def test_tool_output_is_redacted(self):
+        from tests.helpers import git_repo
+        root = git_repo({"cfg.py": "api_k" + 'ey = "Q8f3kLm2Zp0x"\n'})
+        text, _ = RepoTools(root, {}).call("read_file", {"path": "cfg.py", "start_line": 1, "end_line": 1})
+        self.assertNotIn("Q8f3kLm2Zp0x", text)
+        hits, _ = RepoTools(root, {}).call("search_repo", {"pattern": "api_k"})
+        self.assertNotIn("Q8f3kLm2Zp0x", hits)
