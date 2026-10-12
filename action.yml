@@ -27,6 +27,9 @@ inputs:
   post-review:
     description: Post a summary and inline comments to the pull request (needs pull-requests write permission).
     default: "true"
+  scanners:
+    description: Comma-separated external scanners to run if installed (e.g. semgrep,trivy), "none" for built-in rules only, or empty for all.
+    default: ""
   annotations:
     description: Show findings as annotations on the PR's changed files. Needs no write permission, so it also works for forks.
     default: "true"
@@ -77,6 +80,7 @@ runs:
         MODEL: ${{ inputs.model }}
         POST_REVIEW: ${{ inputs.post-review }}
         ANNOTATIONS: ${{ inputs.annotations }}
+        SCANNERS: ${{ inputs.scanners }}
         SARIF: ${{ inputs.sarif-file }}
         ANTHROPIC_API_KEY: ${{ inputs.anthropic-api-key }}
         ACR_OPENAI_API_KEY: ${{ inputs.openai-api-key }}
@@ -92,6 +96,7 @@ runs:
         fi
         if [ "$AI" != "none" ] && [ -n "$AI" ]; then args+=(--ai "$AI"); fi
         if [ -n "$MODEL" ]; then args+=(--model "$MODEL"); fi
+        if [ "$SCANNERS" = "none" ]; then args+=(--no-scanners); elif [ -n "$SCANNERS" ]; then args+=(--scanners "$SCANNERS"); fi
         if [ "$POST_REVIEW" = "true" ] && [ -n "$BASE_REF" ]; then args+=(--github-review); fi
         if [ -n "$SARIF" ]; then args+=(--sarif "$SARIF"); echo "sarif=$SARIF" >> "$GITHUB_OUTPUT"; fi
         # One run: scanners and the AI agent execute once; every report comes from the same result.
