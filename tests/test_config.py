@@ -111,3 +111,32 @@ class IncludeConfigTests(unittest.TestCase):
             return {f["path"] for f in json.loads(buf.getvalue())["findings"]}
         self.assertEqual(paths(), {"api/a.py"})
         self.assertEqual(paths("--include", "web/*"), {"web/a.py"})  # the flag wins over the file
+
+
+class CustomRuleConfigTests(unittest.TestCase):
+    def _load(self, body):
+        import tempfile
+        root = Path(tempfile.mkdtemp())
+        (root / ".acr.yml").write_text(body)
+        return load(root)
+
+    def test_valid_rule(self):
+        cfg = self._load("custom_rules:\n  - id: org-001\n    title: Plain HTTP to internal hosts\n"
+                         "    pattern: 'http://[a-z]+\\.internal'\n    severity: high\n    files: ['*.py']\n")
+        r = cfg.custom_rules[0]
+        self.assertEqual((r.rule_id, r.severity, r.files, r.category), ("ORG-001", Severity.HIGH, ("*.py",), "other"))
+        self.assertTrue(r.pattern.search("x = 'http://billing.internal/api'"))
+
+    def test_mistakes_are_explained(self):
+        cases = {
+            "custom_rules: {}\n": "must be a list",
+            "custom_rules:\n  - id: ACR-X-001\n    title: t\n    pattern: x\n": "reserved ACR- prefix",
+            "custom_rules:\n  - id: ORG-1\n    title: t\n    pattern: '('\n": "not a valid regular expression",
+            "custom_rules:\n  - id: ORG-1\n    title: t\n": "missing pattern",
+            "custom_rules:\n  - id: ORG-1\n    title: t\n    pattern: x\n    sevrity: high\n": "unknown key",
+            "custom_rules:\n  - {id: ORG-1, title: t, pattern: x}\n  - {id: org-1, title: u, pattern: y}\n": "duplicate id",
+            "custom_rules:\n  - {id: ORG-1, title: t, pattern: x, category: misc}\n": "category must be one of",
+        }
+        for body, message in cases.items():
+            with self.subTest(message=message), self.assertRaisesRegex(ConfigError, message):
+                self._load(body)
