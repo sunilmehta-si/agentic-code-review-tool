@@ -354,3 +354,10 @@ class PrivilegedCheckoutTests(unittest.TestCase):
         self.assertIn("ACR-GHA-001", ids(".github/workflows/x.yml", run, gha))
         # The same checkout on a plain pull_request trigger runs without secrets, so it is fine.
         self.assertNotIn("ACR-GHA-001", ids(".github/workflows/x.yml", run.replace("workflow_run:", "pull_request:"), gha))
+
+
+class LoadToolsTests(unittest.TestCase):
+    def test_dangerous_tools_by_name(self):
+        self.assertIn("ACR-AI-003", ids("a.py", 'tools = load_tools(["serpapi", "terminal"], llm=llm)\n', PY_AI))
+        self.assertIn("ACR-AI-003", ids("a.py", "tools = load_tools(['python_repl'])\n", PY_AI))
+        self.assertEqual(ids("a.py", 'tools = load_tools(["wikipedia", "llm-math"], llm=llm)\n', PY_AI), [])

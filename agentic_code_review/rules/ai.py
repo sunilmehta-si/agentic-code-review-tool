@@ -42,6 +42,9 @@ def output_handling(path, text, lines):
 def excessive_agency(path, text, lines):
     pat = re.compile(r"allow_dangerous_(code|requests|deserialization)\s*=\s*True|\b(ShellTool|PythonREPLTool|BashProcess|PythonAstREPLTool|TerminalTool)\(|dangerouslyAllowCommands|auto_approve\s*=\s*True|human_in_the_loop\s*=\s*False")
     yield from line_matches(excessive_agency.info, path, lines, pat)
+    # load_tools(["terminal", "python_repl", ...]) hands the agent a shell or an interpreter by name.
+    by_name = re.compile(r"""load_tools\([^)]*["'](terminal|python_repl|shell|bash|requests_all|requests_post)["']""")
+    yield from line_matches(excessive_agency.info, path, lines, by_name)
 
 
 @rule("ACR-AI-004", "Untrusted model code or weights loaded (LLM03 Supply Chain)", Severity.HIGH, "ai-security", AI,
