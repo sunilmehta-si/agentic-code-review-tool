@@ -165,3 +165,30 @@ class CustomRuleEngineTests(unittest.TestCase):
         with open(root / ".acr.yml", "a") as fh:
             fh.write("severity:\n  ORG-001: low\n")
         self.assertEqual(run(), (0, [("ORG-001", "svc/a.py", 2, "low")]))
+
+
+class CustomRuleListingTests(unittest.TestCase):
+    def test_rules_and_explain_include_custom_rules(self):
+        import io
+        import json
+        import tempfile
+        from contextlib import redirect_stdout
+
+        from agentic_code_review.cli import main
+        root = Path(tempfile.mkdtemp())
+        (root / ".acr.yml").write_text("custom_rules:\n  - {id: ORG-007, title: No print in services, pattern: 'print\\(',"
+                                       " severity: low, files: ['svc/*'], fix: Use the logger.}\n")
+        buf = io.StringIO()
+        with redirect_stdout(buf):
+            main(["rules", "--root", str(root)])
+        self.assertIn("ORG-007", buf.getvalue())
+        self.assertIn(", 1 custom", buf.getvalue())
+        buf = io.StringIO()
+        with redirect_stdout(buf):
+            main(["rules", "--root", str(root), "--format", "json"])
+        self.assertEqual([r["id"] for r in json.loads(buf.getvalue()) if r["custom"]], ["ORG-007"])
+        buf = io.StringIO()
+        with redirect_stdout(buf):
+            self.assertEqual(main(["explain", "org-007", "--root", str(root)]), 0)
+        self.assertIn("Use the logger.", buf.getvalue())
+        self.assertIn("svc/*", buf.getvalue())

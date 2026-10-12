@@ -59,23 +59,38 @@ def _parser() -> argparse.ArgumentParser:
     i.add_argument("--root", default=".", help="Repository root (default: current directory).")
     i.add_argument("--force", action="store_true", help="Overwrite an existing config file.")
 
-    rl = sub.add_parser("rules", help="List built-in rules.")
+    rl = sub.add_parser("rules", help="List built-in rules and the repository's custom rules.")
+    rl.add_argument("--root", default=".", help="Repository whose .acr.yml custom rules to include (default: current directory).")
     rl.add_argument("--format", choices=("text", "markdown", "json"), default="text",
                     help="markdown prints the README catalogue table; json suits other tools.")
     c = sub.add_parser("classify", help="Show how files are classified and which built-in rules apply to them.")
     c.add_argument("paths", nargs="+", help="Files to classify.")
     e = sub.add_parser("explain", help="Explain a built-in rule: why it matters and how to fix it.")
     e.add_argument("rule_id", help="Rule id, e.g. ACR-AI-002 (case-insensitive).")
+    e.add_argument("--root", default=".", help="Repository whose .acr.yml custom rules to search (default: current directory).")
     return p
 
 
-def _cmd_rules(fmt: str = "text") -> int:
-    infos = sorted((info for info, _ in rules_base.REGISTRY), key=lambda i: i.rule_id)
+def _custom(root: str) -> list:
+    """The repository's custom rules; a broken config is reported by `acr review`, not here."""
+    from .config import ConfigError, load
+    try:
+        return load(Path(root)).custom_rules
+    except ConfigError as exc:
+        print(f"acr: ignoring custom rules: {exc}", file=sys.stderr)
+        return []
+
+
+def _cmd_rules(fmt: str = "text", root: str = ".") -> int:
+    custom = {c.rule_id: c for c in _custom(root)}
+    infos = sorted([info for info, _ in rules_base.REGISTRY] +
+                   [rules_base.RuleInfo(c.rule_id, c.title, c.severity, c.category, frozenset(c.files or ("*",)), c.fix,
+                                        c.references) for c in custom.values()], key=lambda i: i.rule_id)
     if fmt == "json":
         import json
         print(json.dumps([{"id": i.rule_id, "title": i.title, "severity": i.severity.label(), "category": i.category,
-                           "applies_to": sorted(i.applies_to), "fix": i.fix, "references": list(i.references)}
-                          for i in infos], indent=2))
+                           "applies_to": sorted(i.applies_to), "fix": i.fix, "references": list(i.references),
+                           "custom": i.rule_id in custom} for i in infos], indent=2))
         return 0
     if fmt == "markdown":
         order = list(RULE_AREAS)
@@ -85,13 +100,23 @@ def _cmd_rules(fmt: str = "text") -> int:
             print(f"| {RULE_AREAS.get(i.category, i.category)} | `{i.rule_id}` | {i.severity.label()} | {title} |")
         return 0
     for info in infos:
-        print(f"{info.rule_id:<16} {info.severity.label():<9} {info.category:<13} {info.title}")
-    print(f"\n{len(infos)} built-in rules")
+        print(f"{info.rule_id:<16} {info.severity.label():<9} {info.category:<13} {info.title}"
+              + ("  (custom)" if info.rule_id in custom else ""))
+    print(f"\n{len(rules_base.REGISTRY)} built-in rules" + (f", {len(custom)} custom" if custom else ""))
     return 0
 
 
-def _cmd_explain(rule_id: str) -> int:
+def _cmd_explain(rule_id: str, root: str = ".") -> int:
     wanted = rule_id.strip().upper()
+    for c in _custom(root):
+        if c.rule_id == wanted:
+            print(f"{c.rule_id}  ·  {c.severity.label()}  ·  {c.category}  (custom rule from .acr.yml)")
+            print(f"\n{c.title}\n\nPattern: {c.pattern.pattern}\nFiles: {', '.join(c.files) or 'every file'}")
+            if c.fix:
+                print(f"\nHow to fix:\n  {c.fix}")
+            if c.references:
+                print("\nReferences:\n" + "\n".join(f"  {r}" for r in c.references))
+            return 0
     for info, fn in rules_base.REGISTRY:
         if info.rule_id == wanted:
             doc = " ".join((fn.__module__.rsplit(".", 1)[-1] + " rules").split())
@@ -217,7 +242,7 @@ def _cmd_baseline(args: argparse.Namespace) -> int:
 def main(argv: list[str] | None = None) -> int:
     args = _parser().parse_args(argv)
     if args.command == "rules":
-        return _cmd_rules(args.format)
+        return _cmd_rules(args.format, args.root)
     if args.command == "baseline":
         return _cmd_baseline(args)
     if args.command == "init":
@@ -225,7 +250,7 @@ def main(argv: list[str] | None = None) -> int:
     if args.command == "classify":
         return _cmd_classify(args.paths)
     if args.command == "explain":
-        return _cmd_explain(args.rule_id)
+        return _cmd_explain(args.rule_id, args.root)
     try:
         return _cmd_review(args)
     except Exception as exc:  # surface a clean error in CI logs
