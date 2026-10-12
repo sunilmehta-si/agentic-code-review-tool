@@ -3,6 +3,8 @@ or GitHub Actions workflow-command annotations."""
 from __future__ import annotations
 
 import json
+import os
+from urllib.parse import quote
 
 from . import __version__
 from .engine import ReviewResult
@@ -36,6 +38,25 @@ def comment_body(f: Finding) -> str:
     if f.ai_verdict == "uncertain":
         parts.append("_The AI reviewer could not confirm this from the surrounding code; please double-check._")
     return "\n\n".join(parts)
+
+
+def _blob_base() -> str | None:
+    """https://github.com/<repo>/blob/<sha> inside GitHub Actions (the PR head when known), else None."""
+    server, repo = os.environ.get("GITHUB_SERVER_URL"), os.environ.get("GITHUB_REPOSITORY")
+    sha = os.environ.get("GITHUB_SHA")
+    event_path = os.environ.get("GITHUB_EVENT_PATH")
+    if event_path and os.path.exists(event_path):
+        try:
+            with open(event_path, encoding="utf-8") as fh:
+                sha = ((json.load(fh).get("pull_request") or {}).get("head") or {}).get("sha") or sha
+        except (OSError, ValueError):
+            pass
+    return f"{server}/{repo}/blob/{sha}" if server and repo and sha else None
+
+
+def _location(f: Finding, base: str | None) -> str:
+    text = f"`{f.path}:{f.line}`"
+    return f"[{text}]({base}/{quote(f.path)}#L{f.line})" if base else text
 
 
 def _by_area(findings: list[Finding]) -> list[str]:
@@ -77,10 +98,11 @@ def to_markdown(result: ReviewResult, threshold: Severity = Severity.HIGH) -> st
     if result.skipped:
         lines.append(f"<sub>{len(result.skipped)} binary or oversized file(s) were not reviewed.</sub>")
     if shown:
+        base = _blob_base()
         lines += ["", "| | Severity | Location | Issue | Rule |", "|---|---|---|---|---|"]
         for f in shown:
             title = f.title.replace("|", "\\|")
-            lines.append(f"| {ICON[f.severity]} | {f.severity.label()} | `{f.path}:{f.line}` | {title} | `{f.rule_id}` |")
+            lines.append(f"| {ICON[f.severity]} | {f.severity.label()} | {_location(f, base)} | {title} | `{f.rule_id}` |")
         if blocking:
             lines += ["", "<details><summary>How to fix the blocking issues</summary>", ""]
             for f in blocking:

@@ -280,3 +280,19 @@ class JsonGateTests(unittest.TestCase):
         self.assertEqual(data["gate"], {"fail_on": "high", "blocking": 1, "passed": False})
         self.assertEqual(gate("low")["gate"]["blocking"], 2)
         self.assertEqual(gate("never")["gate"], {"fail_on": "never", "blocking": 0, "passed": True})
+
+
+class MarkdownLinkTests(unittest.TestCase):
+    def test_locations_link_to_the_pr_head_in_actions(self):
+        import tempfile
+
+        from agentic_code_review.engine import ReviewResult
+        r = ReviewResult([Finding("ACR-APP-002", "Shell", Severity.HIGH, "src/my app.py", 7, "acr", "app-security")], {}, {})
+        self.assertIn("| `src/my app.py:7` |", report.to_markdown(r))  # no links outside Actions
+        with tempfile.NamedTemporaryFile("w", suffix=".json", delete=False) as fh:
+            json.dump({"pull_request": {"head": {"sha": "abc123"}}}, fh)
+        env = {"GITHUB_SERVER_URL": "https://github.com", "GITHUB_REPOSITORY": "o/r", "GITHUB_SHA": "merge1",
+               "GITHUB_EVENT_PATH": fh.name}
+        with mock.patch.dict("os.environ", env):
+            md = report.to_markdown(r)
+        self.assertIn("[`src/my app.py:7`](https://github.com/o/r/blob/abc123/src/my%20app.py#L7)", md)
