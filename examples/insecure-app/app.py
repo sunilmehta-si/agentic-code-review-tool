@@ -32,3 +32,24 @@ def parse_invoice(body):
     from lxml import etree
     parser = etree.XMLParser(resolve_entities=True)
     return etree.fromstring(body, parser)
+
+
+def after_login(request, redirect):
+    return redirect(request.args.get("next"))
+
+
+def download(request, send_file):
+    return send_file(request.args["path"])
+
+
+def tls_context():
+    import ssl
+    return ssl.SSLContext(ssl.PROTOCOL_TLSv1)
+
+
+SESSION_COOKIE_SECURE = False
+
+
+def chat_demo(respond):
+    import gradio as gr
+    gr.ChatInterface(respond).launch(share=True)

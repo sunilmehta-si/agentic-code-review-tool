@@ -1,0 +1,15 @@
+name: nightly
+on:
+  schedule:
+    - cron: "0 2 * * *"
+permissions:
+  contents: read
+jobs:
+  report:
+    runs-on: ubuntu-latest
+    env:
+      ACTIONS_ALLOW_UNSECURE_COMMANDS: true
+    steps:
+      - run: ./scripts/report.sh
+        env:
+          ALL_SECRETS: ${{ toJSON(secrets) }}

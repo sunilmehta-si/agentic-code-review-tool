@@ -112,11 +112,11 @@ matched by rule and line *content* so they survive code moving around, and only 
 acr review --root examples/insecure-app --all --no-scanners --fail-on never
 ```
 
-reports **51 findings across 11 files** (6 critical, 26 high, 16 medium, 3 low). One finding from each rule family:
+reports **71 findings across 14 files** (7 critical, 33 high, 26 medium, 5 low). One finding from each rule family:
 
 | | Severity | Location | Issue | Rule |
 |---|---|---|---|---|
-| 🔴 | critical | `.github/workflows/triage.yml:12` | pull_request_target checks out untrusted PR code | `ACR-GHA-001` |
+| 🔴 | critical | `.github/workflows/triage.yml:12` | Privileged workflow checks out untrusted PR code | `ACR-GHA-001` |
 | 🔴 | critical | `.mcp.json:6` | Credential stored in plain text in an MCP config | `ACR-MCP-002` |
 | 🔴 | critical | `agent.py:24` | LLM output used as code, shell, SQL or HTML (LLM05 Improper Output Handling) | `ACR-AI-002` |
 | 🔴 | critical | `infra/main.tf:7` | Sensitive port open to the whole internet | `ACR-TF-001` |

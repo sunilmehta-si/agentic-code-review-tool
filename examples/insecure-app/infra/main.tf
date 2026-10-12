@@ -27,3 +27,26 @@ resource "aws_instance" "inference" {
     http_tokens = "optional"
   }
 }
+
+resource "aws_s3_bucket_policy" "models" {
+  bucket = "acme-models"
+  policy = jsonencode({
+    Statement = [{ Effect = "Allow", Principal = "*", Action = "s3:GetObject", Resource = "arn:aws:s3:::acme-models/*" }]
+  })
+}
+
+resource "aws_kms_key" "data" {
+  enable_key_rotation = false
+}
+
+resource "aws_cloudtrail" "org" {
+  name           = "org"
+  s3_bucket_name = "acme-trail"
+  enable_logging = false
+}
+
+resource "google_storage_bucket" "datasets" {
+  name                        = "acme-datasets"
+  location                    = "EU"
+  uniform_bucket_level_access = false
+}
