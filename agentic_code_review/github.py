@@ -9,6 +9,7 @@ from __future__ import annotations
 import json
 import os
 import re
+import time
 import urllib.error
 import urllib.request
 
@@ -21,6 +22,8 @@ MAX_INLINE = 50
 MARKER = "<!-- acr:{} -->"            # hidden in each inline comment; identifies the finding across pushes
 MARKER_RE = re.compile(r"<!-- acr:([0-9a-f]{8,64}) -->")
 MAX_PAGES = 10
+ATTEMPTS = 4
+_sleep = time.sleep  # replaced in tests
 
 
 class GitHubError(RuntimeError):
@@ -42,17 +45,38 @@ def pr_context(repo: str | None = None, pr: int | None = None) -> tuple[str, int
     return repo, int(number), (pull.get("head") or {}).get("sha")
 
 
+def _retry_after(exc: urllib.error.HTTPError, text: str, attempt: int) -> float | None:
+    """Seconds to wait before retrying, or None if the error is not transient."""
+    rate_limited = exc.code == 429 or (exc.code == 403 and "rate limit" in text.lower())
+    if exc.code not in (502, 503, 504) and not rate_limited:
+        return None
+    header = (exc.headers or {}).get("Retry-After") if exc.headers is not None else None
+    if header and str(header).isdigit():
+        return min(float(header), 60.0)
+    return float(2 ** attempt)
+
+
 def _request(method: str, url: str, token: str, body: dict | None = None) -> dict:
     data = json.dumps(body).encode() if body is not None else None
-    req = urllib.request.Request(url, data=data, method=method, headers={
-        "Authorization": f"Bearer {token}", "Accept": "application/vnd.github+json",
-        "X-GitHub-Api-Version": "2022-11-28", "Content-Type": "application/json"})
-    try:
-        with urllib.request.urlopen(req, timeout=60) as resp:
-            raw = resp.read().decode()
-            return json.loads(raw) if raw else {}
-    except urllib.error.HTTPError as exc:
-        raise GitHubError(f"GitHub API {exc.code}: {exc.read().decode(errors='replace')[:300]}") from exc
+    for attempt in range(ATTEMPTS):
+        req = urllib.request.Request(url, data=data, method=method, headers={
+            "Authorization": f"Bearer {token}", "Accept": "application/vnd.github+json",
+            "X-GitHub-Api-Version": "2022-11-28", "Content-Type": "application/json"})
+        try:
+            with urllib.request.urlopen(req, timeout=60) as resp:
+                raw = resp.read().decode()
+                return json.loads(raw) if raw else {}
+        except urllib.error.HTTPError as exc:
+            text = exc.read().decode(errors="replace")
+            wait = _retry_after(exc, text, attempt)
+            if wait is None or attempt == ATTEMPTS - 1:
+                raise GitHubError(f"GitHub API {exc.code}: {text[:300]}") from exc
+        except urllib.error.URLError as exc:
+            if attempt == ATTEMPTS - 1:
+                raise GitHubError(f"Could not reach the GitHub API: {exc.reason}") from exc
+            wait = float(2 ** attempt)
+        _sleep(wait)
+    raise GitHubError("GitHub API request failed after retries.")
 
 
 def _posted_markers(repo: str, number: int, token: str, request) -> set[str]:

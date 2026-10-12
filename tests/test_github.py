@@ -79,3 +79,36 @@ class RepeatCommentTests(unittest.TestCase):
         def failing(method, url, token, body):
             raise GitHubError("GitHub API 403: forbidden")
         self.assertEqual(_posted_markers("o/r", 7, "t", failing), set())
+
+
+class RetryTests(unittest.TestCase):
+    def _http_error(self, code, body=b"", headers=None):
+        import io
+        import urllib.error
+        from email.message import Message
+        msg = Message()
+        for k, v in (headers or {}).items():
+            msg[k] = v
+        return urllib.error.HTTPError("https://api", code, "x", msg, io.BytesIO(body))
+
+    def test_transient_errors_are_retried_then_succeed(self):
+        import io
+
+        from agentic_code_review import github
+        ok = mock.MagicMock()
+        ok.__enter__.return_value = io.BytesIO(b'{"html_url": "u"}')
+        waits = []
+        outcomes = [self._http_error(502), self._http_error(403, b"API rate limit exceeded", {"Retry-After": "7"}), ok]
+        with mock.patch.object(github.urllib.request, "urlopen", side_effect=outcomes), \
+                mock.patch.object(github, "_sleep", waits.append):
+            self.assertEqual(github._request("POST", "https://api", "t", {}), {"html_url": "u"})
+        self.assertEqual(waits, [1.0, 7.0])
+
+    def test_client_errors_fail_immediately(self):
+        from agentic_code_review import github
+        waits = []
+        with mock.patch.object(github.urllib.request, "urlopen", side_effect=[self._http_error(422, b"bad line")]), \
+                mock.patch.object(github, "_sleep", waits.append):
+            with self.assertRaisesRegex(GitHubError, "422: bad line"):
+                github._request("POST", "https://api", "t", {})
+        self.assertEqual(waits, [])
