@@ -169,3 +169,11 @@ def self_hosted_pr(path, text, lines):
 def unsecure_commands(path, text, lines):
     pat = re.compile(r"ACTIONS_ALLOW_UNSECURE_COMMANDS\s*[:=]\s*['\"]?(true|1)\b", re.I)
     yield from line_matches(unsecure_commands.info, path, lines, pat)
+
+
+@rule("ACR-GHA-011", "Every secret serialised into one value with toJSON(secrets)", Severity.HIGH, "ci-cd", GHA,
+      fix="Pass each secret the step needs by name (env: TOKEN: ${{ secrets.TOKEN }}). toJSON(secrets) exposes all of them, "
+          "including ones added later, to whatever runs in that step.",
+      references=[HARDENING])
+def all_secrets(path, text, lines):
+    yield from line_matches(all_secrets.info, path, lines, re.compile(r"toJSON\(\s*secrets\s*\)", re.I))

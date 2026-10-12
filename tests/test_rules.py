@@ -426,3 +426,10 @@ class UnsecureCommandsRule(unittest.TestCase):
         wf = "permissions: {}\njobs:\n  a:\n    env:\n      ACTIONS_ALLOW_UNSECURE_COMMANDS: true\n"
         self.assertIn("ACR-GHA-010", ids(".github/workflows/x.yml", wf, {"github-actions"}))
         self.assertEqual(ids(".github/workflows/x.yml", wf.replace("true", "false"), {"github-actions"}), [])
+
+
+class AllSecretsRule(unittest.TestCase):
+    def test_to_json_secrets(self):
+        wf = "permissions: {}\njobs:\n  a:\n    steps:\n      - run: ./deploy.sh\n        env:\n          ALL: ${{ toJSON(secrets) }}\n"
+        self.assertIn("ACR-GHA-011", ids(".github/workflows/x.yml", wf, {"github-actions"}))
+        self.assertEqual(ids(".github/workflows/x.yml", wf.replace("toJSON(secrets)", "secrets.DEPLOY_KEY"), {"github-actions"}), [])
