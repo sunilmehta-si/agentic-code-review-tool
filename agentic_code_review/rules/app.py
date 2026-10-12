@@ -145,3 +145,12 @@ def weak_tls(path, text, lines):
     pat = re.compile(r"\bssl\.PROTOCOL_(SSLv2|SSLv3|TLSv1|TLSv1_1)\b|\bTLSVersion\.(SSLv3|TLSv1|TLSv1_1)\b"
                      r"|\bminVersion\s*:\s*['\"](TLSv1|TLSv1\.1)['\"]|\bsecureProtocol\s*:\s*['\"](SSLv2|SSLv3|TLSv1|TLSv1_1)_method")
     yield from line_matches(weak_tls.info, path, lines, pat)
+
+
+@rule("ACR-APP-015", "Session or auth cookie without Secure or HttpOnly", Severity.MEDIUM, "app-security", PY + JS,
+      fix="Keep Secure (HTTPS only) and HttpOnly (no JavaScript access) on session and auth cookies, plus SameSite=Lax or Strict.",
+      references=["https://cheatsheetseries.owasp.org/cheatsheets/Session_Management_Cheat_Sheet.html#cookies"])
+def insecure_cookie(path, text, lines):
+    pat = re.compile(r"\b(SESSION|CSRF)_COOKIE_(SECURE|HTTPONLY)\s*=\s*False\b|\bset_cookie\([^)]*\b(secure|httponly)\s*=\s*False"
+                     r"|\bhttpOnly\s*:\s*false\b")
+    yield from line_matches(insecure_cookie.info, path, lines, pat)

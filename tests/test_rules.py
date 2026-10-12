@@ -563,3 +563,15 @@ class WeakTlsRule(unittest.TestCase):
     def test_modern_versions_pass(self):
         self.assertEqual(ids("c.py", "ctx.minimum_version = ssl.TLSVersion.TLSv1_2\n", PY), [])
         self.assertEqual(ids("c.py", "ctx = ssl.SSLContext(ssl.PROTOCOL_TLS_CLIENT)\n", PY), [])
+
+
+class InsecureCookieRule(unittest.TestCase):
+    def test_cookie_flags_off(self):
+        js = {"app", "lang:javascript"}
+        self.assertIn("ACR-APP-015", ids("settings.py", "SESSION_COOKIE_SECURE = False\n", PY))
+        self.assertIn("ACR-APP-015", ids("v.py", 'resp.set_cookie("sid", sid, httponly=False)\n', PY))
+        self.assertIn("ACR-APP-015", ids("a.js", "res.cookie('sid', sid, { httpOnly: false, sameSite: 'lax' });\n", js))
+
+    def test_secure_cookies_pass(self):
+        self.assertEqual(ids("v.py", 'resp.set_cookie("sid", sid, secure=True, httponly=True, samesite="Lax")\n', PY), [])
+        self.assertEqual(ids("m.js", "transporter = createTransport({ secure: false, port: 587 });\n", {"app", "lang:javascript"}), [])
