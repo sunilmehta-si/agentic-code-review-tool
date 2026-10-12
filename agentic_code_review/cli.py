@@ -62,6 +62,8 @@ def _parser() -> argparse.ArgumentParser:
     rl = sub.add_parser("rules", help="List built-in rules.")
     rl.add_argument("--format", choices=("text", "markdown", "json"), default="text",
                     help="markdown prints the README catalogue table; json suits other tools.")
+    c = sub.add_parser("classify", help="Show how files are classified and which built-in rules apply to them.")
+    c.add_argument("paths", nargs="+", help="Files to classify.")
     e = sub.add_parser("explain", help="Explain a built-in rule: why it matters and how to fix it.")
     e.add_argument("rule_id", help="Rule id, e.g. ACR-AI-002 (case-insensitive).")
     return p
@@ -119,6 +121,22 @@ def _cmd_init(args: argparse.Namespace) -> int:
     target.write_text(STARTER, encoding="utf-8")
     print(f"acr: wrote {target.name}. Edit it, then commit it with the repository.")
     return 0
+
+
+def _cmd_classify(paths: list[str]) -> int:
+    from .classify import kinds as classify
+    status = 0
+    for p in paths:
+        try:
+            text = Path(p).read_text(errors="replace")
+        except OSError as exc:
+            print(f"{p}: cannot read ({exc.strerror})", file=sys.stderr)
+            status = 2
+            continue
+        k = classify(Path(os.path.relpath(p)).as_posix(), text)  # paths are classified relative to the repo root
+        applies = sorted(i.rule_id for i, _ in rules_base.REGISTRY if i.applies_to & k or "*" in i.applies_to)
+        print(f"{p}\n  kinds: {', '.join(sorted(k)) or '(none: only any-file rules apply)'}\n  rules: {len(applies)} ({', '.join(applies)})")
+    return status
 
 
 def _cmd_review(args: argparse.Namespace) -> int:
@@ -203,6 +221,8 @@ def main(argv: list[str] | None = None) -> int:
         return _cmd_baseline(args)
     if args.command == "init":
         return _cmd_init(args)
+    if args.command == "classify":
+        return _cmd_classify(args.paths)
     if args.command == "explain":
         return _cmd_explain(args.rule_id)
     try:

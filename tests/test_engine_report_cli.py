@@ -306,3 +306,26 @@ class LongTableTests(unittest.TestCase):
         self.assertIn("<details><summary>5 more finding(s)</summary>", md)
         self.assertEqual(md.count("| 🔵 | low |"), 30)
         self.assertNotIn("more finding(s)", report.to_markdown(ReviewResult(many[:25], {}, {})))
+
+
+class ClassifyCommandTests(unittest.TestCase):
+    def test_shows_kinds_and_rules(self):
+        import os
+        import tempfile
+        d = tempfile.mkdtemp()
+        os.makedirs(os.path.join(d, ".github", "workflows"))
+        with open(os.path.join(d, ".github", "workflows", "ci.yml"), "w") as fh:
+            fh.write("on: push\njobs: {}\n")
+        cwd = os.getcwd()
+        os.chdir(d)
+        try:
+            buf = io.StringIO()
+            with redirect_stdout(buf):
+                code = main(["classify", ".github/workflows/ci.yml", "./.github/workflows/ci.yml"])
+        finally:
+            os.chdir(cwd)
+        self.assertEqual(code, 0)
+        out = buf.getvalue()
+        self.assertEqual(out.count("kinds: github-actions"), 2)
+        self.assertIn("ACR-GHA-001", out)
+        self.assertNotIn("ACR-K8S-001", out)
