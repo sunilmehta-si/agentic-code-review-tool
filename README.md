@@ -248,7 +248,7 @@ acr review --base origin/main --ai openai
 | Dockerfile | `ACR-DOCKER-006` | low | Package manager cache or sudo left in the image |
 | Dockerfile | `ACR-DOCKER-007` | medium | World-writable permissions set in the image |
 | Dockerfile | `ACR-DOCKER-008` | high | TLS or package signature checks disabled during the build |
-| GitHub Actions | `ACR-GHA-001` | critical | pull_request_target checks out untrusted PR code |
+| GitHub Actions | `ACR-GHA-001` | critical | Privileged workflow checks out untrusted PR code |
 | GitHub Actions | `ACR-GHA-002` | high | Untrusted event data interpolated into a shell script |
 | GitHub Actions | `ACR-GHA-003` | medium | Third-party action not pinned to a commit SHA |
 | GitHub Actions | `ACR-GHA-004` | medium | Workflow token has broad or default permissions |

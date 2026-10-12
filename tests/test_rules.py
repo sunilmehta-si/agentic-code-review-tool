@@ -341,3 +341,16 @@ class RuntimeSocketTests(unittest.TestCase):
         self.assertEqual(sev(sock), ["critical"])
         self.assertEqual(sev(logs), ["high"])
         self.assertEqual(sev("volumes:\n  - {name: c, hostPath: {path: /run/containerd/containerd.sock}}\n"), ["critical"])
+
+
+class PrivilegedCheckoutTests(unittest.TestCase):
+    def test_comment_and_workflow_run_triggers(self):
+        gha = {"github-actions"}
+        comment = ("on:\n  issue_comment:\n    types: [created]\npermissions: {}\njobs:\n  a:\n    steps:\n"
+                   "      - uses: actions/checkout@v4\n        with:\n          ref: refs/pull/${{ github.event.issue.number }}/head\n")
+        self.assertIn("ACR-GHA-001", ids(".github/workflows/x.yml", comment, gha))
+        run = ("on:\n  workflow_run:\n    workflows: [ci]\npermissions: {}\njobs:\n  a:\n    steps:\n"
+               "      - uses: actions/checkout@v4\n        with:\n          ref: ${{ github.event.workflow_run.head_sha }}\n")
+        self.assertIn("ACR-GHA-001", ids(".github/workflows/x.yml", run, gha))
+        # The same checkout on a plain pull_request trigger runs without secrets, so it is fine.
+        self.assertNotIn("ACR-GHA-001", ids(".github/workflows/x.yml", run.replace("workflow_run:", "pull_request:"), gha))

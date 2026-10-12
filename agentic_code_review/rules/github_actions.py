@@ -30,13 +30,16 @@ def _run_block_lines(lines: list[str]) -> set[int]:
     return out
 
 
-@rule("ACR-GHA-001", "pull_request_target checks out untrusted PR code", Severity.CRITICAL, "ci-cd", GHA,
-      fix="Use pull_request for builds. If pull_request_target is required, never check out or run the PR's head.",
-      references=[HARDENING])
+@rule("ACR-GHA-001", "Privileged workflow checks out untrusted PR code", Severity.CRITICAL, "ci-cd", GHA,
+      fix="Use pull_request for builds. pull_request_target, issue_comment and workflow_run run with secrets and a write "
+          "token: never check out or run the PR's head there, or split the job and pass only data between them.",
+      references=[HARDENING, "https://securitylab.github.com/resources/github-actions-preventing-pwn-requests/"])
 def prt_checkout(path, text, lines):
-    if not re.search(r"^\s*pull_request_target\s*:|on\s*:\s*\[?[^\n]*pull_request_target", text, re.M):
+    if not re.search(r"^\s*(pull_request_target|issue_comment|workflow_run)\s*:|^on\s*:[^\n]*\b(pull_request_target|issue_comment|workflow_run)\b",
+                     text, re.M):
         return
-    pat = re.compile(r"ref\s*:\s*\$\{\{\s*github\.(event\.pull_request\.head\.(sha|ref)|head_ref)")
+    pat = re.compile(r"ref\s*:\s*['\"]?(\$\{\{\s*github\.(event\.pull_request\.head\.(sha|ref)|head_ref|event\.workflow_run\.head_(sha|branch))"
+                     r"|refs/pull/\$\{\{)")
     yield from line_matches(prt_checkout.info, path, lines, pat)
 
 
