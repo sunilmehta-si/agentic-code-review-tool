@@ -110,3 +110,24 @@ class QuotedPathTests(unittest.TestCase):
         self.assertEqual(len(review(root, full=True, use_scanners=False).findings), 2)
         subprocess.run(["git", "-C", str(root), "add", "."], check=True)
         self.assertEqual(len(review(root, staged=True, use_scanners=False).findings), 2)
+
+
+class NoMergeBaseTests(unittest.TestCase):
+    def test_falls_back_to_a_direct_diff(self):
+        import io
+        import subprocess
+        from contextlib import redirect_stderr
+
+        from agentic_code_review.engine import review
+        from tests.helpers import git_repo
+        root = git_repo({"a.py": "x = 1\n"})
+        run = lambda *a: subprocess.run(["git", "-C", str(root), *a], check=True, capture_output=True)  # noqa: E731
+        run("branch", "-m", "main")
+        run("checkout", "-q", "--orphan", "feature")  # unrelated history, like a shallow clone without the base
+        (root / "a.py").write_text("x = 1\nos.system(cmd)\n")
+        run("commit", "-qam", "feature")
+        err = io.StringIO()
+        with redirect_stderr(err):
+            result = review(root, base="main", use_scanners=False)
+        self.assertEqual([(f.path, f.line) for f in result.findings], [("a.py", 2)])
+        self.assertIn("no merge base", err.getvalue())

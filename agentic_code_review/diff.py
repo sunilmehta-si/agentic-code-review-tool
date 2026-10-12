@@ -8,6 +8,7 @@ from __future__ import annotations
 import codecs
 import re
 import subprocess
+import sys
 from pathlib import Path
 
 from .models import ChangedFile
@@ -51,13 +52,25 @@ def parse_unified_diff(text: str) -> dict[str, ChangedFile]:
     return files
 
 
+def _range_diff(root: Path, base: str, head: str | None, context: str) -> str:
+    """base...head (what the PR adds since it branched). Shallow CI clones often lack the merge base; then fall back
+    to base..head, which can also show changes made on the base branch, and say so."""
+    try:
+        return _git(root, "diff", context, "--no-color", "--diff-filter=ACMR", f"{base}...{head or 'HEAD'}")
+    except subprocess.CalledProcessError as exc:
+        if "merge base" not in (exc.stderr or ""):
+            raise
+    print(f"acr: no merge base between {base} and {head or 'HEAD'} (shallow clone?); comparing the two commits directly. "
+          "Fetch more history (fetch-depth: 0) for an exact PR diff.", file=sys.stderr)
+    return _git(root, "diff", context, "--no-color", "--diff-filter=ACMR", base, head or "HEAD")
+
+
 def changed_files(root: Path, base: str | None, head: str | None, staged: bool = False) -> dict[str, ChangedFile]:
     """Changed files between two refs (merge-base semantics), the staged index, or the working tree vs HEAD."""
     if staged:
         return parse_unified_diff(_git(root, "diff", "--cached", "-U0", "--no-color", "--diff-filter=ACMR"))
     if base:
-        rng = f"{base}...{head or 'HEAD'}"
-        text = _git(root, "diff", "-U0", "--no-color", "--diff-filter=ACMR", rng)
+        text = _range_diff(root, base, head, "-U0")
     else:
         text = _git(root, "diff", "-U0", "--no-color", "--diff-filter=ACMR", "HEAD")
         # Untracked files count as fully added in workspace mode.
@@ -100,7 +113,7 @@ def unified_text(root: Path, base: str | None, head: str | None, staged: bool = 
     if staged:
         return _git(root, "diff", "--cached", "-U3", "--no-color", "--diff-filter=ACMR")
     if base:
-        return _git(root, "diff", "-U3", "--no-color", "--diff-filter=ACMR", f"{base}...{head or 'HEAD'}")
+        return _range_diff(root, base, head, "-U3")
     text = _git(root, "diff", "-U3", "--no-color", "--diff-filter=ACMR", "HEAD")
     for path in map(unquote, _git(root, "ls-files", "--others", "--exclude-standard").splitlines()):
         p = root / path
