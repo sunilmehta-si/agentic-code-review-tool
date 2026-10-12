@@ -2,6 +2,30 @@
 
 All notable changes to this project. The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [0.4.0] - 2026-10-12
+
+### Added
+- Custom rules in `.acr.yml` (`custom_rules`: id, title, regex pattern, severity, file globs, fix), validated on load, run like built-in rules and listed by `acr rules` / `acr explain`.
+- `--include` and `include:` to review only part of a repository; `acr classify` shows a file's kinds and the rules that apply.
+- Nineteen rules (87 in total): hostPort, unmasked /proc, ingress-nginx snippets, privileged Pod Security namespaces, unauthenticated services (Ollama, Ray, Jupyter, Redis, ...) exposed outside the cluster, ACTIONS_ALLOW_UNSECURE_COMMANDS, toJSON(secrets), credential files copied into images, resource policies open to any principal, KMS rotation off, CloudTrail logging off, per-object bucket ACLs, model servers with --trust-remote-code, public Gradio share links, skills that pre-approve unrestricted Bash, open redirects, path traversal, deprecated TLS versions, insecure session cookies.
+- SARIF: stable `partialFingerprints`, tool execution notifications for failed or missing scanners and AI errors, and full rule help for built-in rules.
+- JSON report: `schema_version` and a `gate` section (threshold, blocking count, passed), plus `files_skipped` and `scanners_failed`.
+- GitHub Action: `scanners` input and `findings`, `blocking`, `report-file` outputs.
+- Markdown summary links each location to the PR head commit and collapses findings beyond the first 25.
+- CI fails on Python SyntaxWarnings.
+
+### Changed
+- AI agent: credential files are never read or searched, and secrets in the diff and tool output are redacted before they reach the model; findings now include their category and the rule's fix guidance.
+- Inline PR comments already posted by an earlier run are not repeated; GitHub API calls retry on 5xx, rate limits and network errors; review bodies stay under GitHub's size limit.
+- A scanner that times out or crashes is reported as failed instead of looking clean.
+- ACR-GHA-001 also covers issue_comment and workflow_run workflows that check out PR code; ACR-AI-003 covers LangChain `load_tools` with shell or REPL tools; ACR-APP-004 covers joblib, pandas.read_pickle and numpy allow_pickle; ACR-MCP-002 covers keys in server URLs; ACR-K8S-003 reports container runtime sockets as critical.
+
+### Fixed
+- Files whose names git quotes (non-ASCII, quotes, backslashes) were silently skipped in every mode.
+- ACR-TF-001 counted an open egress block against a restricted ingress rule, and missed all-traffic ingress (`protocol = "-1"`).
+- hostPath written in YAML flow style was not detected.
+- Shallow clones without a merge base made `--base` fail; acr now falls back to a direct diff and says so.
+
 ## [0.3.0] - 2026-10-11
 
 ### Added
@@ -48,6 +72,7 @@ All notable changes to this project. The format follows [Keep a Changelog](https
 - AI review agent for Claude (Anthropic SDK) and OpenAI-compatible endpoints, with read-only, repository-confined tools.
 - Markdown, JSON and SARIF reports; inline GitHub PR comments; composite GitHub Action; insecure demo project.
 
+[0.4.0]: https://github.com/sunilmehta-si/agentic-code-review-tool/compare/v0.3.0...v0.4.0
 [0.3.0]: https://github.com/sunilmehta-si/agentic-code-review-tool/compare/v0.2.0...v0.3.0
 [0.2.0]: https://github.com/sunilmehta-si/agentic-code-review-tool/compare/v0.1.0...v0.2.0
 [0.1.0]: https://github.com/sunilmehta-si/agentic-code-review-tool/releases/tag/v0.1.0

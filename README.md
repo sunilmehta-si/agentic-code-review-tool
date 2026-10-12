@@ -146,7 +146,7 @@ The image runs as a non-root user and pins its base image by digest.
 # .pre-commit-config.yaml
 repos:
   - repo: https://github.com/sunilmehta-si/agentic-code-review-tool
-    rev: v0.3.0
+    rev: v0.4.0
     hooks:
       - id: acr
 ```
@@ -172,7 +172,7 @@ jobs:
         with:
           fetch-depth: 0
           persist-credentials: false
-      - uses: sunilmehta-si/agentic-code-review-tool@v0.3.0 # or pin the release commit SHA
+      - uses: sunilmehta-si/agentic-code-review-tool@v0.4.0 # or pin the release commit SHA
         with:
           fail-on: high
           ai: claude                                        # or: none, openai
