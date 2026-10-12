@@ -369,3 +369,11 @@ class McpUrlSecretTests(unittest.TestCase):
         self.assertIn("ACR-MCP-002", ids(".mcp.json", cfg, {"mcp-config"}))
         ok = '{"mcpServers": {"s": {"url": "https://mcp.example.com/sse?api_key=${MCP_KEY}&region=eu"}}}'
         self.assertNotIn("ACR-MCP-002", ids(".mcp.json", ok, {"mcp-config"}))
+
+
+class HostPortRule(unittest.TestCase):
+    def test_host_port(self):
+        k8s = {"kubernetes"}
+        self.assertIn("ACR-K8S-013", ids("p.yaml", "ports:\n  - containerPort: 8080\n    hostPort: 80\n", k8s))
+        self.assertIn("ACR-K8S-013", ids("p.yaml", "ports: [{containerPort: 53, hostPort: 53}]\n", k8s))
+        self.assertEqual(ids("p.yaml", "ports:\n  - containerPort: 8080\n", k8s), [])

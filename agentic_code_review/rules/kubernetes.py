@@ -99,6 +99,13 @@ def unconfined(path, text, lines):
     yield from line_matches(unconfined.info, path, lines, pat)
 
 
+@rule("ACR-K8S-013", "Container binds a port directly on the node (hostPort)", Severity.MEDIUM, "kubernetes", K8S,
+      fix="Expose the workload through a Service (ClusterIP, or LoadBalancer/Ingress for outside traffic) instead of hostPort.",
+      references=[PSS])
+def host_port(path, text, lines):
+    yield from line_matches(host_port.info, path, lines, re.compile(r"(^\s*-?\s*|[{,]\s*)hostPort\s*:\s*['\"]?[1-9]\d*"))
+
+
 def _workloads(text: str):
     try:
         import yaml  # optional dependency
