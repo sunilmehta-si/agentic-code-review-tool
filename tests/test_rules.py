@@ -433,3 +433,16 @@ class AllSecretsRule(unittest.TestCase):
         wf = "permissions: {}\njobs:\n  a:\n    steps:\n      - run: ./deploy.sh\n        env:\n          ALL: ${{ toJSON(secrets) }}\n"
         self.assertIn("ACR-GHA-011", ids(".github/workflows/x.yml", wf, {"github-actions"}))
         self.assertEqual(ids(".github/workflows/x.yml", wf.replace("toJSON(secrets)", "secrets.DEPLOY_KEY"), {"github-actions"}), [])
+
+
+class CopiedCredentialsRule(unittest.TestCase):
+    def test_credential_files(self):
+        df = {"dockerfile"}
+        for line in ("COPY .env /app/.env", "COPY --chown=app:app .npmrc ./", "ADD id_rsa /root/.ssh/id_rsa",
+                     "COPY .aws /root/.aws", "COPY certs/server.key /etc/tls/", "COPY .env.production /app/"):
+            self.assertIn("ACR-DOCKER-009", ids("Dockerfile", f"FROM a:1\n{line}\nUSER 1\n", df), line)
+
+    def test_ordinary_files_pass(self):
+        df = {"dockerfile"}
+        for line in ("COPY .env.example /app/", "COPY . /app", "COPY keys.py /app/", "COPY ca.pem /etc/ssl/certs/"):
+            self.assertNotIn("ACR-DOCKER-009", ids("Dockerfile", f"FROM a:1\n{line}\nUSER 1\n", df), line)

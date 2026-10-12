@@ -210,7 +210,7 @@ acr review --base origin/main --ai openai
 
 ## Built-in rules
 
-75 rules, generated from the code (`acr rules`; `acr explain <id>` for details):
+76 rules, generated from the code (`acr rules`; `acr explain <id>` for details):
 
 <!-- regenerate: acr rules --format markdown -->
 
@@ -272,6 +272,7 @@ acr review --base origin/main --ai openai
 | Dockerfile | `ACR-DOCKER-006` | low | Package manager cache or sudo left in the image |
 | Dockerfile | `ACR-DOCKER-007` | medium | World-writable permissions set in the image |
 | Dockerfile | `ACR-DOCKER-008` | high | TLS or package signature checks disabled during the build |
+| Dockerfile | `ACR-DOCKER-009` | high | Credential file copied into the image |
 | GitHub Actions | `ACR-GHA-001` | critical | Privileged workflow checks out untrusted PR code |
 | GitHub Actions | `ACR-GHA-002` | high | Untrusted event data interpolated into a shell script |
 | GitHub Actions | `ACR-GHA-003` | medium | Third-party action not pinned to a commit SHA |

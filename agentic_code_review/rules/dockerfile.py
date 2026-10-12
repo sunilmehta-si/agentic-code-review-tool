@@ -91,3 +91,14 @@ def build_verification_off(path, text, lines):
                      r"|--trusted-host\b|strict-ssl\s+false|--allow-untrusted\b|--allow-unauthenticated\b|--nogpgcheck\b"
                      r"|http\.sslVerify\s+false|GIT_SSL_NO_VERIFY|PIP_TRUSTED_HOST", re.I)
     yield from line_matches(build_verification_off.info, path, lines, pat)
+
+
+@rule("ACR-DOCKER-009", "Credential file copied into the image", Severity.HIGH, "container", DF,
+      fix="Never COPY credential files: anyone who can pull the image can read every layer. Use RUN --mount=type=secret "
+          "for build-time credentials and inject runtime secrets from the platform; add the files to .dockerignore.",
+      references=["https://docs.docker.com/build/building/secrets/"])
+def copied_credentials(path, text, lines):
+    pat = re.compile(r"^\s*(COPY|ADD)\s+(--\S+\s+)*[^\n]*?(?<=[\s/])(\.env(?![\w.-]*(example|sample|template))[\w.-]*|id_rsa|id_ecdsa|id_ed25519"
+                     r"|\.npmrc|\.pypirc|\.netrc|\.git-credentials|\.aws/?|\.ssh/?|[\w.-]*\.key|credentials\.json|[\w.-]*\.tfstate)(\s|$)",
+                     re.I)
+    yield from line_matches(copied_credentials.info, path, lines, pat)
