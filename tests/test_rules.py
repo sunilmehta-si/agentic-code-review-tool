@@ -161,6 +161,24 @@ class InfraRules(unittest.TestCase):
         self.assertIn("ACR-TF-001", ids("m.tf", ssh, {"terraform"}))
         self.assertNotIn("ACR-TF-001", ids("m.tf", https, {"terraform"}))
 
+    def test_open_egress_does_not_count_against_restricted_ingress(self):
+        sg = ('resource "aws_security_group" "s" {\n  ingress {\n    from_port = 22\n    to_port = 22\n'
+              '    cidr_blocks = ["10.0.0.0/8"]\n  }\n  egress {\n    from_port = 0\n    to_port = 0\n    protocol = "-1"\n'
+              '    cidr_blocks = ["0.0.0.0/0"]\n  }\n}\n')
+        self.assertNotIn("ACR-TF-001", ids("m.tf", sg, {"terraform"}))
+
+    def test_all_traffic_ingress_is_flagged(self):
+        from agentic_code_review.rules import base
+        sg = ('resource "aws_security_group" "s" {\n  ingress {\n    from_port = 0\n    to_port = 0\n    protocol = "-1"\n'
+              '    cidr_blocks = ["0.0.0.0/0"]\n  }\n}\n')
+        found = [f for f in base.run_rules("m.tf", sg, {"terraform"}) if f.rule_id == "ACR-TF-001"]
+        self.assertEqual([f.line for f in found], [6])
+        self.assertIn("Every port", found[0].detail)
+        rule = ('resource "aws_vpc_security_group_ingress_rule" "all" {\n  ip_protocol = "-1"\n  cidr_ipv4 = "0.0.0.0/0"\n}\n')
+        self.assertIn("ACR-TF-001", ids("m.tf", rule, {"terraform"}))
+        gcp = ('resource "google_compute_firewall" "all" {\n  allow {\n    protocol = "all"\n  }\n  source_ranges = ["0.0.0.0/0"]\n}\n')
+        self.assertIn("ACR-TF-001", ids("m.tf", gcp, {"terraform"}))
+
 
 class TerraformDataProtection(unittest.TestCase):
     def test_database_deletion_protection(self):

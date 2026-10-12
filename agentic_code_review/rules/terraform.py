@@ -45,6 +45,24 @@ def _ports(block: str) -> set[int]:
     return ports
 
 
+ALL_PORTS = re.compile(r'\b(ip_)?protocol\s*=\s*"(-1|all)"', re.I)  # AWS "-1" / GCP "all": every port, every protocol
+
+
+def _nested(lines: list[str], start: int, end: int, name: str):
+    """(start, end) of each `name { ... }` block nested inside lines start..end."""
+    i = start
+    while i <= end:
+        if re.match(rf"^\s*{name}\s*\{{", lines[i - 1]):
+            depth = 0
+            for j in range(i, end + 1):
+                depth += lines[j - 1].count("{") - lines[j - 1].count("}")
+                if depth <= 0:
+                    yield i, j
+                    i = j
+                    break
+        i += 1
+
+
 @rule("ACR-TF-001", "Sensitive port open to the whole internet", Severity.CRITICAL, "iac", TF,
       fix="Restrict the source to known CIDRs, a bastion, or a private endpoint/VPN. Never expose SSH, RDP, databases or the Kubernetes API to 0.0.0.0/0.")
 def open_ingress(path, text, lines):
@@ -53,14 +71,23 @@ def open_ingress(path, text, lines):
         if not re.search(r"security_group|firewall|network_security|nsg|security_rule", header, re.I):
             continue
         block = "\n".join(lines[start - 1:end])
-        if re.search(r'(type|direction)\s*=\s*"(egress|Outbound)"', block, re.I):
+        if re.search(r'(type|direction)\s*=\s*"(egress|Outbound)"', block, re.I) or "egress_rule" in header:
             continue
-        exposed = _ports(block) & SENSITIVE_PORTS
-        if not exposed:
-            continue
-        for i in range(start, end + 1):
-            if OPEN_CIDR.search(lines[i - 1]):
-                yield make(info, path, i, f"Ports {sorted(exposed)[:6]} reachable from anywhere.")
+        # Inline ingress blocks are judged one by one, so an open egress block never counts against them.
+        units = list(_nested(lines, start, end, "ingress")) or [(start, end)]
+        for s, e in units:
+            unit = "\n".join(lines[s - 1:e])
+            exposed = SENSITIVE_PORTS if ALL_PORTS.search(unit) else _ports(unit) & SENSITIVE_PORTS
+            if not exposed:
+                continue
+            what = "Every port is" if ALL_PORTS.search(unit) else f"Ports {sorted(exposed)[:6]} are"
+            for i in range(s, e + 1):
+                if OPEN_CIDR.search(lines[i - 1]) and not (units == [(start, end)] and _in_egress(lines, start, end, i)):
+                    yield make(info, path, i, f"{what} reachable from anywhere.")
+
+
+def _in_egress(lines: list[str], start: int, end: int, line: int) -> bool:
+    return any(s <= line <= e for s, e in _nested(lines, start, end, "egress"))
 
 
 @rule("ACR-TF-002", "Storage or data service exposed publicly", Severity.HIGH, "iac", TF,
