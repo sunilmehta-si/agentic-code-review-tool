@@ -39,6 +39,7 @@ def _parser() -> argparse.ArgumentParser:
     r.add_argument("--no-scanners", action="store_true", help="Built-in rules only; skip external scanners.")
     r.add_argument("--scanners", help="Comma-separated subset, e.g. semgrep,trivy.")
     r.add_argument("--exclude", action="append", default=[], help="Glob to skip (repeatable).")
+    r.add_argument("--include", action="append", default=[], help="Only review paths matching this glob (repeatable).")
     r.add_argument("--ai", choices=("claude", "openai"), default=os.environ.get("ACR_AI") or None,
                    # falls back to `ai:` in .acr.yml
                    help="Have an LLM agent verify findings and explain fixes (claude needs the [claude] extra).")
@@ -135,7 +136,8 @@ def _cmd_review(args: argparse.Namespace) -> int:
     only = {s.strip() for s in args.scanners.split(",")} if args.scanners else (set(cfg.scanners) if cfg.scanners else None)
     result = review(Path(args.root), base=args.base, head=args.head, full=args.full,
                     use_scanners=not args.no_scanners, only_scanners=only, excludes=tuple(args.exclude) + tuple(cfg.exclude),
-                    disable=tuple(cfg.disable), severity_overrides=cfg.severity, staged=args.staged)
+                    disable=tuple(cfg.disable), severity_overrides=cfg.severity, staged=args.staged,
+                    includes=tuple(args.include))
     from . import baseline as baseline_mod
     baseline_mod.apply(Path(args.root).resolve(), result,
                        baseline_mod.load(Path(args.root).resolve(), args.baseline or cfg.baseline or baseline_mod.DEFAULT_PATH))

@@ -102,10 +102,12 @@ def dedupe(findings: list[Finding]) -> list[Finding]:
 def review(root: Path, base: str | None = None, head: str | None = None, full: bool = False,
            use_scanners: bool = True, only_scanners: set[str] | None = None, excludes: tuple[str, ...] = (),
            disable: tuple[str, ...] = (), severity_overrides: dict[str, Severity] | None = None,
-           staged: bool = False) -> ReviewResult:
+           staged: bool = False, includes: tuple[str, ...] = ()) -> ReviewResult:
     root = root.resolve()
     files = diff.all_files(root) if full else diff.changed_files(root, base, head, staged=staged)
     files = {p: cf for p, cf in files.items() if not _excluded(p, excludes)}
+    if includes:  # e.g. one service in a monorepo; '*' also matches '/', so 'services/api/*' covers subfolders
+        files = {p: cf for p, cf in files.items() if any(fnmatch.fnmatch(p, pat) for pat in includes)}
 
     findings: list[Finding] = []
     file_kinds: dict[str, set[str]] = {}

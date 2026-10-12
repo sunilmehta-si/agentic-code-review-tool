@@ -197,3 +197,17 @@ class SkippedFilesTests(unittest.TestCase):
         self.assertEqual(result.skipped, ["big.py", "model.bin"])
         self.assertIn("2 binary or oversized file(s)", report.to_markdown(result))
         self.assertEqual(json.loads(report.to_json(result))["files_skipped"], ["big.py", "model.bin"])
+
+
+class IncludeTests(unittest.TestCase):
+    def test_include_limits_the_review(self):
+        root = git_repo({"README.md": "x\n"})
+        for rel in ("services/api/app.py", "services/web/app.py"):
+            (root / rel).parent.mkdir(parents=True, exist_ok=True)
+            (root / rel).write_text("os.system(cmd)\n")
+        result = review(root, use_scanners=False, includes=("services/api/*",))
+        self.assertEqual([f.path for f in result.findings], ["services/api/app.py"])
+        buf = io.StringIO()
+        with redirect_stdout(buf):
+            main(["review", "--root", str(root), "--no-scanners", "--include", "services/web/*", "--format", "json", "--fail-on", "never"])
+        self.assertEqual({f["path"] for f in json.loads(buf.getvalue())["findings"]}, {"services/web/app.py"})
