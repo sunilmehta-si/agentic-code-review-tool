@@ -189,3 +189,23 @@ class RedactionTests(unittest.TestCase):
         self.assertNotIn("Q8f3kLm2Zp0x", text)
         hits, _ = RepoTools(root, {}).call("search_repo", {"pattern": "api_k"})
         self.assertNotIn("Q8f3kLm2Zp0x", hits)
+
+
+class PayloadTests(unittest.TestCase):
+    def test_findings_carry_category_and_rule_fix(self):
+        from tests.helpers import git_repo
+        root = git_repo({"a.py": "x = 1\n"})
+        (root / "a.py").write_text("x = 1\nos.system(cmd)\n")
+        result = review(root, use_scanners=False)
+
+        class Capture:
+            usage = {}
+
+            def review(self, message, tools):
+                self.message = message
+                return {"verdicts": [], "new_findings": [], "summary": ""}
+        cap = Capture()
+        apply_ai(result, root, cap)
+        sent = json.loads(cap.message.split("\n", 1)[1].split("\n\nUnified diff")[0])
+        self.assertEqual(sent[0]["category"], "app-security")
+        self.assertIn("argument list", sent[0]["rule_fix"])
