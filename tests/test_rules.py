@@ -383,3 +383,12 @@ class UnmaskedProcRule(unittest.TestCase):
     def test_proc_mount(self):
         self.assertIn("ACR-K8S-014", ids("p.yaml", "securityContext:\n  procMount: Unmasked\n", {"kubernetes"}))
         self.assertEqual(ids("p.yaml", "securityContext:\n  procMount: Default\n", {"kubernetes"}), [])
+
+
+class NginxSnippetRule(unittest.TestCase):
+    def test_snippet_annotations(self):
+        k8s = {"kubernetes"}
+        ing = "metadata:\n  annotations:\n    nginx.ingress.kubernetes.io/configuration-snippet: |\n      more_set_headers \"X: y\";\n"
+        self.assertIn("ACR-K8S-015", ids("i.yaml", ing, k8s))
+        self.assertIn("ACR-K8S-015", ids("cm.yaml", "data:\n  allow-snippet-annotations: \"true\"\n", k8s))
+        self.assertEqual(ids("i.yaml", "metadata:\n  annotations:\n    nginx.ingress.kubernetes.io/ssl-redirect: \"true\"\n", k8s), [])

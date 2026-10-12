@@ -113,6 +113,16 @@ def unmasked_proc(path, text, lines):
     yield from line_matches(unmasked_proc.info, path, lines, re.compile(r"\bprocMount\s*:\s*['\"]?Unmasked\b"))
 
 
+@rule("ACR-K8S-015", "Ingress injects raw NGINX configuration through a snippet annotation", Severity.MEDIUM, "kubernetes", K8S,
+      fix="Use the controller's dedicated annotations or a ConfigMap reviewed by the platform team, and keep "
+          "allow-snippet-annotations off: snippets let anyone who can create an Ingress change the shared proxy.",
+      references=["https://kubernetes.github.io/ingress-nginx/user-guide/nginx-configuration/annotations/"])
+def nginx_snippet(path, text, lines):
+    pat = re.compile(r"nginx\.ingress\.kubernetes\.io/(configuration|server|stream|auth)-snippet\s*:"
+                     r"|allow-snippet-annotations\s*:\s*['\"]?true\b")
+    yield from line_matches(nginx_snippet.info, path, lines, pat)
+
+
 def _workloads(text: str):
     try:
         import yaml  # optional dependency
