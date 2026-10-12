@@ -1,4 +1,4 @@
-"""Repository policy in `.acr.yml`, so teams set rules once instead of on every command line.
+r"""Repository policy in `.acr.yml`, so teams set rules once instead of on every command line.
 
     fail_on: high                  # critical | high | medium | low | never
     exclude: ["docs/*", "*.generated.go"]
