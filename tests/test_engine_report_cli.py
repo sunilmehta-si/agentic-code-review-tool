@@ -251,3 +251,15 @@ class SarifInvocationTests(unittest.TestCase):
         self.assertEqual([n["level"] for n in inv["toolExecutionNotifications"]], ["error", "note"])
         clean = json.loads(report.to_sarif(ReviewResult([], {}, {})))["runs"][0]["invocations"][0]
         self.assertEqual(clean, {"executionSuccessful": True, "toolExecutionNotifications": []})
+
+
+class SarifRuleMetadataTests(unittest.TestCase):
+    def test_builtin_rules_are_documented(self):
+        from agentic_code_review.engine import ReviewResult
+        acr = Finding("ACR-APP-002", "Shell command built from a string", Severity.HIGH, "a.py", 3, "acr", "app-security")
+        ext = Finding("semgrep:x", "semgrep thing", Severity.LOW, "a.py", 4, "semgrep", "app-security")
+        rules = {r["id"]: r for r in json.loads(report.to_sarif(ReviewResult([acr, ext], {}, {})))["runs"][0]["tool"]["driver"]["rules"]}
+        self.assertIn("acr explain ACR-APP-002", rules["ACR-APP-002"]["help"]["text"])
+        self.assertTrue(rules["ACR-APP-002"]["helpUri"].startswith("https://"))
+        self.assertEqual(rules["ACR-APP-002"]["properties"]["precision"], "high")
+        self.assertNotIn("precision", rules["semgrep:x"]["properties"])

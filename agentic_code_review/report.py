@@ -99,6 +99,11 @@ def to_json(result: ReviewResult) -> str:
                        "findings": [f.to_dict() for f in result.findings]}, indent=2)
 
 
+def _builtin(rule_id: str):
+    from .rules import base
+    return next((info for info, _ in base.REGISTRY if info.rule_id == rule_id), None)
+
+
 def to_sarif(result: ReviewResult) -> str:
     rules: dict[str, dict] = {}
     results = []
@@ -112,6 +117,16 @@ def to_sarif(result: ReviewResult) -> str:
             }
             if f.references:
                 rules[f.rule_id]["helpUri"] = f.references[0]
+            info = _builtin(f.rule_id)
+            if info is not None:  # built-in rules carry their own documentation into the code scanning UI
+                refs = "".join(f"\n- {r}" for r in info.references)
+                rules[f.rule_id].update({
+                    "fullDescription": {"text": info.title},
+                    "help": {"text": f"{info.fix}\n\nRun `acr explain {info.rule_id}` for details.",
+                             "markdown": f"**How to fix:** {info.fix}" + (f"\n\n**References:**{refs}" if refs else "")},
+                    "helpUri": info.references[0] if info.references else f"{TOOL_URI}#built-in-rules",
+                })
+                rules[f.rule_id]["properties"].update({"precision": "high", "tags": ["security", info.category, "acr"]})
         region = {"startLine": max(1, f.line)}
         if f.end_line and f.end_line >= f.line:
             region["endLine"] = f.end_line
