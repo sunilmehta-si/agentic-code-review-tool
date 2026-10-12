@@ -123,10 +123,17 @@ def to_sarif(result: ReviewResult) -> str:
             **({"partialFingerprints": {"acrFingerprint/v1": f.fingerprint}} if f.fingerprint else {}),
             "properties": {"tool": f.tool, "category": f.category, **({"aiVerdict": f.ai_verdict} if f.ai_verdict else {})},
         })
+    notes = [{"level": "error", "message": {"text": f"Scanner {name} failed: {why}"}}
+             for name, why in sorted(result.scanners_failed.items())]
+    notes += [{"level": "note", "message": {"text": f"Scanner {name} is not installed and was skipped."}}
+              for name in result.scanners_missing]
+    if result.ai_error:
+        notes.append({"level": "warning", "message": {"text": f"AI review skipped: {result.ai_error}"}})
+    invocation = {"executionSuccessful": not result.scanners_failed, "toolExecutionNotifications": notes}
     sarif = {"$schema": "https://json.schemastore.org/sarif-2.1.0.json", "version": "2.1.0",
              "runs": [{"tool": {"driver": {"name": "agentic-code-review-tool", "version": __version__,
                                            "informationUri": TOOL_URI, "rules": list(rules.values())}},
-                       "results": results}]}
+                       "invocations": [invocation], "results": results}]}
     return json.dumps(sarif, indent=2)
 
 

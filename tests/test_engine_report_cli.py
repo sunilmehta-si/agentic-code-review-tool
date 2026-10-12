@@ -240,3 +240,14 @@ class ScannerFailureTests(unittest.TestCase):
             result = review(root)
         self.assertEqual((result.scanners_run, result.scanners_failed), ([], {"semgrep": "timed out after 300s"}))
         self.assertIn("semgrep (timed out after 300s)", report.to_markdown(result))
+
+
+class SarifInvocationTests(unittest.TestCase):
+    def test_scanner_problems_become_notifications(self):
+        from agentic_code_review.engine import ReviewResult
+        r = ReviewResult([], {}, {}, scanners_missing=["trivy"], scanners_failed={"semgrep": "timed out after 300s"})
+        inv = json.loads(report.to_sarif(r))["runs"][0]["invocations"][0]
+        self.assertFalse(inv["executionSuccessful"])
+        self.assertEqual([n["level"] for n in inv["toolExecutionNotifications"]], ["error", "note"])
+        clean = json.loads(report.to_sarif(ReviewResult([], {}, {})))["runs"][0]["invocations"][0]
+        self.assertEqual(clean, {"executionSuccessful": True, "toolExecutionNotifications": []})
