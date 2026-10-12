@@ -475,3 +475,12 @@ class KeyRotationRule(unittest.TestCase):
         key = 'resource "aws_kms_key" "k" {\n  enable_key_rotation = false\n}\n'
         self.assertIn("ACR-TF-010", ids("k.tf", key, {"terraform"}))
         self.assertEqual(ids("k.tf", key.replace("false", "true"), {"terraform"}), [])
+
+
+class AuditLoggingRule(unittest.TestCase):
+    def test_cloudtrail_off(self):
+        trail = 'resource "aws_cloudtrail" "t" {\n  name = "org"\n  enable_logging = false\n}\n'
+        self.assertIn("ACR-TF-011", ids("t.tf", trail, {"terraform"}))
+        self.assertEqual(ids("t.tf", trail.replace("false", "true"), {"terraform"}), [])
+        other = 'resource "aws_lb" "x" {\n  enable_logging = false\n}\n'  # only the audit trail counts
+        self.assertNotIn("ACR-TF-011", ids("t.tf", other, {"terraform"}))

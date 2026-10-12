@@ -179,3 +179,17 @@ def public_principal(path, text, lines):
       references=["https://docs.aws.amazon.com/kms/latest/developerguide/rotate-keys.html"])
 def key_rotation(path, text, lines):
     yield from line_matches(key_rotation.info, path, lines, re.compile(r"\benable_key_rotation\s*=\s*false\b"))
+
+
+@rule("ACR-TF-011", "Cloud audit logging turned off", Severity.MEDIUM, "iac", TF,
+      fix="Keep the audit trail on (enable_logging = true, include_global_service_events = true); without it there is no "
+          "record of who changed what during an incident.",
+      references=["https://docs.aws.amazon.com/awscloudtrail/latest/userguide/best-practices-security.html"])
+def audit_logging(path, text, lines):
+    pat = re.compile(r"\benable_logging\s*=\s*false\b|\binclude_global_service_events\s*=\s*false\b")
+    for start, end, header in _blocks(lines):
+        if "aws_cloudtrail" not in header:
+            continue
+        for i in range(start, end + 1):
+            if pat.search(lines[i - 1]):
+                yield make(audit_logging.info, path, i)

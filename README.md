@@ -210,7 +210,7 @@ acr review --base origin/main --ai openai
 
 ## Built-in rules
 
-78 rules, generated from the code (`acr rules`; `acr explain <id>` for details):
+79 rules, generated from the code (`acr rules`; `acr explain <id>` for details):
 
 <!-- regenerate: acr rules --format markdown -->
 
@@ -294,6 +294,7 @@ acr review --base origin/main --ai openai
 | Terraform | `ACR-TF-008` | medium | Instance metadata reachable without session tokens (credential theft via SSRF) |
 | Terraform | `ACR-TF-009` | high | Resource policy allows any principal ("*") without conditions |
 | Terraform | `ACR-TF-010` | medium | Encryption key rotation turned off |
+| Terraform | `ACR-TF-011` | medium | Cloud audit logging turned off |
 
 ## Optional scanners
 
