@@ -13,7 +13,7 @@ from pathlib import Path
 
 from . import diff
 from .classify import kinds as classify
-from .models import ChangedFile, Finding, Severity
+from .models import ChangedFile, Finding, Severity, fingerprint
 from .rules import base as rules_base
 from .scanners import available_scanners
 
@@ -161,5 +161,8 @@ def review(root: Path, base: str | None = None, head: str | None = None, full: b
 
     # Keep only findings on lines this change touches (every line counts in full mode).
     kept = [f for f in findings if f.path in files and files[f.path].touches(f.line, f.end_line)]
+    for f in kept:
+        lines = file_lines.get(f.path) or []
+        f.fingerprint = fingerprint(f.rule_id, f.path, lines[f.line - 1] if 0 < f.line <= len(lines) else "")
     return ReviewResult(findings=dedupe(kept), files=files, file_kinds=file_kinds, scanners_run=ran, scanners_missing=missing, scanners_failed=failed,
                         skipped=skipped)

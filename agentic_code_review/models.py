@@ -1,8 +1,16 @@
 """Core data types shared by rules, scanners, the AI layer and reporters."""
 from __future__ import annotations
 
+import hashlib
 from dataclasses import asdict, dataclass, field
 from enum import IntEnum
+
+
+def fingerprint(rule_id: str, path: str, line_text: str) -> str:
+    """Stable identity of a finding: rule, file and the flagged line's normalised text, not its number,
+    so it survives code moving above it and changes when the line itself changes."""
+    raw = f"{rule_id}|{path}|{' '.join(line_text.split())}"
+    return hashlib.sha256(raw.encode()).hexdigest()[:24]
 
 
 class Severity(IntEnum):
@@ -52,6 +60,7 @@ class Finding:
     ai_verdict: str | None = None          # "confirmed" | "false_positive" | "uncertain"
     ai_explanation: str = ""
     ai_fix: str = ""
+    fingerprint: str = ""                  # set by the engine; see models.fingerprint
 
     def key(self) -> tuple:
         """Identity used to de-duplicate the same issue reported by several tools."""

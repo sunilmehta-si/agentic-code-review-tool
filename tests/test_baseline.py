@@ -36,3 +36,21 @@ class BaselineTests(unittest.TestCase):
         (self.root / ".acr-baseline.json").write_text("{not json")
         code, out = run(self.root, "review", "--all")
         self.assertEqual(len(json.loads(out)["findings"]), 1)
+
+
+class FingerprintTests(unittest.TestCase):
+    def test_engine_fingerprint_matches_baseline_and_ignores_line_moves(self):
+        import json
+
+        from agentic_code_review import baseline, report
+        from agentic_code_review.engine import review
+        from tests.helpers import git_repo
+        root = git_repo({"a.py": "x = 1\n"})
+        (root / "a.py").write_text("x = 1\nos.system(cmd)\n")
+        first = review(root, use_scanners=False).findings[0]
+        self.assertEqual(first.fingerprint, baseline.fingerprint(root, first.__class__(**{**first.__dict__, "fingerprint": ""})))
+        (root / "a.py").write_text("x = 1\n\n\n   os.system(cmd)\n")
+        moved = review(root, use_scanners=False)
+        self.assertEqual(moved.findings[0].fingerprint, first.fingerprint)
+        sarif = json.loads(report.to_sarif(moved))["runs"][0]["results"][0]
+        self.assertEqual(sarif["partialFingerprints"], {"acrFingerprint/v1": first.fingerprint})

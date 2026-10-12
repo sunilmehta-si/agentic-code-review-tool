@@ -119,6 +119,8 @@ def to_sarif(result: ReviewResult) -> str:
             "ruleId": f.rule_id, "level": SARIF_LEVEL[f.severity],
             "message": {"text": " ".join(x for x in (f.title, f.ai_explanation or f.detail) if x)[:1000]},
             "locations": [{"physicalLocation": {"artifactLocation": {"uri": f.path}, "region": region}}],
+            # Lets code scanning follow the same alert across commits even when line numbers shift.
+            **({"partialFingerprints": {"acrFingerprint/v1": f.fingerprint}} if f.fingerprint else {}),
             "properties": {"tool": f.tool, "category": f.category, **({"aiVerdict": f.ai_verdict} if f.ai_verdict else {})},
         })
     sarif = {"$schema": "https://json.schemastore.org/sarif-2.1.0.json", "version": "2.1.0",

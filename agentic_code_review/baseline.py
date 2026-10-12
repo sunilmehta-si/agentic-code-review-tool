@@ -5,12 +5,12 @@ so a known finding stays suppressed when code above it moves, and reappears if t
 """
 from __future__ import annotations
 
-import hashlib
 import json
 from pathlib import Path
 
 from .engine import ReviewResult
 from .models import Finding
+from .models import fingerprint as _fingerprint
 
 DEFAULT_PATH = ".acr-baseline.json"
 
@@ -20,12 +20,11 @@ def _line(root: Path, path: str, line: int) -> str:
         lines = (root / path).read_text(errors="replace").splitlines()
     except OSError:
         return ""
-    return " ".join(lines[line - 1].split()) if 0 < line <= len(lines) else ""
+    return lines[line - 1] if 0 < line <= len(lines) else ""
 
 
 def fingerprint(root: Path, f: Finding) -> str:
-    raw = f"{f.rule_id}|{f.path}|{_line(root, f.path, f.line)}"
-    return hashlib.sha256(raw.encode()).hexdigest()[:24]
+    return f.fingerprint or _fingerprint(f.rule_id, f.path, _line(root, f.path, f.line))
 
 
 def write(root: Path, result: ReviewResult, path: str = DEFAULT_PATH) -> int:
