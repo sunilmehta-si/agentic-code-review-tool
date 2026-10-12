@@ -6,6 +6,7 @@ outside the repository (including via `..` or symlinks) and cap how much they re
 """
 from __future__ import annotations
 
+import fnmatch
 import json
 import subprocess
 from pathlib import Path
@@ -13,6 +14,16 @@ from pathlib import Path
 MAX_FILE_LINES = 400
 MAX_SEARCH_RESULTS = 40
 MAX_PATTERN = 200
+# Files that usually hold credentials. Their contents would otherwise be sent to the model provider.
+SECRET_FILES = (".env", ".env.*", "*.pem", "*.key", "*.p12", "*.pfx", "*.jks", "*.keystore", "id_rsa*", "id_ecdsa*",
+                "id_ed25519*", ".npmrc", ".pypirc", ".netrc", ".git-credentials", "*.tfstate", "*.tfstate.*", "*.kdbx",
+                "credentials", "credentials.json", "service-account*.json", "*.tfvars")
+SAFE_TEMPLATES = (".env.example", ".env.sample", ".env.template", ".env.dist")
+
+
+def is_secret_file(rel: str) -> bool:
+    name = Path(rel).name.lower()
+    return name not in SAFE_TEMPLATES and any(fnmatch.fnmatch(name, pat) for pat in SECRET_FILES)
 
 # Provider-neutral JSON Schemas; each provider wraps them in its own tool format.
 TOOL_SPECS = [
@@ -80,6 +91,8 @@ class RepoTools:
 
     def read_file(self, rel: str, start: int, end: int) -> str:
         path = self._safe(rel)
+        if is_secret_file(rel):
+            raise PermissionError(f"Refused: '{rel}' usually holds credentials, so it is never sent to the model.")
         if not path.is_file():
             return f"No such file: {rel}"
         lines = path.read_text(errors="replace").splitlines()
@@ -93,7 +106,7 @@ class RepoTools:
             return f"Pattern must be 1-{MAX_PATTERN} characters."
         proc = subprocess.run(["git", "-C", str(self.root), "grep", "-n", "-I", "-E", "--max-count", "5", "-e", pattern],
                               capture_output=True, text=True, timeout=30)
-        hits = proc.stdout.splitlines()
+        hits = [h for h in proc.stdout.splitlines() if not is_secret_file(h.split(":", 1)[0])]
         if proc.returncode not in (0, 1):
             return f"Search failed: {proc.stderr.strip()[:200]}"
         shown = [h[:300] for h in hits[:MAX_SEARCH_RESULTS]]

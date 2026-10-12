@@ -145,3 +145,23 @@ class ParseResultTests(unittest.TestCase):
         self.assertEqual(parse_result('```json\n{"verdicts": []}\n```')["new_findings"], [])
         with self.assertRaises(AgentError):
             parse_result("not json")
+
+
+class SecretFileToolTests(unittest.TestCase):
+    def test_credential_files_are_never_read_or_searched(self):
+        from agentic_code_review.agent.tools import RepoTools, is_secret_file
+        from tests.helpers import git_repo
+        marker = "zq" + "SECRETVALUE"
+        root = git_repo({"app.py": "needle = 1\n", ".env": f"needle={marker}\n", "deploy/prod.tfvars": f"needle = \"{marker}\"\n",
+                         ".env.example": "needle=\n"})
+        tools = RepoTools(root, {})
+        text, err = tools.call("read_file", {"path": ".env", "start_line": 1, "end_line": 5})
+        self.assertTrue(err)
+        self.assertNotIn(marker, text)
+        hits, _ = tools.call("search_repo", {"pattern": "needle"})
+        self.assertIn("app.py", hits)
+        self.assertIn(".env.example", hits)
+        self.assertNotIn(marker, hits)
+        for name in ("id_rsa", "server.key", "terraform.tfstate", "nested/.env.production"):
+            self.assertTrue(is_secret_file(name), name)
+        self.assertFalse(is_secret_file("src/keys.py"))
