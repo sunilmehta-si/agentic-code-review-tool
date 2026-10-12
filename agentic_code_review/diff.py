@@ -5,6 +5,7 @@ codebase without drowning every PR in old findings.
 """
 from __future__ import annotations
 
+import codecs
 import re
 import subprocess
 from pathlib import Path
@@ -15,7 +16,17 @@ HUNK = re.compile(r"^@@ -\d+(?:,\d+)? \+(\d+)(?:,(\d+))? @@")
 
 
 def _git(root: Path, *args: str) -> str:
-    return subprocess.run(["git", "-C", str(root), *args], check=True, capture_output=True, text=True).stdout
+    # quotepath=off prints non-ASCII names as-is; names with quotes, backslashes or control characters stay C-quoted.
+    return subprocess.run(["git", "-C", str(root), "-c", "core.quotepath=off", *args], check=True, capture_output=True,
+                          text=True, encoding="utf-8", errors="surrogateescape").stdout
+
+
+def unquote(name: str) -> str:
+    """Undo git's C-style quoting ("a\\tb.py", "na\\303\\257ve.py") so paths match the files on disk."""
+    if len(name) >= 2 and name[0] == name[-1] == '"':
+        raw = codecs.escape_decode(name[1:-1].encode("utf-8", "surrogateescape"))[0]
+        return raw.decode("utf-8", errors="replace")
+    return name
 
 
 def parse_unified_diff(text: str) -> dict[str, ChangedFile]:
@@ -24,7 +35,7 @@ def parse_unified_diff(text: str) -> dict[str, ChangedFile]:
     current: ChangedFile | None = None
     for raw in text.splitlines():
         if raw.startswith("+++ "):
-            target = raw[4:].strip()
+            target = unquote(raw[4:].strip())
             if target == "/dev/null":
                 current = None
                 continue
@@ -50,7 +61,7 @@ def changed_files(root: Path, base: str | None, head: str | None, staged: bool =
     else:
         text = _git(root, "diff", "-U0", "--no-color", "--diff-filter=ACMR", "HEAD")
         # Untracked files count as fully added in workspace mode.
-        for path in _git(root, "ls-files", "--others", "--exclude-standard").splitlines():
+        for path in map(unquote, _git(root, "ls-files", "--others", "--exclude-standard").splitlines()):
             p = root / path
             if p.is_file():
                 text += f"\n+++ b/{path}\n@@ -0,0 +1,{max(1, _line_count(p))} @@\n"
@@ -69,7 +80,7 @@ def staged_text(root: Path, path: str, max_bytes: int) -> str | None:
 def all_files(root: Path) -> dict[str, ChangedFile]:
     """Full-repository mode: every tracked file, every line counts as changed."""
     out: dict[str, ChangedFile] = {}
-    for path in _git(root, "ls-files").splitlines():
+    for path in map(unquote, _git(root, "ls-files").splitlines()):
         p = root / path
         if p.is_file():
             out[path] = ChangedFile(path, set(range(1, _line_count(p) + 1)))
@@ -91,7 +102,7 @@ def unified_text(root: Path, base: str | None, head: str | None, staged: bool = 
     if base:
         return _git(root, "diff", "-U3", "--no-color", "--diff-filter=ACMR", f"{base}...{head or 'HEAD'}")
     text = _git(root, "diff", "-U3", "--no-color", "--diff-filter=ACMR", "HEAD")
-    for path in _git(root, "ls-files", "--others", "--exclude-standard").splitlines():
+    for path in map(unquote, _git(root, "ls-files", "--others", "--exclude-standard").splitlines()):
         p = root / path
         try:
             body = p.read_text(errors="replace")

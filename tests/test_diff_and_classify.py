@@ -89,3 +89,24 @@ class AgentSettingsClassificationTests(unittest.TestCase):
             self.assertIn("agent-settings", kinds(path, "{}"), path)
         self.assertNotIn("agent-settings", kinds("settings.json", "{}"))
         self.assertNotIn("agent-settings", kinds("docs/claude/settings.json", "{}"))
+
+
+class QuotedPathTests(unittest.TestCase):
+    def test_unquote(self):
+        from agentic_code_review.diff import unquote
+        self.assertEqual(unquote('"b/na\\303\\257ve.py"'), "b/naïve.py")
+        self.assertEqual(unquote('"b/say \\"hi\\".py"'), 'b/say "hi".py')
+        self.assertEqual(unquote("b/plain.py"), "b/plain.py")
+
+    def test_files_with_unusual_names_are_reviewed(self):
+        import subprocess
+
+        from agentic_code_review.engine import review
+        from tests.helpers import git_repo
+        root = git_repo({"naïve.py": "x = 1\n", 'say "hi".py': "x = 1\n"})
+        for name in ("naïve.py", 'say "hi".py'):
+            (root / name).write_text("x = 1\nos.system(cmd)\n")
+        self.assertEqual(sorted(f.path for f in review(root, use_scanners=False).findings), ["naïve.py", 'say "hi".py'])
+        self.assertEqual(len(review(root, full=True, use_scanners=False).findings), 2)
+        subprocess.run(["git", "-C", str(root), "add", "."], check=True)
+        self.assertEqual(len(review(root, staged=True, use_scanners=False).findings), 2)
