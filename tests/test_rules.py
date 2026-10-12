@@ -510,3 +510,17 @@ class PublicDemoRule(unittest.TestCase):
         guarded = [f.severity.label() for f in base.run_rules("app.py", "demo.launch(share=True, auth=check)\n", PY)]
         self.assertEqual(guarded, ["low"])
         self.assertEqual(ids("app.py", "demo.launch()\n", PY), [])
+
+
+class SkillShellRule(unittest.TestCase):
+    def test_unrestricted_bash_in_frontmatter(self):
+        sk = {"agent-skill"}
+        inline = "---\nname: deploy\nallowed-tools: Read, Grep, Bash\n---\n# Deploy\n"
+        self.assertIn("ACR-SKILL-004", ids("skills/d/SKILL.md", inline, sk))
+        listed = "---\nname: deploy\nallowed-tools:\n  - Read\n  - Bash(*)\n---\nBody mentions Bash freely.\n"
+        from agentic_code_review.rules import base
+        self.assertEqual([f.line for f in base.run_rules("skills/d/SKILL.md", listed, sk) if f.rule_id == "ACR-SKILL-004"], [5])
+
+    def test_scoped_commands_and_body_text_pass(self):
+        sk = {"agent-skill"}
+        self.assertEqual(ids("skills/d/SKILL.md", "---\nallowed-tools: Read, Bash(git diff:*)\n---\nallowed-tools: Bash\n", sk), [])

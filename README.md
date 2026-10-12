@@ -210,7 +210,7 @@ acr review --base origin/main --ai openai
 
 ## Built-in rules
 
-82 rules, generated from the code (`acr rules`; `acr explain <id>` for details):
+83 rules, generated from the code (`acr rules`; `acr explain <id>` for details):
 
 <!-- regenerate: acr rules --format markdown -->
 
@@ -250,6 +250,7 @@ acr review --base origin/main --ai openai
 | AI / LLM / agent code | `ACR-SKILL-001` | high | Agent skill tells the agent to run a remote script |
 | AI / LLM / agent code | `ACR-SKILL-002` | critical | Agent skill reads credentials or sends data out |
 | AI / LLM / agent code | `ACR-SKILL-003` | high | Agent skill contains hidden or override instructions |
+| AI / LLM / agent code | `ACR-SKILL-004` | medium | Agent skill pre-approves unrestricted shell access |
 | Kubernetes | `ACR-K8S-001` | critical | Privileged container or privilege escalation allowed |
 | Kubernetes | `ACR-K8S-002` | high | Pod shares the host's network, PID or IPC namespace |
 | Kubernetes | `ACR-K8S-003` | high | hostPath volume mounts the node's filesystem |

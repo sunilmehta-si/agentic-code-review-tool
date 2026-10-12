@@ -165,3 +165,30 @@ def agent_shell_allow(path, text, lines):
         elif spec.split(":", 1)[0].split()[0] in RISKY_COMMANDS:
             yield make(info, path, line, f"'{entry}' pre-approves a command that can reach the network, escalate or run code.",
                        severity=Severity.MEDIUM)
+
+
+@rule("ACR-SKILL-004", "Agent skill pre-approves unrestricted shell access", Severity.MEDIUM, "ai-security", SKILL,
+      fix="List only the commands the skill needs in allowed-tools, e.g. Bash(git diff:*), so loading the skill can't "
+          "silently grant the agent any shell command.",
+      references=["https://docs.anthropic.com/en/docs/claude-code/skills"])
+def skill_shell(path, text, lines):
+    info = skill_shell.info
+    if not lines or lines[0].strip() != "---":
+        return
+    end = next((i for i in range(1, len(lines)) if lines[i].strip() == "---"), None)
+    if end is None:
+        return
+    in_list = False
+    for i in range(1, end):
+        line = lines[i]
+        m = re.match(r"^allowed-tools\s*:\s*(.*)$", line)
+        if m:
+            in_list = not m.group(1).strip()
+            entries = [e.strip(" '\"[]") for e in m.group(1).split(",")]
+        elif in_list and re.match(r"^\s*-\s*", line):
+            entries = [line.strip()[1:].strip(" '\"")]
+        else:
+            in_list = in_list and line.startswith((" ", "\t"))
+            continue
+        if any(re.fullmatch(r"Bash(\(\s*\*?\s*\))?", e) for e in entries):
+            yield make(info, path, i + 1)
