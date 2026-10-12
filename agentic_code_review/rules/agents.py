@@ -59,6 +59,11 @@ def mcp_secret(path, text, lines):
             v = str(value)
             if CRED_NAME.search(key) and len(v) >= 8 and not PLACEHOLDER.search(v):
                 yield make(info, path, find_line(lines, f'"{key}"'), f"'{key}' for server '{name}' is a literal value (not shown).")
+        # Remote servers sometimes take the key in the URL, where it also lands in proxy and server logs.
+        url = str(cfg.get("url") or cfg.get("httpUrl") or cfg.get("serverUrl") or "")
+        for key, value in re.findall(r"[?&]([^=&#]+)=([^&#]*)", url):
+            if CRED_NAME.search(key) and len(value) >= 8 and not PLACEHOLDER.search(value):
+                yield make(info, path, find_line(lines, f"{key}="), f"Server '{name}' has '{key}' in its URL (value not shown).")
 
 
 @rule("ACR-MCP-003", "MCP server over plain HTTP or with broad host access", Severity.HIGH, "ai-security", MCP,

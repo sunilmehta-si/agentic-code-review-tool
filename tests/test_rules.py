@@ -361,3 +361,11 @@ class LoadToolsTests(unittest.TestCase):
         self.assertIn("ACR-AI-003", ids("a.py", 'tools = load_tools(["serpapi", "terminal"], llm=llm)\n', PY_AI))
         self.assertIn("ACR-AI-003", ids("a.py", "tools = load_tools(['python_repl'])\n", PY_AI))
         self.assertEqual(ids("a.py", 'tools = load_tools(["wikipedia", "llm-math"], llm=llm)\n', PY_AI), [])
+
+
+class McpUrlSecretTests(unittest.TestCase):
+    def test_key_in_url_query(self):
+        cfg = '{"mcpServers": {"s": {"url": "https://mcp.example.com/sse?api_key=' + "k" * 6 + '123456"}}}'
+        self.assertIn("ACR-MCP-002", ids(".mcp.json", cfg, {"mcp-config"}))
+        ok = '{"mcpServers": {"s": {"url": "https://mcp.example.com/sse?api_key=${MCP_KEY}&region=eu"}}}'
+        self.assertNotIn("ACR-MCP-002", ids(".mcp.json", ok, {"mcp-config"}))
