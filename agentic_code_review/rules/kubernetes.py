@@ -34,7 +34,14 @@ def host_namespaces(path, text, lines):
 @rule("ACR-K8S-003", "hostPath volume mounts the node's filesystem", Severity.HIGH, "kubernetes", K8S,
       fix="Use a PersistentVolumeClaim, emptyDir or a CSI volume instead of hostPath.", references=[PSS])
 def host_path(path, text, lines):
-    yield from line_matches(host_path.info, path, lines, re.compile(r"^\s*hostPath\s*:"))
+    info = host_path.info
+    sock = re.compile(r"\b(docker|containerd|crio|cri-dockerd)\.sock\b")
+    for f in line_matches(info, path, lines, re.compile(r"(^\s*|[{,]\s*)hostPath\s*:")):
+        # Mounting the container runtime's socket hands the pod the whole node, so it is critical.
+        if sock.search("\n".join(lines[f.line - 1:f.line + 3])):
+            f.severity = Severity.CRITICAL
+            f.detail = "The container runtime socket is mounted: anything in this pod can start privileged containers on the node."
+        yield f
 
 
 @rule("ACR-K8S-004", "Dangerous Linux capability added", Severity.HIGH, "kubernetes", K8S,

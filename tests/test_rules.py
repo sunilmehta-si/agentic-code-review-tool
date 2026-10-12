@@ -330,3 +330,14 @@ class XxeRule(unittest.TestCase):
         self.assertIn("ACR-APP-011", ids("a.py", "handler.setFeature(feature_external_ges, True)\n", PY))
         self.assertIn("ACR-APP-011", ids("a.js", "const doc = libxml.parseXml(body, { noent: true });\n", {"app", "lang:javascript"}))
         self.assertEqual(ids("a.py", "parser = etree.XMLParser(resolve_entities=False, no_network=True)\n", PY), [])
+
+
+class RuntimeSocketTests(unittest.TestCase):
+    def test_runtime_socket_mount_is_critical(self):
+        from agentic_code_review.rules import base
+        sock = "volumes:\n  - name: d\n    hostPath:\n      path: /var/run/docker.sock\n"
+        logs = "volumes:\n  - name: d\n    hostPath:\n      path: /var/log\n"
+        sev = lambda src: [f.severity.label() for f in base.run_rules("p.yaml", src, {"kubernetes"}) if f.rule_id == "ACR-K8S-003"]  # noqa: E731
+        self.assertEqual(sev(sock), ["critical"])
+        self.assertEqual(sev(logs), ["high"])
+        self.assertEqual(sev("volumes:\n  - {name: c, hostPath: {path: /run/containerd/containerd.sock}}\n"), ["critical"])
