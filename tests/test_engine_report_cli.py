@@ -331,3 +331,17 @@ class ClassifyCommandTests(unittest.TestCase):
         self.assertEqual(out.count("kinds: github-actions"), 2)
         self.assertIn("ACR-GHA-001", out)
         self.assertNotIn("ACR-K8S-001", out)
+
+
+class GitLabReportTests(unittest.TestCase):
+    def test_code_quality_shape(self):
+        from agentic_code_review.engine import ReviewResult
+        a = Finding("ACR-APP-002", "Shell", Severity.CRITICAL, "a.py", 3, "acr", "app-security", fingerprint="f1")
+        b = Finding("ACR-APP-007", "Hash", Severity.LOW, "a.py", 4, "acr", "app-security")
+        fp = Finding("ACR-APP-003", "eval", Severity.HIGH, "a.py", 5, "acr", "app-security", ai_verdict="false_positive")
+        issues = json.loads(report.to_gitlab(ReviewResult([a, b, fp], {}, {})))
+        self.assertEqual([(i["check_name"], i["severity"], i["location"]) for i in issues],
+                         [("ACR-APP-002", "blocker", {"path": "a.py", "lines": {"begin": 3}}),
+                          ("ACR-APP-007", "minor", {"path": "a.py", "lines": {"begin": 4}})])
+        self.assertEqual(issues[0]["fingerprint"], "f1")
+        self.assertEqual(len({i["fingerprint"] for i in issues}), 2)

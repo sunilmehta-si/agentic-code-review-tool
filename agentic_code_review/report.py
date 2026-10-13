@@ -205,3 +205,21 @@ def to_github(result: ReviewResult) -> str:
         message = " ".join(x for x in (f.ai_explanation or f.detail, f"Fix: {f.ai_fix or f.fix}" if (f.ai_fix or f.fix) else "") if x)
         lines.append(f"::{ANNOTATION_LEVEL[f.severity]} {props}::{_escape(message or f.title)}")
     return "\n".join(lines)
+
+
+# GitLab orders severities blocker > critical > major > minor > info.
+GITLAB_SEVERITY = {Severity.CRITICAL: "blocker", Severity.HIGH: "critical", Severity.MEDIUM: "major", Severity.LOW: "minor",
+                   Severity.INFO: "info"}
+
+
+def to_gitlab(result: ReviewResult) -> str:
+    """GitLab Code Quality report (artifacts:reports:codequality); GitLab shows it on merge request diffs."""
+    import hashlib
+    issues = []
+    for f in _visible(result):
+        fp = f.fingerprint or hashlib.sha256(f"{f.rule_id}|{f.path}|{f.line}".encode()).hexdigest()[:24]
+        issues.append({"description": f"{f.title} ({f.rule_id})", "check_name": f.rule_id, "fingerprint": fp,
+                       "severity": GITLAB_SEVERITY[f.severity], "categories": ["Security"],
+                       "content": {"body": comment_body(f)},
+                       "location": {"path": f.path, "lines": {"begin": max(1, f.line)}}})
+    return json.dumps(issues, indent=2)
