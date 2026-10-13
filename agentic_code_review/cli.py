@@ -8,7 +8,7 @@ from pathlib import Path
 
 from . import __version__, report
 from .engine import review
-from .models import Severity
+from .models import CATEGORIES, Severity
 from .rules import base as rules_base
 
 FAIL_LEVELS = {"critical": Severity.CRITICAL, "high": Severity.HIGH, "medium": Severity.MEDIUM, "low": Severity.LOW}
@@ -73,6 +73,7 @@ def _parser() -> argparse.ArgumentParser:
     i.add_argument("--force", action="store_true", help="Overwrite an existing config file.")
 
     rl = sub.add_parser("rules", help="List built-in rules and the repository's custom rules.")
+    rl.add_argument("--category", choices=CATEGORIES, help="Only list rules in this category, e.g. ai-security.")
     rl.add_argument("--root", default=".", help="Repository whose .acr.yml custom rules to include (default: current directory).")
     rl.add_argument("--format", choices=("text", "markdown", "json"), default="text",
                     help="markdown prints the README catalogue table; json suits other tools.")
@@ -94,11 +95,13 @@ def _custom(root: str) -> list:
         return []
 
 
-def _cmd_rules(fmt: str = "text", root: str = ".") -> int:
+def _cmd_rules(fmt: str = "text", root: str = ".", category: str | None = None) -> int:
     custom = {c.rule_id: c for c in _custom(root)}
     infos = sorted([info for info, _ in rules_base.REGISTRY] +
                    [rules_base.RuleInfo(c.rule_id, c.title, c.severity, c.category, frozenset(c.files or ("*",)), c.fix,
                                         c.references) for c in custom.values()], key=lambda i: i.rule_id)
+    if category:
+        infos = [i for i in infos if i.category == category]
     if fmt == "json":
         import json
         print(json.dumps([{"id": i.rule_id, "title": i.title, "severity": i.severity.label(), "category": i.category,
@@ -115,7 +118,10 @@ def _cmd_rules(fmt: str = "text", root: str = ".") -> int:
     for info in infos:
         print(f"{info.rule_id:<16} {info.severity.label():<9} {info.category:<13} {info.title}"
               + ("  (custom)" if info.rule_id in custom else ""))
-    print(f"\n{len(rules_base.REGISTRY)} built-in rules" + (f", {len(custom)} custom" if custom else ""))
+    if category:
+        print(f"\n{len(infos)} rule(s) in {category}")
+    else:
+        print(f"\n{len(rules_base.REGISTRY)} built-in rules" + (f", {len(custom)} custom" if custom else ""))
     return 0
 
 
@@ -288,7 +294,7 @@ def _cmd_baseline(args: argparse.Namespace) -> int:
 def main(argv: list[str] | None = None) -> int:
     args = _parser().parse_args(argv)
     if args.command == "rules":
-        return _cmd_rules(args.format, args.root)
+        return _cmd_rules(args.format, args.root, args.category)
     if args.command == "baseline":
         return _cmd_baseline(args)
     if args.command == "init":

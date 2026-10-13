@@ -411,3 +411,13 @@ class TimingTests(unittest.TestCase):
         with redirect_stdout(io.StringIO()), redirect_stderr(err):
             main(["review", "--root", str(root), "--no-scanners", "--timings", "--fail-on", "never"])
         self.assertIn("acr: rules", err.getvalue())
+
+
+class RulesCategoryTests(unittest.TestCase):
+    def test_category_filter(self):
+        buf = io.StringIO()
+        with redirect_stdout(buf):
+            main(["rules", "--category", "ai-security", "--format", "json"])
+        data = json.loads(buf.getvalue())
+        self.assertTrue(data)
+        self.assertEqual({r["category"] for r in data}, {"ai-security"})
