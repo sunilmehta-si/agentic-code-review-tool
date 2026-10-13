@@ -706,3 +706,10 @@ class RegexInjectionRule(unittest.TestCase):
         self.assertIn("ACR-APP-016", ids("v.py", 'rx = re.compile(f"^{request.args[\'prefix\']}.*")\n', PY))
         self.assertIn("ACR-APP-016", ids("r.js", "const rx = new RegExp(req.query.search, 'i');\n", js))
         self.assertEqual(ids("v.py", 'hits = re.search(re.escape(request.args["q"]), text)\n', PY), [])
+
+
+class DjangoAllowedHostsRule(unittest.TestCase):
+    def test_wildcard_hosts(self):
+        self.assertIn("ACR-APP-017", ids("settings.py", 'ALLOWED_HOSTS = ["*"]\n', PY))
+        self.assertIn("ACR-APP-017", ids("settings.py", "ALLOWED_HOSTS = ('localhost', '*')\n", PY))
+        self.assertEqual(ids("settings.py", 'ALLOWED_HOSTS = ["api.example.com", ".example.com"]\n', PY), [])

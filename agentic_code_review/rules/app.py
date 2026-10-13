@@ -165,3 +165,12 @@ def regex_injection(path, text, lines):
                      r"(args|GET|POST|form|values|query_params|json)\b"
                      r"|\bnew RegExp\(\s*(`[^`]*\$\{\s*)?req\.(query|params|body)\.")
     yield from line_matches(regex_injection.info, path, lines, pat)
+
+
+@rule("ACR-APP-017", "Django accepts any Host header (ALLOWED_HOSTS wildcard)", Severity.MEDIUM, "app-security", PY,
+      fix="List the real hostnames (ALLOWED_HOSTS = [\"api.example.com\"]); with \"*\", forged Host headers poison "
+          "password-reset links and caches.",
+      references=["https://docs.djangoproject.com/en/stable/ref/settings/#allowed-hosts"])
+def django_allowed_hosts(path, text, lines):
+    pat = re.compile(r"""^\s*ALLOWED_HOSTS\s*=\s*[\[(][^\])]*["']\*["']""")
+    yield from line_matches(django_allowed_hosts.info, path, lines, pat)

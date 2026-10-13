@@ -226,7 +226,7 @@ provider keys, private-key blocks and hardcoded passwords in the diff or tool ou
 
 ## Built-in rules
 
-100 rules, generated from the code (`acr rules`; `acr explain <id>` for details):
+101 rules, generated from the code (`acr rules`; `acr explain <id>` for details):
 
 <!-- regenerate: acr rules --format markdown -->
 
@@ -253,6 +253,7 @@ provider keys, private-key blocks and hardcoded passwords in the diff or tool ou
 | Application code | `ACR-APP-014` | medium | Deprecated SSL/TLS protocol version allowed |
 | Application code | `ACR-APP-015` | medium | Session or auth cookie without Secure or HttpOnly |
 | Application code | `ACR-APP-016` | medium | Regular expression built from request input (ReDoS) |
+| Application code | `ACR-APP-017` | medium | Django accepts any Host header (ALLOWED_HOSTS wildcard) |
 | AI / LLM / agent code | `ACR-AI-001` | high | User input concatenated into a system prompt (LLM01 Prompt Injection) |
 | AI / LLM / agent code | `ACR-AI-002` | critical | LLM output used as code, shell, SQL or HTML (LLM05 Improper Output Handling) |
 | AI / LLM / agent code | `ACR-AI-003` | high | Agent given dangerous tools without guardrails (LLM06 Excessive Agency) |
