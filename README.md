@@ -123,7 +123,7 @@ reports **71 findings across 14 files** (7 critical, 33 high, 26 medium, 5 low).
 | 🔴 | critical | `agent.py:24` | LLM output used as code, shell, SQL or HTML (LLM05 Improper Output Handling) | `ACR-AI-002` |
 | 🔴 | critical | `infra/main.tf:7` | Sensitive port open to the whole internet | `ACR-TF-001` |
 | 🔴 | critical | `k8s/trainer.yaml:18` | Privileged container or privilege escalation allowed | `ACR-K8S-001` |
-| 🔴 | critical | `skills/deploy-helper/SKILL.md:8` | Agent skill reads credentials or sends data out | `ACR-SKILL-002` |
+| 🔴 | critical | `skills/deploy-helper/SKILL.md:8` | Agent skill or rules file reads credentials or sends data out | `ACR-SKILL-002` |
 | 🟠 | high | `.claude/settings.json:3` | Coding agent run with its permission checks or sandbox turned off (LLM06 Excessive Agency) | `ACR-AI-010` |
 | 🟠 | high | `Dockerfile:2` | Secret baked into the image via ENV or ARG | `ACR-DOCKER-005` |
 | 🟠 | high | `agent.py:24` | Dynamic code execution | `ACR-APP-003` |
@@ -267,9 +267,9 @@ provider keys, private-key blocks and hardcoded passwords in the diff or tool ou
 | AI / LLM / agent code | `ACR-MCP-001` | high | MCP server installed from an unpinned package |
 | AI / LLM / agent code | `ACR-MCP-003` | high | MCP server over plain HTTP or with broad host access |
 | AI / LLM / agent code | `ACR-MCP-004` | medium | MCP tools run without asking the user |
-| AI / LLM / agent code | `ACR-SKILL-001` | high | Agent skill tells the agent to run a remote script |
-| AI / LLM / agent code | `ACR-SKILL-002` | critical | Agent skill reads credentials or sends data out |
-| AI / LLM / agent code | `ACR-SKILL-003` | high | Agent skill contains hidden or override instructions |
+| AI / LLM / agent code | `ACR-SKILL-001` | high | Agent skill or rules file tells the agent to run a remote script |
+| AI / LLM / agent code | `ACR-SKILL-002` | critical | Agent skill or rules file reads credentials or sends data out |
+| AI / LLM / agent code | `ACR-SKILL-003` | high | Agent skill or rules file contains hidden or override instructions |
 | AI / LLM / agent code | `ACR-SKILL-004` | medium | Agent skill pre-approves unrestricted shell access |
 | Kubernetes | `ACR-K8S-001` | critical | Privileged container or privilege escalation allowed |
 | Kubernetes | `ACR-K8S-002` | high | Pod shares the host's network, PID or IPC namespace |

@@ -13,6 +13,8 @@ from .base import find_line, line_matches, make, rule
 
 MCP = ["mcp-config"]
 SKILL = ["agent-skill"]
+# Skills and always-loaded instruction files (AGENTS.md, .cursorrules, ...) are attacked the same way.
+SKILL_AND_RULES = ["agent-skill", "agent-instructions"]
 MCP_SEC = "https://modelcontextprotocol.io/specification/draft/basic/security_best_practices"
 CRED_NAME = re.compile(r"(?i)(token|secret|password|passwd|api[_-]?key|access[_-]?key|private[_-]?key)")
 PLACEHOLDER = re.compile(r"(?i)^\$\{|^\$[A-Z_]|<[^>]+>|example|changeme|your[_-]|x{4,}|^env:")
@@ -105,7 +107,7 @@ def mcp_auto_approve(path, text, lines):
                        f"Server '{name}' is trusted, so none of its tool calls are confirmed.", severity=Severity.HIGH)
 
 
-@rule("ACR-SKILL-001", "Agent skill tells the agent to run a remote script", Severity.HIGH, "ai-security", SKILL,
+@rule("ACR-SKILL-001", "Agent skill or rules file tells the agent to run a remote script", Severity.HIGH, "ai-security", SKILL_AND_RULES,
       fix="Skills should never pipe downloads into a shell. Vendor the script, pin it, and review it like code.")
 def skill_remote_exec(path, text, lines):
     yield from line_matches(skill_remote_exec.info, path, lines,
@@ -113,7 +115,7 @@ def skill_remote_exec(path, text, lines):
                             skip_comments=False)
 
 
-@rule("ACR-SKILL-002", "Agent skill reads credentials or sends data out", Severity.CRITICAL, "ai-security", SKILL,
+@rule("ACR-SKILL-002", "Agent skill or rules file reads credentials or sends data out", Severity.CRITICAL, "ai-security", SKILL_AND_RULES,
       fix="Remove the instruction. A skill has no reason to read SSH keys, cloud credentials or .env files, or to post them anywhere.")
 def skill_exfil(path, text, lines):
     pat = re.compile(r"~/\.(ssh|aws|kube|docker|config/gcloud|gnupg)|\bid_(rsa|ed25519)\b|\.aws/credentials|\.env\b[^\n]*(send|post|upload|curl)"
@@ -121,7 +123,7 @@ def skill_exfil(path, text, lines):
     yield from line_matches(skill_exfil.info, path, lines, pat, skip_comments=False)
 
 
-@rule("ACR-SKILL-003", "Agent skill contains hidden or override instructions", Severity.HIGH, "ai-security", SKILL,
+@rule("ACR-SKILL-003", "Agent skill or rules file contains hidden or override instructions", Severity.HIGH, "ai-security", SKILL_AND_RULES,
       fix="Remove hidden text and override phrases; skill instructions should be plain, visible and reviewable.")
 def skill_hidden(path, text, lines):
     info = skill_hidden.info
