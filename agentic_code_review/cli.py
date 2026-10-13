@@ -49,6 +49,8 @@ def _parser() -> argparse.ArgumentParser:
                    help="Have an LLM agent verify findings and explain fixes (claude needs the [claude] extra).")
     r.add_argument("--model", help="Model override (default: claude-opus-5-5 for claude; ACR_MODEL for openai).")
     r.add_argument("--max-steps", type=int, default=12, help="Maximum agent tool-use steps (default: 12).")
+    r.add_argument("--ai-dry-run", action="store_true",
+                   help="Print the redacted request the AI reviewer would receive, then exit without calling a model.")
     r.add_argument("--ai-max-findings", type=int, default=50,
                    help="Send at most this many findings (most severe first) to the AI reviewer (default: 50).")
     r.add_argument("--github-review", action="store_true",
@@ -202,6 +204,13 @@ def _cmd_review(args: argparse.Namespace) -> int:
         level = Severity.parse(floor)
         kept = [f for f in result.findings if f.severity >= level]
         result.below_floor, result.findings = len(result.findings) - len(kept), kept
+    if args.ai_dry_run:
+        from .agent.review import SYSTEM_PROMPT
+        from .agent.run import build_request
+        message = build_request(result, Path(args.root).resolve(), base=args.base, head=args.head, full=args.full,
+                                staged=args.staged, diff_text=diff_text, max_findings=args.ai_max_findings)
+        print(f"--- system prompt ---\n{SYSTEM_PROMPT}\n\n--- first user message ---\n{message}")
+        return 0
     if args.ai:
         from .agent.review import AgentError
         from .agent.run import apply_ai, make_reviewer

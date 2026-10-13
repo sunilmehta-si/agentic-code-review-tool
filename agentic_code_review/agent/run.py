@@ -22,11 +22,9 @@ def make_reviewer(provider: str, model: str | None = None, max_steps: int = 12):
     raise AgentError(f"Unknown AI provider '{provider}'. Choose one of: {', '.join(PROVIDERS)}.")
 
 
-def apply_ai(result: ReviewResult, root: Path, reviewer, base: str | None = None, head: str | None = None,
-             full: bool = False, staged: bool = False, diff_text: str | None = None,
-             max_findings: int | None = None) -> ReviewResult:
-    """Ask the agent to verify every finding; on any failure keep the deterministic result and record why."""
-    result.ai_provider = type(reviewer).__name__
+def build_request(result: ReviewResult, root: Path, base: str | None = None, head: str | None = None, full: bool = False,
+                  staged: bool = False, diff_text: str | None = None, max_findings: int | None = None) -> str:
+    """The exact (redacted) first message the model receives; `--ai-dry-run` prints it without calling anyone."""
     # The rule's own fix guidance keeps the model's suggested fix consistent with the rule.
     payload = [{"id": i, "rule": f.rule_id, "title": f.title, "severity": f.severity.label(), "category": f.category,
                 "path": f.path, "line": f.line, "detail": f.detail, "rule_fix": f.fix[:400]}
@@ -35,10 +33,20 @@ def apply_ai(result: ReviewResult, root: Path, reviewer, base: str | None = None
         # Findings are sorted most severe first, so the cap keeps the ones that matter and bounds the cost.
         result.ai_unverified = len(payload) - max_findings
         payload = payload[:max_findings]
+    diff_text = "(full-repository audit: no diff; use the tools to inspect files)" if full else \
+        (diff_text if diff_text is not None else diff_mod.unified_text(root, base, head, staged=staged))
+    return build_user_message(payload, diff_text)
+
+
+def apply_ai(result: ReviewResult, root: Path, reviewer, base: str | None = None, head: str | None = None,
+             full: bool = False, staged: bool = False, diff_text: str | None = None,
+             max_findings: int | None = None) -> ReviewResult:
+    """Ask the agent to verify every finding; on any failure keep the deterministic result and record why."""
+    result.ai_provider = type(reviewer).__name__
     try:
-        diff_text = "(full-repository audit: no diff; use the tools to inspect files)" if full else \
-            (diff_text if diff_text is not None else diff_mod.unified_text(root, base, head, staged=staged))
-        data = reviewer.review(build_user_message(payload, diff_text), RepoTools(root, result.file_kinds))
+        message = build_request(result, root, base=base, head=head, full=full, staged=staged, diff_text=diff_text,
+                                max_findings=max_findings)
+        data = reviewer.review(message, RepoTools(root, result.file_kinds))
     except AgentError as exc:
         result.ai_error = str(exc)
         return result

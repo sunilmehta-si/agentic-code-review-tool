@@ -230,3 +230,24 @@ class MaxFindingsTests(unittest.TestCase):
         self.assertEqual([f["rule"] for f in cap.sent], ["R-1", "R-2"])
         self.assertEqual(result.ai_unverified, 1)
         self.assertIn("1 lower-severity finding(s) were not sent", report.to_markdown(result))
+
+
+class DryRunTests(unittest.TestCase):
+    def test_prints_redacted_request_without_a_model(self):
+        import io
+        from contextlib import redirect_stdout
+
+        from agentic_code_review.cli import main
+        from tests.helpers import git_repo
+        root = git_repo({"a.py": "x = 1\n"})
+        key = "sk-ant-" + "Q" * 30
+        (root / "a.py").write_text(f'x = 1\nos.system(cmd)\nclient_key = "{key}"\n')
+        buf = io.StringIO()
+        with redirect_stdout(buf):
+            code = main(["review", "--root", str(root), "--no-scanners", "--ai-dry-run"])
+        out = buf.getvalue()
+        self.assertEqual(code, 0)
+        self.assertIn("--- system prompt ---", out)
+        self.assertIn('"rule": "ACR-APP-002"', out)
+        self.assertNotIn(key, out)
+        self.assertIn("[REDACTED Anthropic API key]", out)
