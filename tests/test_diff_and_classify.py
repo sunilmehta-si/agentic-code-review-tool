@@ -172,3 +172,13 @@ class ComposeClassificationTests(unittest.TestCase):
         for name in ("docker-compose.yml", "compose.yaml", "deploy/docker-compose.prod.yml", "compose.override.yaml"):
             self.assertEqual(kinds(name, "services:\n  web:\n    image: x\n"), {"compose"}, name)
         self.assertNotIn("compose", kinds("k8s/composer.yaml", "apiVersion: v1\nkind: Pod\n"))
+
+
+class AgentInstructionClassificationTests(unittest.TestCase):
+    def test_instruction_files(self):
+        from agentic_code_review.classify import kinds
+        for path in ("AGENTS.md", "services/api/CLAUDE.md", ".cursorrules", ".cursor/rules/style.mdc", ".windsurfrules",
+                     ".github/copilot-instructions.md", ".github/instructions/py.instructions.md", ".clinerules/deploy.md"):
+            self.assertIn("agent-instructions", kinds(path, "Be concise.\n"), path)
+        for path in ("README.md", "docs/agents.txt", "notes/claude.mdx"):
+            self.assertNotIn("agent-instructions", kinds(path, "x\n"), path)

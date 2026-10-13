@@ -37,6 +37,8 @@ def kinds(path: str, text: str) -> set[str]:
         out.add("mcp-config")
     if _is_agent_settings(lower):
         out.add("agent-settings")
+    if _is_agent_instructions(lower):
+        out.add("agent-instructions")
     if lower.endswith("skill.md") or "/skills/" in lower and p.suffix == ".md":
         out.add("agent-skill")
     lang = APP_EXT.get(p.suffix)
@@ -93,6 +95,18 @@ AGENT_SETTINGS = ("*.claude/settings.json", "*.claude/settings.local.json", "*.c
 
 def _is_agent_settings(lower: str) -> bool:
     return any(fnmatch.fnmatch("/" + lower, "*/" + pat.lstrip("*")) for pat in AGENT_SETTINGS)
+
+
+# Instruction files coding agents load automatically; text in them steers the agent like a system prompt.
+AGENT_INSTRUCTIONS = (".cursorrules", ".windsurfrules", ".clinerules", "agents.md", "claude.md", "claude.local.md", "gemini.md",
+                      ".github/copilot-instructions.md")
+
+
+def _is_agent_instructions(lower: str) -> bool:
+    name = lower.rsplit("/", 1)[-1]
+    return (name in AGENT_INSTRUCTIONS or lower.endswith(".github/copilot-instructions.md")
+            or fnmatch.fnmatch(lower, "*.cursor/rules/*.mdc") or fnmatch.fnmatch(lower, "*.github/instructions/*.instructions.md")
+            or fnmatch.fnmatch(lower, "*.clinerules/*.md"))
 
 
 def _in_helm_chart(path: str) -> bool:
