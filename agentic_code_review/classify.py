@@ -24,7 +24,9 @@ def kinds(path: str, text: str) -> set[str]:
         out.add("github-actions")
     if p.suffix == ".tf":
         out.add("terraform")
-    if p.suffix in (".yml", ".yaml") and "github-actions" not in out:
+    if COMPOSE.fullmatch(name.lower()):
+        out.add("compose")
+    if p.suffix in (".yml", ".yaml") and "github-actions" not in out and "compose" not in out:
         if "/templates/" in lower and _in_helm_chart(path):
             out.add("helm-template")
         elif "apiVersion:" in text and "kind:" in text:
@@ -74,6 +76,7 @@ def _imports_ai(text: str) -> bool:
     return any(_matches_hint(m, h) for m in _module_refs(text) for h in AI_IMPORT_HINTS)
 
 
+COMPOSE = re.compile(r"(docker-)?compose(\.[\w.-]+)?\.ya?ml")  # compose.yaml, docker-compose.prod.yml, ...
 SHEBANG = re.compile(r"^#!\s*(/usr/bin/env\s+)?(/bin/|/usr/bin/|/usr/local/bin/)?(ba|z|da|k)?sh\b")
 
 
