@@ -279,3 +279,17 @@ def configmap_credentials(path, text, lines):
             if (CREDENTIAL_KEY.search(str(key)) and len(v) >= 8) or CREDENTIAL_URL.search(v):
                 yield make(info, path, find_line(lines, re.compile(rf"^\s*['\"]?{re.escape(str(key))}['\"]?\s*:")),
                            f"ConfigMap '{(doc.get('metadata') or {}).get('name', '')}' key '{key}' holds a credential (not shown).")
+
+
+@rule("ACR-K8S-019", "NetworkPolicy allows all ingress traffic", Severity.MEDIUM, "kubernetes", ["kubernetes"],
+      fix="Replace the empty ingress rule ({}) with from: selectors (podSelector / namespaceSelector) and ports for the "
+          "callers that actually need access.",
+      references=["https://kubernetes.io/docs/concepts/services-networking/network-policies/"])
+def allow_all_ingress(path, text, lines):
+    info = allow_all_ingress.info
+    for doc in _docs(text, {"NetworkPolicy"}):
+        rules = (doc.get("spec") or {}).get("ingress") or []
+        if any(r == {} or r is None for r in rules):
+            start = find_line(lines, re.compile(r"^\s*ingress\s*:"))
+            yield make(info, path, find_line(lines, re.compile(r"^\s*-\s*\{\s*\}\s*(#.*)?$"), start),
+                       f"NetworkPolicy '{(doc.get('metadata') or {}).get('name', '')}' admits traffic from every pod and namespace.")

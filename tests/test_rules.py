@@ -667,3 +667,15 @@ class ConfigMapCredentialRule(unittest.TestCase):
     def test_secrets_are_not_configmaps(self):
         sec = "apiVersion: v1\nkind: Secret\nmetadata:\n  name: app\nstringData:\n  DB_PASSWORD: s3cr3tV4lue\n"
         self.assertNotIn("ACR-K8S-018", ids("s.yaml", sec, {"kubernetes"}))
+
+
+class AllowAllIngressRule(unittest.TestCase):
+    def test_empty_ingress_rule(self):
+        from agentic_code_review.rules import base
+        np = ("apiVersion: networking.k8s.io/v1\nkind: NetworkPolicy\nmetadata:\n  name: api\nspec:\n  podSelector: {}\n"
+              "  policyTypes: [Ingress]\n  ingress:\n    - {}\n")
+        self.assertEqual([f.line for f in base.run_rules("np.yaml", np, {"kubernetes"}) if f.rule_id == "ACR-K8S-019"], [9])
+        scoped = np.replace("    - {}\n", "    - from:\n        - podSelector:\n            matchLabels: {app: web}\n")
+        self.assertNotIn("ACR-K8S-019", ids("np.yaml", scoped, {"kubernetes"}))
+        deny_all = np.replace("  ingress:\n    - {}\n", "")
+        self.assertNotIn("ACR-K8S-019", ids("np.yaml", deny_all, {"kubernetes"}))

@@ -226,7 +226,7 @@ provider keys, private-key blocks and hardcoded passwords in the diff or tool ou
 
 ## Built-in rules
 
-96 rules, generated from the code (`acr rules`; `acr explain <id>` for details):
+97 rules, generated from the code (`acr rules`; `acr explain <id>` for details):
 
 <!-- regenerate: acr rules --format markdown -->
 
@@ -288,6 +288,7 @@ provider keys, private-key blocks and hardcoded passwords in the diff or tool ou
 | Kubernetes | `ACR-K8S-015` | medium | Ingress injects raw NGINX configuration through a snippet annotation |
 | Kubernetes | `ACR-K8S-016` | medium | Namespace switches Pod Security Admission to privileged |
 | Kubernetes | `ACR-K8S-017` | high | Unauthenticated service exposed outside the cluster |
+| Kubernetes | `ACR-K8S-019` | medium | NetworkPolicy allows all ingress traffic |
 | Containers (Dockerfile, Compose) | `ACR-COMPOSE-001` | critical | Compose service runs privileged or shares a host namespace |
 | Containers (Dockerfile, Compose) | `ACR-COMPOSE-002` | high | Compose service mounts the Docker socket or a sensitive host path |
 | Containers (Dockerfile, Compose) | `ACR-COMPOSE-003` | medium | Compose image not pinned (latest or no tag) |
