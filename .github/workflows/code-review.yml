@@ -1,8 +1,11 @@
 name: code-review
 
-# The tool reviews pull requests to its own repository, with the Claude reviewer on.
-# Pull requests from forks and Dependabot don't receive ANTHROPIC_API_KEY; for them the AI step is
-# skipped and the deterministic review is still posted.
+# The tool reviews pull requests to its own repository, with the Claude reviewer on when the
+# ANTHROPIC_API_KEY secret exists. Without it (forks, Dependabot, or the secret removed) the
+# deterministic review is posted on its own.
+#
+# SARIF is not uploaded here: on pull requests GitHub code scanning would repeat every inline
+# comment the review already posts.
 on:
   pull_request:
 
@@ -20,7 +23,6 @@ jobs:
     permissions:
       contents: read
       pull-requests: write     # summary review and inline comments
-      security-events: write   # SARIF upload to code scanning
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -30,11 +32,7 @@ jobs:
         uses: ./
         with:
           fail-on: high
-          ai: claude
+          ai: ${{ secrets.ANTHROPIC_API_KEY != '' && 'claude' || 'none' }}
           anthropic-api-key: ${{ secrets.ANTHROPIC_API_KEY }}
           scanners: none
-      - uses: github/codeql-action/upload-sarif@24c54180a607b1449ed407dd24f251e4e9147c8d # v4.38.3
-        if: always() && hashFiles('acr.sarif') != ''
-        with:
-          sarif_file: acr.sarif
-          category: agentic-code-review
+          sarif-file: ""
