@@ -713,3 +713,10 @@ class DjangoAllowedHostsRule(unittest.TestCase):
         self.assertIn("ACR-APP-017", ids("settings.py", 'ALLOWED_HOSTS = ["*"]\n', PY))
         self.assertIn("ACR-APP-017", ids("settings.py", "ALLOWED_HOSTS = ('localhost', '*')\n", PY))
         self.assertEqual(ids("settings.py", 'ALLOWED_HOSTS = ["api.example.com", ".example.com"]\n', PY), [])
+
+
+class CsrfOffRule(unittest.TestCase):
+    def test_csrf_disabled(self):
+        self.assertIn("ACR-APP-018", ids("views.py", "@csrf_exempt\ndef transfer(request):\n    pass\n", PY))
+        self.assertIn("ACR-APP-018", ids("config.py", "WTF_CSRF_ENABLED = False\n", PY))
+        self.assertEqual(ids("views.py", "@csrf_protect\ndef transfer(request):\n    pass\n", PY), [])

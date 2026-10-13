@@ -174,3 +174,12 @@ def regex_injection(path, text, lines):
 def django_allowed_hosts(path, text, lines):
     pat = re.compile(r"""^\s*ALLOWED_HOSTS\s*=\s*[\[(][^\])]*["']\*["']""")
     yield from line_matches(django_allowed_hosts.info, path, lines, pat)
+
+
+@rule("ACR-APP-018", "CSRF protection turned off", Severity.MEDIUM, "app-security", PY,
+      fix="Keep CSRF checks on for cookie-authenticated endpoints. Exempt only endpoints that authenticate every request "
+          "with a token header (not a cookie), and say so in a comment.",
+      references=["https://cheatsheetseries.owasp.org/cheatsheets/Cross-Site_Request_Forgery_Prevention_Cheat_Sheet.html"])
+def csrf_off(path, text, lines):
+    pat = re.compile(r"^\s*@csrf_exempt\b|\bWTF_CSRF_ENABLED\s*[=:]\s*False\b|\bWTF_CSRF_CHECK_DEFAULT\s*[=:]\s*False\b")
+    yield from line_matches(csrf_off.info, path, lines, pat)
