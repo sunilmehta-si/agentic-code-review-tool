@@ -114,7 +114,7 @@ matched by rule and line *content* so they survive code moving around, and only 
 acr review --root examples/insecure-app --all --no-scanners --fail-on never
 ```
 
-reports **71 findings across 14 files** (7 critical, 33 high, 26 medium, 5 low). One finding from each rule family:
+reports **88 findings across 17 files** (8 critical, 40 high, 35 medium, 5 low). One finding from each rule family:
 
 | | Severity | Location | Issue | Rule |
 |---|---|---|---|---|

@@ -1,0 +1,10 @@
+services:
+  api:
+    image: ghcr.io/acme/api:latest
+    privileged: true
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+  cache:
+    image: redis:7.4
+    ports:
+      - "6379:6379"

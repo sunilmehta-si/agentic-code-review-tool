@@ -53,3 +53,16 @@ SESSION_COOKIE_SECURE = False
 def chat_demo(respond):
     import gradio as gr
     gr.ChatInterface(respond).launch(share=True)
+
+
+def search(request, text):
+    import re
+    return re.findall(request.args["q"], text)
+
+
+ALLOWED_HOSTS = ["*"]
+
+
+@csrf_exempt
+def transfer_funds(request):
+    return None

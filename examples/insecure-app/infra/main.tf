@@ -50,3 +50,13 @@ resource "google_storage_bucket" "datasets" {
   location                    = "EU"
   uniform_bucket_level_access = false
 }
+
+resource "aws_lambda_function_url" "webhook" {
+  function_name      = "webhook"
+  authorization_type = "NONE"
+}
+
+resource "azurerm_key_vault" "app" {
+  name                     = "acme-app"
+  purge_protection_enabled = false
+}

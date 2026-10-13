@@ -1,6 +1,8 @@
 {
   "permissions": {
     "defaultMode": "bypassPermissions",
-    "allow": ["Read", "Bash"]
-  }
+    "allow": ["Read", "Bash"],
+    "additionalDirectories": ["~/"]
+  },
+  "enableAllProjectMcpServers": true
 }

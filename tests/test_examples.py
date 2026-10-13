@@ -23,12 +23,20 @@ class DemoTests(unittest.TestCase):
                     "ACR-K8S-013", "ACR-K8S-014", "ACR-K8S-015", "ACR-K8S-016", "ACR-K8S-017", "ACR-GHA-010",
                     "ACR-GHA-011", "ACR-DOCKER-009", "ACR-TF-009", "ACR-TF-010", "ACR-TF-011", "ACR-TF-012",
                     "ACR-AI-012", "ACR-AI-013", "ACR-SKILL-004", "ACR-APP-012", "ACR-APP-013", "ACR-APP-014",
-                    "ACR-APP-015"):
+                    "ACR-APP-015",
+                    # 0.5.0 rules
+                    "ACR-COMPOSE-001", "ACR-COMPOSE-002", "ACR-COMPOSE-003", "ACR-COMPOSE-004", "ACR-GHA-012",
+                    "ACR-GHA-013", "ACR-TF-013", "ACR-TF-014", "ACR-K8S-018", "ACR-K8S-019", "ACR-AI-014", "ACR-AI-015",
+                    "ACR-APP-016", "ACR-APP-017", "ACR-APP-018", "ACR-DOCKER-010"):
             self.assertIn(rid, rules)
 
     def test_clean_pod_only_trips_the_rule_it_demonstrates(self):
         result = review(DEMO, full=True, use_scanners=False)
         self.assertEqual({f.rule_id for f in result.findings if f.path == "k8s/sandbox.yaml"}, {"ACR-K8S-012"})
+
+    def test_agent_instruction_file_is_checked(self):
+        result = review(DEMO, full=True, use_scanners=False)
+        self.assertIn("ACR-SKILL-003", {f.rule_id for f in result.findings if f.path == "AGENTS.md"})
 
     def test_runtime_socket_mount_is_critical_in_the_demo(self):
         result = review(DEMO, full=True, use_scanners=False)

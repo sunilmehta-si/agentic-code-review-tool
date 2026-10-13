@@ -6,3 +6,4 @@ COPY . /app
 CMD ["python", "/app/app.py"]
 RUN curl -k https://models.example.com/weights.bin -o /models/weights.bin
 COPY .env /app/.env
+EXPOSE 22
