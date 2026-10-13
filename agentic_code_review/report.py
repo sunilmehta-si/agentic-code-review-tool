@@ -89,6 +89,8 @@ def to_markdown(result: ReviewResult, threshold: Severity = Severity.HIGH) -> st
     dropped = len(result.findings) - len(shown)
     if dropped:
         lines.append(f"The AI reviewer dismissed **{dropped}** finding(s) as false positives.")
+    if result.below_floor:
+        lines.append(f"{result.below_floor} finding(s) below the minimum severity are not shown.")
     if result.baselined:
         lines.append(f"{result.baselined} known finding(s) suppressed by the baseline.")
     if result.scanners_missing:

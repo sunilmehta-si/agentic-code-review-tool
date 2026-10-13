@@ -38,6 +38,8 @@ def _parser() -> argparse.ArgumentParser:
     r.add_argument("--markdown", dest="md_out", metavar="PATH", help="Also write Markdown to PATH (same run, no re-scan).")
     r.add_argument("--fail-on", choices=(*FAIL_LEVELS, "never"), default=None,
                    help="Exit 1 if a finding at or above this severity remains (default: .acr.yml, else high).")
+    r.add_argument("--min-severity", choices=("critical", "high", "medium", "low", "info"), default=None,
+                   help="Leave out findings below this severity (default: .acr.yml, else show everything).")
     r.add_argument("--no-scanners", action="store_true", help="Built-in rules only; skip external scanners.")
     r.add_argument("--scanners", help="Comma-separated subset, e.g. semgrep,trivy.")
     r.add_argument("--exclude", action="append", default=[], help="Glob to skip (repeatable).")
@@ -193,6 +195,11 @@ def _cmd_review(args: argparse.Namespace) -> int:
     from . import baseline as baseline_mod
     baseline_mod.apply(Path(args.root).resolve(), result,
                        baseline_mod.load(Path(args.root).resolve(), args.baseline or cfg.baseline or baseline_mod.DEFAULT_PATH))
+    floor = args.min_severity or cfg.min_severity
+    if floor:  # applied before the AI step so it never spends tokens on findings nobody will see
+        level = Severity.parse(floor)
+        kept = [f for f in result.findings if f.severity >= level]
+        result.below_floor, result.findings = len(result.findings) - len(kept), kept
     if args.ai:
         from .agent.review import AgentError
         from .agent.run import apply_ai, make_reviewer

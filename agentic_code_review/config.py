@@ -1,6 +1,7 @@
 r"""Repository policy in `.acr.yml`, so teams set rules once instead of on every command line.
 
     fail_on: high                  # critical | high | medium | low | never
+    min_severity: low              # hide findings below this level (noise floor)
     exclude: ["docs/*", "*.generated.go"]
     include: ["services/api/*"]    # only review these paths (default: everything)
     disable: ["ACR-AI-007", "hadolint:*"]   # rule ids or globs
@@ -30,7 +31,7 @@ from .models import CATEGORIES, Severity
 
 FILENAMES = (".acr.yml", ".acr.yaml")
 FAIL_VALUES = ("critical", "high", "medium", "low", "never")
-KNOWN_KEYS = {"fail_on", "exclude", "include", "disable", "severity", "scanners", "ai", "baseline", "custom_rules"}
+KNOWN_KEYS = {"fail_on", "min_severity", "exclude", "include", "disable", "severity", "scanners", "ai", "baseline", "custom_rules"}
 RULE_KEYS = {"id", "title", "pattern", "severity", "files", "fix", "category", "references"}
 CUSTOM_ID = re.compile(r"^[A-Z][A-Z0-9]*(-[A-Z0-9]+)+$")
 
@@ -73,6 +74,7 @@ class CustomRule:
 @dataclass
 class Config:
     fail_on: str | None = None
+    min_severity: str | None = None
     exclude: list[str] = field(default_factory=list)
     include: list[str] = field(default_factory=list)
     disable: list[str] = field(default_factory=list)
@@ -151,6 +153,9 @@ def load(root: Path) -> Config:
     fail_on = data.get("fail_on")
     if fail_on is not None and str(fail_on).lower() not in FAIL_VALUES:
         raise ConfigError(f"fail_on must be one of {', '.join(FAIL_VALUES)}.")
+    min_sev = data.get("min_severity")
+    if min_sev is not None and str(min_sev).lower() not in ("critical", "high", "medium", "low", "info"):
+        raise ConfigError("min_severity must be critical, high, medium, low or info.")
     sev: dict[str, Severity] = {}
     for rule_id, level in (data.get("severity") or {}).items():
         parsed = Severity.parse(str(level), default=None)
@@ -162,6 +167,7 @@ def load(root: Path) -> Config:
         raise ConfigError("ai must be none, claude or openai.")
     scanners = data.get("scanners")
     return Config(fail_on=str(fail_on).lower() if fail_on is not None else None,
+                  min_severity=str(min_sev).lower() if min_sev is not None else None,
                   exclude=_list(data.get("exclude"), "exclude"), include=_list(data.get("include"), "include"), disable=_list(data.get("disable"), "disable"),
                   severity=sev, scanners=_list(scanners, "scanners") if scanners is not None else None,
                   ai=None if ai in (None, "none") else str(ai), baseline=data.get("baseline"),

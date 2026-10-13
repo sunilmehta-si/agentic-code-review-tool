@@ -36,6 +36,7 @@ class ReviewResult:
     ai_usage: dict = field(default_factory=dict)
     baselined: int = 0
     skipped: list[str] = field(default_factory=list)   # binary, oversized or unreadable files
+    below_floor: int = 0                                # findings dropped by --min-severity
 
     def counts(self) -> dict[str, int]:
         out = {s.label(): 0 for s in sorted(Severity, reverse=True)}

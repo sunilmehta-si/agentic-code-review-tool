@@ -368,3 +368,21 @@ class JUnitReportTests(unittest.TestCase):
         from agentic_code_review.engine import ReviewResult
         suite = ET.fromstring(report.to_junit(ReviewResult([], {}, {}))).find("testsuite")
         self.assertEqual((suite.get("tests"), suite.get("failures")), ("1", "0"))
+
+
+class MinSeverityTests(unittest.TestCase):
+    def test_noise_floor_from_flag_and_config(self):
+        root = git_repo({"a.py": "x = 1\n"})
+        (root / "a.py").write_text("x = 1\nos.system(cmd)\nh = hashlib.md5(b)\n")
+
+        def run(*extra, fmt="json"):
+            buf = io.StringIO()
+            with redirect_stdout(buf):
+                main(["review", "--root", str(root), "--no-scanners", "--format", fmt, "--fail-on", "never", *extra])
+            return buf.getvalue()
+        self.assertEqual(len(json.loads(run())["findings"]), 2)
+        self.assertEqual([f["rule_id"] for f in json.loads(run("--min-severity", "medium"))["findings"]], ["ACR-APP-002"])
+        self.assertIn("1 finding(s) below the minimum severity", run("--min-severity", "medium", fmt="markdown"))
+        (root / ".acr.yml").write_text("min_severity: high\n")
+        self.assertEqual(len(json.loads(run())["findings"]), 1)
+        self.assertEqual(len(json.loads(run("--min-severity", "info"))["findings"]), 2)  # the flag wins
