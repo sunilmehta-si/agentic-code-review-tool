@@ -226,7 +226,7 @@ provider keys, private-key blocks and hardcoded passwords in the diff or tool ou
 
 ## Built-in rules
 
-87 rules, generated from the code (`acr rules`; `acr explain <id>` for details):
+88 rules, generated from the code (`acr rules`; `acr explain <id>` for details):
 
 <!-- regenerate: acr rules --format markdown -->
 
@@ -287,15 +287,16 @@ provider keys, private-key blocks and hardcoded passwords in the diff or tool ou
 | Kubernetes | `ACR-K8S-015` | medium | Ingress injects raw NGINX configuration through a snippet annotation |
 | Kubernetes | `ACR-K8S-016` | medium | Namespace switches Pod Security Admission to privileged |
 | Kubernetes | `ACR-K8S-017` | high | Unauthenticated service exposed outside the cluster |
-| Dockerfile | `ACR-DOCKER-001` | medium | Base image not pinned (latest or no tag) |
-| Dockerfile | `ACR-DOCKER-002` | medium | Image runs as root (no USER instruction) |
-| Dockerfile | `ACR-DOCKER-003` | high | Remote script piped straight into a shell |
-| Dockerfile | `ACR-DOCKER-004` | low | ADD fetches a remote URL |
-| Dockerfile | `ACR-DOCKER-005` | high | Secret baked into the image via ENV or ARG |
-| Dockerfile | `ACR-DOCKER-006` | low | Package manager cache or sudo left in the image |
-| Dockerfile | `ACR-DOCKER-007` | medium | World-writable permissions set in the image |
-| Dockerfile | `ACR-DOCKER-008` | high | TLS or package signature checks disabled during the build |
-| Dockerfile | `ACR-DOCKER-009` | high | Credential file copied into the image |
+| Containers (Dockerfile, Compose) | `ACR-COMPOSE-001` | critical | Compose service runs privileged or shares a host namespace |
+| Containers (Dockerfile, Compose) | `ACR-DOCKER-001` | medium | Base image not pinned (latest or no tag) |
+| Containers (Dockerfile, Compose) | `ACR-DOCKER-002` | medium | Image runs as root (no USER instruction) |
+| Containers (Dockerfile, Compose) | `ACR-DOCKER-003` | high | Remote script piped straight into a shell |
+| Containers (Dockerfile, Compose) | `ACR-DOCKER-004` | low | ADD fetches a remote URL |
+| Containers (Dockerfile, Compose) | `ACR-DOCKER-005` | high | Secret baked into the image via ENV or ARG |
+| Containers (Dockerfile, Compose) | `ACR-DOCKER-006` | low | Package manager cache or sudo left in the image |
+| Containers (Dockerfile, Compose) | `ACR-DOCKER-007` | medium | World-writable permissions set in the image |
+| Containers (Dockerfile, Compose) | `ACR-DOCKER-008` | high | TLS or package signature checks disabled during the build |
+| Containers (Dockerfile, Compose) | `ACR-DOCKER-009` | high | Credential file copied into the image |
 | GitHub Actions | `ACR-GHA-001` | critical | Privileged workflow checks out untrusted PR code |
 | GitHub Actions | `ACR-GHA-002` | high | Untrusted event data interpolated into a shell script |
 | GitHub Actions | `ACR-GHA-003` | medium | Third-party action not pinned to a commit SHA |

@@ -14,7 +14,7 @@ from .rules import base as rules_base
 FAIL_LEVELS = {"critical": Severity.CRITICAL, "high": Severity.HIGH, "medium": Severity.MEDIUM, "low": Severity.LOW}
 # Order and names of the areas in the README's rule catalogue.
 RULE_AREAS = {"secrets": "Secrets", "app-security": "Application code", "ai-security": "AI / LLM / agent code",
-              "kubernetes": "Kubernetes", "container": "Dockerfile", "ci-cd": "GitHub Actions", "iac": "Terraform"}
+              "kubernetes": "Kubernetes", "container": "Containers (Dockerfile, Compose)", "ci-cd": "GitHub Actions", "iac": "Terraform"}
 
 
 def _parser() -> argparse.ArgumentParser:

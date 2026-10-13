@@ -575,3 +575,12 @@ class InsecureCookieRule(unittest.TestCase):
     def test_secure_cookies_pass(self):
         self.assertEqual(ids("v.py", 'resp.set_cookie("sid", sid, secure=True, httponly=True, samesite="Lax")\n', PY), [])
         self.assertEqual(ids("m.js", "transporter = createTransport({ secure: false, port: 587 });\n", {"app", "lang:javascript"}), [])
+
+
+class ComposeRules(unittest.TestCase):
+    C = {"compose"}
+
+    def test_privileged_and_host_namespaces(self):
+        for line in ("    privileged: true", "    network_mode: host", "    pid: \"host\""):
+            self.assertIn("ACR-COMPOSE-001", ids("compose.yaml", f"services:\n  app:\n{line}\n", self.C), line)
+        self.assertNotIn("ACR-COMPOSE-001", ids("compose.yaml", "services:\n  app:\n    network_mode: bridge\n", self.C))
