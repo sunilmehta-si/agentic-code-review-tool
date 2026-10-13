@@ -646,3 +646,11 @@ class PublicFunctionUrlRule(unittest.TestCase):
         url = 'resource "aws_lambda_function_url" "u" {\n  function_name = "api"\n  authorization_type = "NONE"\n}\n'
         self.assertIn("ACR-TF-013", ids("f.tf", url, {"terraform"}))
         self.assertEqual(ids("f.tf", url.replace('"NONE"', '"AWS_IAM"'), {"terraform"}), [])
+
+
+class SecretStorePurgeRule(unittest.TestCase):
+    def test_purge_protection_and_recovery_window(self):
+        tf = {"terraform"}
+        self.assertIn("ACR-TF-014", ids("k.tf", 'resource "azurerm_key_vault" "v" {\n  purge_protection_enabled = false\n}\n', tf))
+        self.assertIn("ACR-TF-014", ids("s.tf", 'resource "aws_secretsmanager_secret" "s" {\n  recovery_window_in_days = 0\n}\n', tf))
+        self.assertEqual(ids("s.tf", 'resource "aws_secretsmanager_secret" "s" {\n  recovery_window_in_days = 7\n}\n', tf), [])

@@ -215,3 +215,12 @@ def public_function_url(path, text, lines):
         for i in range(start, end + 1):
             if re.search(r'\bauthorization_type\s*=\s*"NONE"', lines[i - 1]):
                 yield make(info, path, i)
+
+
+@rule("ACR-TF-014", "Secrets and keys can be permanently deleted at once", Severity.MEDIUM, "iac", TF,
+      fix="Turn on purge protection for Key Vaults and keep a recovery window (7-30 days) on secrets, so a mistaken or "
+          "malicious delete can be undone.",
+      references=["https://learn.microsoft.com/en-us/azure/key-vault/general/soft-delete-overview"])
+def secret_store_purge(path, text, lines):
+    pat = re.compile(r"\bpurge_protection_enabled\s*=\s*false\b|\brecovery_window_in_days\s*=\s*0\b")
+    yield from line_matches(secret_store_purge.info, path, lines, pat)

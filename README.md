@@ -226,7 +226,7 @@ provider keys, private-key blocks and hardcoded passwords in the diff or tool ou
 
 ## Built-in rules
 
-94 rules, generated from the code (`acr rules`; `acr explain <id>` for details):
+95 rules, generated from the code (`acr rules`; `acr explain <id>` for details):
 
 <!-- regenerate: acr rules --format markdown -->
 
@@ -326,6 +326,7 @@ provider keys, private-key blocks and hardcoded passwords in the diff or tool ou
 | Terraform | `ACR-TF-011` | medium | Cloud audit logging turned off |
 | Terraform | `ACR-TF-012` | low | Bucket uses per-object ACLs instead of uniform access |
 | Terraform | `ACR-TF-013` | high | Serverless function exposed on a public URL without authentication |
+| Terraform | `ACR-TF-014` | medium | Secrets and keys can be permanently deleted at once |
 
 ## Optional scanners
 
