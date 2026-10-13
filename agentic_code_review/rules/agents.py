@@ -203,3 +203,27 @@ def skill_shell(path, text, lines):
 def auto_enable_mcp(path, text, lines):
     pat = re.compile(r'"enableAllProjectMcpServers"\s*:\s*true\b')
     yield from line_matches(auto_enable_mcp.info, path, lines, pat, skip_comments=False)
+
+
+BROAD_DIRS = {"/", "~", "~/", "$HOME", "${HOME}", "/Users", "/home", "/root", "C:\\", "C:/"}
+
+
+@rule("ACR-AI-015", "Agent settings open the whole disk or home directory to the agent", Severity.HIGH, "ai-security",
+      SETTINGS,
+      fix="Keep the agent inside the project: list specific extra directories, and never allow Read/Edit of ~/** or //**, "
+          "which include SSH keys, cloud credentials and browser data.",
+      references=["https://docs.anthropic.com/en/docs/claude-code/settings"])
+def broad_file_access(path, text, lines):
+    info = broad_file_access.info
+    try:
+        data = json.loads(text)
+    except ValueError:
+        return
+    perms = (data.get("permissions") or {}) if isinstance(data, dict) else {}
+    for d in perms.get("additionalDirectories") or []:
+        if isinstance(d, str) and d.rstrip("/") in {b.rstrip("/") for b in BROAD_DIRS} | {""}:
+            yield make(info, path, find_line(lines, f'"{d}"'), f"additionalDirectories includes '{d}'.")
+    for entry in perms.get("allow") or []:
+        m = re.fullmatch(r"\s*(Read|Edit|Write|MultiEdit)\((~/\*\*|//\*\*|/\*\*|~/?|\*\*)\)\s*", str(entry))
+        if m:
+            yield make(info, path, find_line(lines, f'"{entry}"'), f"'{entry}' lets the agent {m.group(1).lower()} files anywhere.")

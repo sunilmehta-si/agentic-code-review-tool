@@ -686,3 +686,14 @@ class AutoEnableMcpRule(unittest.TestCase):
         st = {"agent-settings"}
         self.assertIn("ACR-AI-014", ids(".claude/settings.json", '{\n  "enableAllProjectMcpServers": true\n}\n', st))
         self.assertEqual(ids(".claude/settings.json", '{"enabledMcpjsonServers": ["github"]}\n', st), [])
+
+
+class BroadFileAccessRule(unittest.TestCase):
+    def test_home_and_root_access(self):
+        from agentic_code_review.rules import base
+        st = ('{\n  "permissions": {\n    "additionalDirectories": ["../shared", "~/"],\n'
+              '    "allow": ["Read(./docs/**)", "Read(~/**)"]\n  }\n}\n')
+        found = [f.line for f in base.run_rules(".claude/settings.json", st, {"agent-settings"}) if f.rule_id == "ACR-AI-015"]
+        self.assertEqual(found, [3, 4])
+        ok = '{"permissions": {"additionalDirectories": ["../shared-lib"], "allow": ["Read(./src/**)"]}}'
+        self.assertEqual(ids(".claude/settings.json", ok, {"agent-settings"}), [])
