@@ -226,7 +226,7 @@ provider keys, private-key blocks and hardcoded passwords in the diff or tool ou
 
 ## Built-in rules
 
-90 rules, generated from the code (`acr rules`; `acr explain <id>` for details):
+91 rules, generated from the code (`acr rules`; `acr explain <id>` for details):
 
 <!-- regenerate: acr rules --format markdown -->
 
@@ -290,6 +290,7 @@ provider keys, private-key blocks and hardcoded passwords in the diff or tool ou
 | Containers (Dockerfile, Compose) | `ACR-COMPOSE-001` | critical | Compose service runs privileged or shares a host namespace |
 | Containers (Dockerfile, Compose) | `ACR-COMPOSE-002` | high | Compose service mounts the Docker socket or a sensitive host path |
 | Containers (Dockerfile, Compose) | `ACR-COMPOSE-003` | medium | Compose image not pinned (latest or no tag) |
+| Containers (Dockerfile, Compose) | `ACR-COMPOSE-004` | high | Compose publishes a database or unauthenticated port on all interfaces |
 | Containers (Dockerfile, Compose) | `ACR-DOCKER-001` | medium | Base image not pinned (latest or no tag) |
 | Containers (Dockerfile, Compose) | `ACR-DOCKER-002` | medium | Image runs as root (no USER instruction) |
 | Containers (Dockerfile, Compose) | `ACR-DOCKER-003` | high | Remote script piped straight into a shell |

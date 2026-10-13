@@ -4,7 +4,8 @@ from __future__ import annotations
 import re
 
 from ..models import Severity
-from .base import line_matches, rule
+from .base import line_matches, make, rule
+from .kubernetes import UNAUTHENTICATED_PORTS
 
 COMPOSE = ["compose"]
 COMPOSE_REF = "https://docs.docker.com/reference/compose-file/services/"
@@ -43,3 +44,24 @@ def compose_image_pin(path, text, lines):
             continue
         f.detail = f"Image '{ref}' can change between pulls."
         yield f
+
+
+# Databases have passwords, but exposing them to every network is still how most get breached.
+EXPOSED_PORTS = {**UNAUTHENTICATED_PORTS, 5432: "PostgreSQL", 3306: "MySQL", 1433: "SQL Server", 5672: "RabbitMQ",
+                 9092: "Kafka", 2379: "etcd"}
+
+
+@rule("ACR-COMPOSE-004", "Compose publishes a database or unauthenticated port on all interfaces", Severity.HIGH,
+      "container", COMPOSE,
+      fix="Bind to loopback (\"127.0.0.1:6379:6379\"), or drop ports: and let other services reach it over the Compose network. "
+          "Docker publishes ports through its own firewall rules, so host firewalls such as ufw do not block them.",
+      references=["https://docs.docker.com/engine/network/packet-filtering-firewalls/"])
+def compose_exposed_port(path, text, lines):
+    info = compose_exposed_port.info
+    entry = re.compile(r"""^\s*-\s*['"]?(?:(\[?[0-9a-fA-F.:]*\]?):)?(\d+)(?:-\d+)?:(\d+)(?:/\w+)?['"]?\s*(#.*)?$""")
+    for f in line_matches(info, path, lines, entry):
+        m = entry.match(lines[f.line - 1])
+        ip, target = m.group(1), int(m.group(3))
+        if target in EXPOSED_PORTS and ip in (None, "", "0.0.0.0", "[::]", "::"):
+            f.detail = f"{EXPOSED_PORTS[target]} (port {target}) is published on every interface of the host."
+            yield f

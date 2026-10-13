@@ -599,3 +599,11 @@ class ComposeRules(unittest.TestCase):
             self.assertIn("ACR-COMPOSE-003", ids("compose.yaml", f"services:\n  a:\n    image: {img}\n", self.C), img)
         for img in ("redis:7.4", "ghcr.io/acme/api@sha256:" + "a" * 64, "${API_IMAGE}", "localhost:5000/api:1.2"):
             self.assertNotIn("ACR-COMPOSE-003", ids("compose.yaml", f"services:\n  a:\n    image: {img}\n", self.C), img)
+
+    def test_exposed_ports(self):
+        def found(port):
+            return "ACR-COMPOSE-004" in ids("compose.yaml", f"services:\n  db:\n    ports:\n      - {port}\n", self.C)
+        for port in ('"6379:6379"', "5432:5432", '"0.0.0.0:11434:11434"', "16379:6379/tcp"):
+            self.assertTrue(found(port), port)
+        for port in ('"127.0.0.1:6379:6379"', '"8080:80"', "3000:3000"):
+            self.assertFalse(found(port), port)
