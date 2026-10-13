@@ -2,6 +2,25 @@
 
 All notable changes to this project. The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [0.5.0] - 2026-10-13
+
+### Added
+- `--format gitlab` (GitLab Code Quality) and `--format junit` (Jenkins, Azure DevOps, CircleCI, Bitbucket), plus a GitLab CI template and integration guides in `docs/ci-integrations.md`.
+- `--diff-file PATH|-` reviews any unified diff, from a file or stdin.
+- `--min-severity` / `min_severity:` noise floor, applied before the AI step.
+- Expiring suppressions: `acr:ignore[ID] until=YYYY-MM-DD`; after the date the finding returns with a note.
+- `acr baseline --check` (fails when accepted findings were fixed) and `acr baseline --prune` (removes them, never adds new ones).
+- AI cost and privacy controls: `--ai-max-findings` (default 50, most severe first) and `--ai-dry-run` (prints the redacted request without calling a model).
+- `--timings`, and rule/scanner durations in the JSON report; `acr rules --category`.
+- Docker Compose files and coding-agent instruction files (`AGENTS.md`, `CLAUDE.md`, `.cursorrules`, Copilot instructions) are classified; the skill rules now also check instruction files.
+- Sixteen rules (103 in total): four Compose rules (privileged/host namespaces, Docker socket and host mounts, unpinned images, databases published on all interfaces), `curl | bash` in workflows, unpinned `docker://` actions, unauthenticated Lambda function URLs, purgeable Key Vaults and secrets, credentials in ConfigMaps, allow-all NetworkPolicies, `enableAllProjectMcpServers`, agent access to the whole disk or home directory, regex built from request input, Django `ALLOWED_HOSTS` wildcard, CSRF disabled, SSH servers in images.
+- GitHub Action `min-severity` input; CI checks that the demo fails the gate and every report format renders.
+- `docs/architecture.md`; SECURITY.md now lists exactly what the AI step sends.
+
+### Fixed
+- The diff parser marked a hunk's whole range as changed, so diffs with context lines (a plain `git diff` passed to `--diff-file`) also reported unchanged lines. Only added lines count now.
+- Sixteen rules from 0.1.0 had no direct tests; each now has positive and negative cases, and a test fails if any rule is untested.
+
 ## [0.4.0] - 2026-10-12
 
 ### Added
@@ -72,6 +91,7 @@ All notable changes to this project. The format follows [Keep a Changelog](https
 - AI review agent for Claude (Anthropic SDK) and OpenAI-compatible endpoints, with read-only, repository-confined tools.
 - Markdown, JSON and SARIF reports; inline GitHub PR comments; composite GitHub Action; insecure demo project.
 
+[0.5.0]: https://github.com/sunilmehta-si/agentic-code-review-tool/compare/v0.4.0...v0.5.0
 [0.4.0]: https://github.com/sunilmehta-si/agentic-code-review-tool/compare/v0.3.0...v0.4.0
 [0.3.0]: https://github.com/sunilmehta-si/agentic-code-review-tool/compare/v0.2.0...v0.3.0
 [0.2.0]: https://github.com/sunilmehta-si/agentic-code-review-tool/compare/v0.1.0...v0.2.0
