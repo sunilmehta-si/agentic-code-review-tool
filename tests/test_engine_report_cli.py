@@ -386,3 +386,28 @@ class MinSeverityTests(unittest.TestCase):
         (root / ".acr.yml").write_text("min_severity: high\n")
         self.assertEqual(len(json.loads(run())["findings"]), 1)
         self.assertEqual(len(json.loads(run("--min-severity", "info"))["findings"]), 2)  # the flag wins
+
+
+class TimingTests(unittest.TestCase):
+    def test_rules_and_scanners_are_timed(self):
+        import time as _time
+
+        from agentic_code_review.scanners.tools import Scanner
+
+        def slow(root, files):
+            _time.sleep(0.05)
+            return []
+        fake = Scanner("hadolint", "hadolint", frozenset({"*"}), slow)
+        root = git_repo({"README.md": "x\n"})
+        (root / "a.py").write_text("x = 1\n")
+        with mock.patch("agentic_code_review.engine.available_scanners", return_value=[fake]), \
+                mock.patch("agentic_code_review.scanners.tools.ALL_SCANNERS", [fake]):
+            result = review(root)
+        self.assertGreaterEqual(result.timings["scanner:hadolint"], 0.05)
+        self.assertIn("rules", result.timings)
+        self.assertIn("scanner:hadolint", json.loads(report.to_json(result))["timings_ms"])
+        err = io.StringIO()
+        from contextlib import redirect_stderr
+        with redirect_stdout(io.StringIO()), redirect_stderr(err):
+            main(["review", "--root", str(root), "--no-scanners", "--timings", "--fail-on", "never"])
+        self.assertIn("acr: rules", err.getvalue())

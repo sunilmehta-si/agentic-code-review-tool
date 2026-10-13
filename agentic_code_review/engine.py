@@ -7,6 +7,7 @@ from __future__ import annotations
 
 import fnmatch
 import os
+import time
 from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -38,6 +39,7 @@ class ReviewResult:
     skipped: list[str] = field(default_factory=list)   # binary, oversized or unreadable files
     below_floor: int = 0                                # findings dropped by --min-severity
     ai_unverified: int = 0                              # findings over --ai-max-findings, not sent to the model
+    timings: dict[str, float] = field(default_factory=dict)   # seconds: "rules", "scanner:<name>"
 
     def counts(self) -> dict[str, int]:
         out = {s.label(): 0 for s in sorted(Severity, reverse=True)}
@@ -47,6 +49,11 @@ class ReviewResult:
 
     def blocking(self, threshold: Severity) -> list[Finding]:
         return [f for f in self.findings if f.severity >= threshold and f.ai_verdict != "false_positive"]
+
+
+def _timed(fn, *args):
+    start = time.perf_counter()
+    return fn(*args), time.perf_counter() - start
 
 
 def _override(rule_id: str, overrides: dict[str, Severity]) -> Severity | None:
@@ -133,6 +140,8 @@ def review(root: Path, base: str | None = None, head: str | None = None, full: b
     file_kinds: dict[str, set[str]] = {}
     file_lines: dict[str, list[str]] = {}
     skipped: list[str] = []
+    timings: dict[str, float] = {}
+    started = time.perf_counter()
     for path in sorted(files):
         # In staged mode rules read what will be committed, not unstaged edits in the working tree.
         text = diff.staged_text(root, path, MAX_BYTES) if staged else _read(root, path)
@@ -145,6 +154,7 @@ def review(root: Path, base: str | None = None, head: str | None = None, full: b
         findings.extend(rules_base.run_rules(path, text, k))
         findings.extend(_run_custom(custom_rules, path, file_lines[path]))
 
+    timings["rules"] = time.perf_counter() - started
     ran, missing, failed = [], [], {}
     if use_scanners:
         wanted = only_scanners
@@ -160,10 +170,10 @@ def review(root: Path, base: str | None = None, head: str | None = None, full: b
         # Scanners are separate processes, so threads run them concurrently; results keep a stable order.
         workers = max(1, min(len(jobs), int(os.environ.get("ACR_SCANNER_WORKERS", "4"))))
         with ThreadPoolExecutor(max_workers=workers) as pool:
-            futures = [(scanner, pool.submit(scanner.run, root, targets)) for scanner, targets in jobs]
+            futures = [(scanner, pool.submit(_timed, scanner.run, root, targets)) for scanner, targets in jobs]
             for scanner, fut in futures:
                 try:
-                    found = fut.result()
+                    found, timings[f"scanner:{scanner.name}"] = fut.result()
                 except ScannerError as exc:
                     failed[scanner.name] = str(exc)
                     continue
@@ -184,5 +194,5 @@ def review(root: Path, base: str | None = None, head: str | None = None, full: b
     for f in kept:
         lines = file_lines.get(f.path) or []
         f.fingerprint = fingerprint(f.rule_id, f.path, lines[f.line - 1] if 0 < f.line <= len(lines) else "")
-    return ReviewResult(findings=dedupe(kept), files=files, file_kinds=file_kinds, scanners_run=ran, scanners_missing=missing, scanners_failed=failed,
+    return ReviewResult(findings=dedupe(kept), files=files, file_kinds=file_kinds, scanners_run=ran, scanners_missing=missing, scanners_failed=failed, timings=timings,
                         skipped=skipped)

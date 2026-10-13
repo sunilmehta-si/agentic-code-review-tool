@@ -133,6 +133,7 @@ def to_json(result: ReviewResult, threshold: Severity | None = None) -> str:
     return json.dumps({"schema_version": JSON_SCHEMA_VERSION, "version": __version__, "gate": gate, "counts": result.counts(), "scanners_run": result.scanners_run,
                        "scanners_missing": result.scanners_missing,
                        "scanners_failed": result.scanners_failed, "files_reviewed": sorted(result.file_kinds), "files_skipped": result.skipped,
+                       "timings_ms": {k: round(v * 1000) for k, v in result.timings.items()},
                        "ai": {"provider": result.ai_provider, "summary": result.ai_summary, "error": result.ai_error,
                               "usage": result.ai_usage},
                        "findings": [f.to_dict() for f in result.findings]}, indent=2)

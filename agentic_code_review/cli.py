@@ -41,6 +41,7 @@ def _parser() -> argparse.ArgumentParser:
     r.add_argument("--min-severity", choices=("critical", "high", "medium", "low", "info"), default=None,
                    help="Leave out findings below this severity (default: .acr.yml, else show everything).")
     r.add_argument("--no-scanners", action="store_true", help="Built-in rules only; skip external scanners.")
+    r.add_argument("--timings", action="store_true", help="Print how long the rules and each scanner took (stderr).")
     r.add_argument("--scanners", help="Comma-separated subset, e.g. semgrep,trivy.")
     r.add_argument("--exclude", action="append", default=[], help="Glob to skip (repeatable).")
     r.add_argument("--include", action="append", default=[], help="Only review paths matching this glob (repeatable).")
@@ -199,6 +200,9 @@ def _cmd_review(args: argparse.Namespace) -> int:
     from . import baseline as baseline_mod
     baseline_mod.apply(Path(args.root).resolve(), result,
                        baseline_mod.load(Path(args.root).resolve(), args.baseline or cfg.baseline or baseline_mod.DEFAULT_PATH))
+    if args.timings:
+        for name, secs in sorted(result.timings.items(), key=lambda kv: -kv[1]):
+            print(f"acr: {name:<24} {secs * 1000:8.0f} ms", file=sys.stderr)
     floor = args.min_severity or cfg.min_severity
     if floor:  # applied before the AI step so it never spends tokens on findings nobody will see
         level = Severity.parse(floor)
