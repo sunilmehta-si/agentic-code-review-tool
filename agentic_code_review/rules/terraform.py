@@ -201,3 +201,17 @@ def audit_logging(path, text, lines):
       references=["https://cloud.google.com/storage/docs/uniform-bucket-level-access"])
 def object_acls(path, text, lines):
     yield from line_matches(object_acls.info, path, lines, re.compile(r"\buniform_bucket_level_access\s*=\s*false\b"))
+
+
+@rule("ACR-TF-013", "Serverless function exposed on a public URL without authentication", Severity.HIGH, "iac", TF,
+      fix="Use authorization_type = \"AWS_IAM\" and call it with signed requests, or put it behind API Gateway with an "
+          "authorizer; a NONE function URL can be invoked (and billed) by anyone who finds it.",
+      references=["https://docs.aws.amazon.com/lambda/latest/dg/urls-auth.html"])
+def public_function_url(path, text, lines):
+    info = public_function_url.info
+    for start, end, header in _blocks(lines):
+        if "aws_lambda_function_url" not in header:
+            continue
+        for i in range(start, end + 1):
+            if re.search(r'\bauthorization_type\s*=\s*"NONE"', lines[i - 1]):
+                yield make(info, path, i)

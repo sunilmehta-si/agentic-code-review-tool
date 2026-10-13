@@ -639,3 +639,10 @@ class DockerActionPinRule(unittest.TestCase):
         self.assertIn("ACR-GHA-013", ids(".github/workflows/x.yml", wf, gha))
         pinned = wf.replace("alpine:3.20", "alpine:3.20@sha256:" + "b" * 64)
         self.assertNotIn("ACR-GHA-013", ids(".github/workflows/x.yml", pinned, gha))
+
+
+class PublicFunctionUrlRule(unittest.TestCase):
+    def test_unauthenticated_function_url(self):
+        url = 'resource "aws_lambda_function_url" "u" {\n  function_name = "api"\n  authorization_type = "NONE"\n}\n'
+        self.assertIn("ACR-TF-013", ids("f.tf", url, {"terraform"}))
+        self.assertEqual(ids("f.tf", url.replace('"NONE"', '"AWS_IAM"'), {"terraform"}), [])
