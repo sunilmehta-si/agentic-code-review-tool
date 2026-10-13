@@ -593,3 +593,9 @@ class ComposeRules(unittest.TestCase):
         self.assertIn("ACR-COMPOSE-002", ids("compose.yaml", long, self.C))
         ok = "services:\n  app:\n    volumes:\n      - ./data:/data\n      - pgdata:/var/lib/postgresql/data\n"
         self.assertNotIn("ACR-COMPOSE-002", ids("compose.yaml", ok, self.C))
+
+    def test_unpinned_images(self):
+        for img in ("redis", "ghcr.io/acme/api:latest", "'nginx'"):
+            self.assertIn("ACR-COMPOSE-003", ids("compose.yaml", f"services:\n  a:\n    image: {img}\n", self.C), img)
+        for img in ("redis:7.4", "ghcr.io/acme/api@sha256:" + "a" * 64, "${API_IMAGE}", "localhost:5000/api:1.2"):
+            self.assertNotIn("ACR-COMPOSE-003", ids("compose.yaml", f"services:\n  a:\n    image: {img}\n", self.C), img)

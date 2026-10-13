@@ -28,3 +28,18 @@ def compose_host_mount(path, text, lines):
     host = r"(/var/run/docker\.sock|/run/docker\.sock|/run/containerd/containerd\.sock|/|/etc|/root|/home|/proc|/sys)"
     pat = re.compile(rf"""^\s*-\s*['"]?{host}(:|['"]?\s*$)|^\s*source\s*:\s*['"]?{host}['"]?\s*$""")
     yield from line_matches(compose_host_mount.info, path, lines, pat)
+
+
+@rule("ACR-COMPOSE-003", "Compose image not pinned (latest or no tag)", Severity.MEDIUM, "container", COMPOSE,
+      fix="Pin each image to a version tag, ideally with its digest (image: postgres:16.4@sha256:...).",
+      references=[COMPOSE_REF])
+def compose_image_pin(path, text, lines):
+    info = compose_image_pin.info
+    pat = re.compile(r"""^\s*image\s*:\s*['"]?([^'"\s#]+)""")
+    for f in line_matches(info, path, lines, pat):
+        ref = pat.match(lines[f.line - 1]).group(1)
+        name = ref.rsplit("/", 1)[-1]
+        if "@sha256:" in ref or "$" in ref or (":" in name and not name.endswith(":latest")):
+            continue
+        f.detail = f"Image '{ref}' can change between pulls."
+        yield f
