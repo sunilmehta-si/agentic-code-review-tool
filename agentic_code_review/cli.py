@@ -30,7 +30,7 @@ def _parser() -> argparse.ArgumentParser:
     r.add_argument("--diff-file", metavar="PATH",
                    help="Review the changed lines of a unified diff file ('-' for stdin) against the files in --root.")
     r.add_argument("--staged", action="store_true", help="Review only staged changes, as they will be committed (for git hooks).")
-    r.add_argument("--format", choices=("markdown", "json", "sarif", "github", "gitlab"), default="markdown",
+    r.add_argument("--format", choices=("markdown", "json", "sarif", "github", "gitlab", "junit"), default="markdown",
                    help="github prints workflow-command annotations; gitlab writes a GitLab Code Quality report.")
     r.add_argument("--output", "-o", help="Write the report to a file instead of stdout.")
     r.add_argument("--sarif", metavar="PATH", help="Also write SARIF to PATH (same run, no re-scan).")
@@ -208,7 +208,8 @@ def _cmd_review(args: argparse.Namespace) -> int:
     threshold = FAIL_LEVELS.get(args.fail_on)
     rendered = {"markdown": lambda: report.to_markdown(result, threshold or Severity.CRITICAL),
                 "json": lambda: report.to_json(result, threshold), "sarif": lambda: report.to_sarif(result),
-                "github": lambda: report.to_github(result), "gitlab": lambda: report.to_gitlab(result)}[args.format]()
+                "github": lambda: report.to_github(result), "gitlab": lambda: report.to_gitlab(result),
+                "junit": lambda: report.to_junit(result, threshold)}[args.format]()
     if args.output:
         Path(args.output).write_text(rendered + "\n", encoding="utf-8")
     else:

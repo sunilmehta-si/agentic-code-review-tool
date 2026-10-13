@@ -345,3 +345,26 @@ class GitLabReportTests(unittest.TestCase):
                           ("ACR-APP-007", "minor", {"path": "a.py", "lines": {"begin": 4}})])
         self.assertEqual(issues[0]["fingerprint"], "f1")
         self.assertEqual(len({i["fingerprint"] for i in issues}), 2)
+
+
+class JUnitReportTests(unittest.TestCase):
+    def test_failures_match_the_gate(self):
+        import xml.etree.ElementTree as ET
+
+        from agentic_code_review.engine import ReviewResult
+        hi = Finding("ACR-APP-002", "Shell <cmd> & co", Severity.HIGH, "a.py", 3, "acr", "app-security")
+        lo = Finding("ACR-APP-007", "Weak hash", Severity.LOW, "a.py", 4, "acr", "app-security")
+        r = ReviewResult([hi, lo], {}, {}, scanners_failed={"semgrep": "timed out"})
+        suite = ET.fromstring(report.to_junit(r, Severity.HIGH)).find("testsuite")
+        self.assertEqual((suite.get("tests"), suite.get("failures"), suite.get("errors")), ("2", "1", "1"))
+        failed = [c.get("name") for c in suite.iter("testcase") if c.find("failure") is not None]
+        self.assertEqual(failed, ["ACR-APP-002 line 3: Shell <cmd> & co"])  # XML special characters survive escaping
+        off = ET.fromstring(report.to_junit(r, None)).find("testsuite")
+        self.assertEqual(off.get("failures"), "0")
+
+    def test_empty_review_is_one_passing_case(self):
+        import xml.etree.ElementTree as ET
+
+        from agentic_code_review.engine import ReviewResult
+        suite = ET.fromstring(report.to_junit(ReviewResult([], {}, {}))).find("testsuite")
+        self.assertEqual((suite.get("tests"), suite.get("failures")), ("1", "0"))

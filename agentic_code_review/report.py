@@ -223,3 +223,31 @@ def to_gitlab(result: ReviewResult) -> str:
                        "content": {"body": comment_body(f)},
                        "location": {"path": f.path, "lines": {"begin": max(1, f.line)}}})
     return json.dumps(issues, indent=2)
+
+
+def to_junit(result: ReviewResult, threshold: Severity | None = Severity.HIGH) -> str:
+    """JUnit XML for CI systems that display test reports (Jenkins, Azure DevOps, CircleCI, GitLab).
+
+    Each finding is a test case; only findings at or above the gate threshold are failures, so the
+    test report and the exit code always agree. threshold None means the gate is off.
+    """
+    import xml.etree.ElementTree as ET
+    shown = _visible(result)
+    failing = [f for f in shown if threshold is not None and f.severity >= threshold]
+    suite = ET.Element("testsuite", name="agentic-code-review", tests=str(max(1, len(shown))), failures=str(len(failing)),
+                       errors=str(len(result.scanners_failed)), skipped="0")
+    if not shown:
+        ET.SubElement(suite, "testcase", classname="acr", name="No findings on the changed lines")
+    for f in shown:
+        case = ET.SubElement(suite, "testcase", classname=f.path, name=f"{f.rule_id} line {f.line}: {f.title}")
+        text = comment_body(f)
+        if f in failing:
+            ET.SubElement(case, "failure", message=f.title, type=f.severity.label()).text = text
+        else:
+            ET.SubElement(case, "system-out").text = f"[{f.severity.label()}, below the gate] {text}"
+    for name, why in sorted(result.scanners_failed.items()):
+        case = ET.SubElement(suite, "testcase", classname="scanners", name=name)
+        ET.SubElement(case, "error", message=why, type="ScannerError")
+    root = ET.Element("testsuites", name="acr")
+    root.append(suite)
+    return '<?xml version="1.0" encoding="UTF-8"?>\n' + ET.tostring(root, encoding="unicode")
