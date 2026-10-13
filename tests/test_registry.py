@@ -31,3 +31,12 @@ class RegistryTests(unittest.TestCase):
     def test_titles_are_short_enough_for_a_pr_table(self):
         for info, _ in base.REGISTRY:
             self.assertLessEqual(len(info.title), 110, info.rule_id)
+
+
+class EveryRuleIsTestedTests(unittest.TestCase):
+    def test_each_rule_id_appears_in_a_test(self):
+        from pathlib import Path
+        tests = Path(__file__).resolve().parent
+        corpus = "\n".join(p.read_text() for p in tests.glob("test_*.py") if p.name != "test_registry.py")
+        untested = [info.rule_id for info, _ in base.REGISTRY if f'"{info.rule_id}"' not in corpus]
+        self.assertEqual(untested, [], "add a positive and a negative test for these rules")
