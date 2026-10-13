@@ -65,6 +65,8 @@ def _parser() -> argparse.ArgumentParser:
     b.add_argument("--no-scanners", action="store_true", help="Built-in rules only.")
     b.add_argument("--check", action="store_true",
                    help="Don't write; exit 1 if the baseline lists findings that no longer exist (so it can be pruned).")
+    b.add_argument("--prune", action="store_true",
+                   help="Remove entries for findings that no longer exist; never adds new findings.")
 
     i = sub.add_parser("init", help="Write a starter .acr.yml in the repository root.")
     i.add_argument("--root", default=".", help="Repository root (default: current directory).")
@@ -274,6 +276,10 @@ def _cmd_baseline(args: argparse.Namespace) -> int:
             print(f"acr: stale baseline entry {e.get('rule', '?')} in {e.get('path', '?')} (no longer found)")
         print(f"acr: {len(gone)} stale of {len(baseline_mod.entries(root, path))} baseline entries in {path}.")
         return 1 if gone else 0
+    if args.prune:
+        removed, kept = baseline_mod.prune(root, result, path)
+        print(f"acr: removed {removed} stale entr{'y' if removed == 1 else 'ies'}; {kept} remain in {path}.")
+        return 0
     n = baseline_mod.write(root, result, path)
     print(f"acr: wrote {n} known finding(s) to {path}. Commit it; future reviews fail only on new findings.")
     return 0

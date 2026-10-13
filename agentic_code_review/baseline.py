@@ -53,6 +53,17 @@ def stale(root: Path, result: ReviewResult, path: str = DEFAULT_PATH) -> list[di
     return [e for e in entries(root, path) if e["fingerprint"] not in current]
 
 
+def prune(root: Path, result: ReviewResult, path: str = DEFAULT_PATH) -> tuple[int, int]:
+    """Drop stale entries and keep the rest exactly; never adds new findings. Returns (removed, kept)."""
+    gone = {e["fingerprint"] for e in stale(root, result, path)}
+    keep = [e for e in entries(root, path) if e["fingerprint"] not in gone]
+    p = root / path
+    doc = json.loads(p.read_text()) if p.is_file() else {"version": 1}
+    doc["findings"] = keep
+    p.write_text(json.dumps(doc, indent=2) + "\n", encoding="utf-8")
+    return len(gone), len(keep)
+
+
 def load(root: Path, path: str = DEFAULT_PATH) -> set[str]:
     p = root / path
     if not p.is_file():

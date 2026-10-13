@@ -66,3 +66,17 @@ class BaselineCheckTests(unittest.TestCase):
         self.assertEqual(code, 1)
         self.assertIn("1 stale of 2", out)
         self.assertIn("ACR-APP-002 in a.py", out)
+
+
+class BaselinePruneTests(unittest.TestCase):
+    def test_prune_removes_fixed_entries_without_accepting_new_ones(self):
+        import json as _json
+        root = git_repo({"a.py": "os.system(a)\nos.popen(b)\n"})
+        run(root, "baseline")
+        (root / "a.py").write_text("os.system(a)\nsafe = 1\nexec(new_problem)\n")  # one fixed, one new
+        code, out = run(root, "baseline", "--prune")
+        self.assertEqual(code, 0)
+        self.assertIn("removed 1 stale entry; 1 remain", out)
+        rules = [e["rule"] for e in _json.loads((root / ".acr-baseline.json").read_text())["findings"]]
+        self.assertEqual(rules, ["ACR-APP-002"])  # the new exec() finding was not accepted
+        self.assertEqual(run(root, "baseline", "--check")[0], 0)
