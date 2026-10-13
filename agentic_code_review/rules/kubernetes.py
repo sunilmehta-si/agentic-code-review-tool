@@ -259,3 +259,23 @@ def exposed_service(path, text, lines):
                 name = (doc.get("metadata") or {}).get("name", "")
                 yield make(info, path, find_line(lines, re.compile(rf"^\s*-?\s*(port|targetPort)\s*:\s*{hit[0]}\b")),
                            f"{spec['type']} Service '{name}' exposes {UNAUTHENTICATED_PORTS[hit[0]]} (port {hit[0]}).")
+
+
+CREDENTIAL_KEY = re.compile(r"(?i)(password|passwd|secret|token|api[_-]?key|access[_-]?key|private[_-]?key|credentials?)$")
+CREDENTIAL_URL = re.compile(r"://[^/\s:@]+:[^/\s@]{3,}@")  # scheme://user:password@host
+
+
+@rule("ACR-K8S-018", "Credential stored in a ConfigMap", Severity.HIGH, "secrets", ["kubernetes"],
+      fix="Move it to a Secret (ideally an ExternalSecret or SealedSecret) and reference it with secretKeyRef. ConfigMaps "
+          "are readable by anyone with get on configmaps and are never encrypted at rest.",
+      references=["https://kubernetes.io/docs/concepts/configuration/configmap/"])
+def configmap_credentials(path, text, lines):
+    info = configmap_credentials.info
+    for doc in _docs(text, {"ConfigMap"}):
+        for key, value in (doc.get("data") or {}).items():
+            v = str(value or "")
+            if re.search(r"\{\{|\$\{|<|CHANGE|REPLACE", v, re.I):
+                continue
+            if (CREDENTIAL_KEY.search(str(key)) and len(v) >= 8) or CREDENTIAL_URL.search(v):
+                yield make(info, path, find_line(lines, re.compile(rf"^\s*['\"]?{re.escape(str(key))}['\"]?\s*:")),
+                           f"ConfigMap '{(doc.get('metadata') or {}).get('name', '')}' key '{key}' holds a credential (not shown).")

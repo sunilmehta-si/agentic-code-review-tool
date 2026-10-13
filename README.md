@@ -226,13 +226,14 @@ provider keys, private-key blocks and hardcoded passwords in the diff or tool ou
 
 ## Built-in rules
 
-95 rules, generated from the code (`acr rules`; `acr explain <id>` for details):
+96 rules, generated from the code (`acr rules`; `acr explain <id>` for details):
 
 <!-- regenerate: acr rules --format markdown -->
 
 | Area | Rule | Severity | What it catches |
 |---|---|---|---|
 | Secrets | `ACR-K8S-011` | high | Kubernetes Secret with real values committed to git |
+| Secrets | `ACR-K8S-018` | high | Credential stored in a ConfigMap |
 | Secrets | `ACR-MCP-002` | critical | Credential stored in plain text in an MCP config |
 | Secrets | `ACR-SEC-001` | critical | Provider credential committed to source |
 | Secrets | `ACR-SEC-002` | high | Hardcoded password or token |

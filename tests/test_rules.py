@@ -654,3 +654,16 @@ class SecretStorePurgeRule(unittest.TestCase):
         self.assertIn("ACR-TF-014", ids("k.tf", 'resource "azurerm_key_vault" "v" {\n  purge_protection_enabled = false\n}\n', tf))
         self.assertIn("ACR-TF-014", ids("s.tf", 'resource "aws_secretsmanager_secret" "s" {\n  recovery_window_in_days = 0\n}\n', tf))
         self.assertEqual(ids("s.tf", 'resource "aws_secretsmanager_secret" "s" {\n  recovery_window_in_days = 7\n}\n', tf), [])
+
+
+class ConfigMapCredentialRule(unittest.TestCase):
+    def test_credentials_in_configmaps(self):
+        from agentic_code_review.rules import base
+        cm = ("apiVersion: v1\nkind: ConfigMap\nmetadata:\n  name: app\ndata:\n  LOG_LEVEL: info\n"
+              "  DB_PASSWORD: s3cr3tV4lue\n  DATABASE_URL: postgres://app:hunter22@db:5432/app\n  API_TOKEN: \"${API_TOKEN}\"\n")
+        found = [f.line for f in base.run_rules("cm.yaml", cm, {"kubernetes"}) if f.rule_id == "ACR-K8S-018"]
+        self.assertEqual(found, [7, 8])
+
+    def test_secrets_are_not_configmaps(self):
+        sec = "apiVersion: v1\nkind: Secret\nmetadata:\n  name: app\nstringData:\n  DB_PASSWORD: s3cr3tV4lue\n"
+        self.assertNotIn("ACR-K8S-018", ids("s.yaml", sec, {"kubernetes"}))
