@@ -720,3 +720,13 @@ class CsrfOffRule(unittest.TestCase):
         self.assertIn("ACR-APP-018", ids("views.py", "@csrf_exempt\ndef transfer(request):\n    pass\n", PY))
         self.assertIn("ACR-APP-018", ids("config.py", "WTF_CSRF_ENABLED = False\n", PY))
         self.assertEqual(ids("views.py", "@csrf_protect\ndef transfer(request):\n    pass\n", PY), [])
+
+
+class SshInImageRule(unittest.TestCase):
+    def test_sshd_and_port_22(self):
+        df = {"dockerfile"}
+        for line in ("RUN apt-get update && apt-get install -y openssh-server && rm -rf /var/lib/apt/lists/*",
+                     "EXPOSE 22", "EXPOSE 8080 22/tcp"):
+            self.assertIn("ACR-DOCKER-010", ids("Dockerfile", f"FROM a:1\n{line}\nUSER 1\n", df), line)
+        for line in ("RUN apk add --no-cache openssh-client", "EXPOSE 2222", "EXPOSE 8022"):
+            self.assertNotIn("ACR-DOCKER-010", ids("Dockerfile", f"FROM a:1\n{line}\nUSER 1\n", df), line)

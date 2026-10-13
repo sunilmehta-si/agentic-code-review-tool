@@ -102,3 +102,13 @@ def copied_credentials(path, text, lines):
                      r"|\.npmrc|\.pypirc|\.netrc|\.git-credentials|\.aws/?|\.ssh/?|[\w.-]*\.key|credentials\.json|[\w.-]*\.tfstate)(\s|$)",
                      re.I)
     yield from line_matches(copied_credentials.info, path, lines, pat)
+
+
+@rule("ACR-DOCKER-010", "SSH server installed or exposed in the image", Severity.MEDIUM, "container", DF,
+      fix="Don't run sshd in containers; use docker exec / kubectl exec (or an ephemeral debug container) for access, "
+          "so there are no long-lived keys or passwords in the image.",
+      references=[CIS])
+def ssh_in_image(path, text, lines):
+    pat = re.compile(r"\b(apt-get|apt|apk|yum|dnf|microdnf|zypper)\b[^\n]*\b(install|add)\b[^\n]*\bopenssh-server\b"
+                     r"|^\s*EXPOSE\s+([^\n#]*\s)?22(/tcp)?(\s|$)", re.I)
+    yield from line_matches(ssh_in_image.info, path, lines, pat)
