@@ -154,3 +154,14 @@ def insecure_cookie(path, text, lines):
     pat = re.compile(r"\b(SESSION|CSRF)_COOKIE_(SECURE|HTTPONLY)\s*=\s*False\b|\bset_cookie\([^)]*\b(secure|httponly)\s*=\s*False"
                      r"|\bhttpOnly\s*:\s*false\b")
     yield from line_matches(insecure_cookie.info, path, lines, pat)
+
+
+@rule("ACR-APP-016", "Regular expression built from request input (ReDoS)", Severity.MEDIUM, "app-security", PY + JS,
+      fix="Escape user input before putting it in a pattern (re.escape / a library such as escape-string-regexp), or use "
+          "plain substring matching; a crafted pattern can pin a CPU for minutes.",
+      references=["https://owasp.org/www-community/attacks/Regular_expression_Denial_of_Service_-_ReDoS"])
+def regex_injection(path, text, lines):
+    pat = re.compile(r"\bre\.(compile|search|match|fullmatch|findall|sub|split)\(\s*(f[\"'][^\"']*\{\s*)?request\."
+                     r"(args|GET|POST|form|values|query_params|json)\b"
+                     r"|\bnew RegExp\(\s*(`[^`]*\$\{\s*)?req\.(query|params|body)\.")
+    yield from line_matches(regex_injection.info, path, lines, pat)

@@ -697,3 +697,12 @@ class BroadFileAccessRule(unittest.TestCase):
         self.assertEqual(found, [3, 4])
         ok = '{"permissions": {"additionalDirectories": ["../shared-lib"], "allow": ["Read(./src/**)"]}}'
         self.assertEqual(ids(".claude/settings.json", ok, {"agent-settings"}), [])
+
+
+class RegexInjectionRule(unittest.TestCase):
+    def test_user_controlled_patterns(self):
+        js = {"app", "lang:javascript"}
+        self.assertIn("ACR-APP-016", ids("v.py", 'hits = re.search(request.args["q"], text)\n', PY))
+        self.assertIn("ACR-APP-016", ids("v.py", 'rx = re.compile(f"^{request.args[\'prefix\']}.*")\n', PY))
+        self.assertIn("ACR-APP-016", ids("r.js", "const rx = new RegExp(req.query.search, 'i');\n", js))
+        self.assertEqual(ids("v.py", 'hits = re.search(re.escape(request.args["q"]), text)\n', PY), [])
