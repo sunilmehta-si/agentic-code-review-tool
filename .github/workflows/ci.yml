@@ -74,3 +74,32 @@ jobs:
           if python -m zipfile -l "$GITHUB_WORKSPACE"/dist/*.whl | grep -E "^(tests|examples)/"; then
             echo "tests or examples were packaged into the wheel"; exit 1
           fi
+
+  demo-gate:
+    # The deliberately insecure demo must fail the gate, and every report format must render from one run.
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: "3.12"
+      - run: pip install -e .
+      - name: The demo fails the gate and writes every format
+        run: |
+          status=0
+          acr review --root examples/insecure-app --all --no-scanners --fail-on high \
+            --format junit -o demo.xml --sarif demo.sarif --json demo.json --markdown demo.md || status=$?
+          test "$status" -eq 1 || { echo "expected exit 1 from the demo, got $status"; exit 1; }
+          acr review --root examples/insecure-app --all --no-scanners --fail-on never --format gitlab -o demo-gitlab.json
+          python - <<'PY'
+          import json, xml.etree.ElementTree as ET
+          assert ET.parse("demo.xml").getroot().find("testsuite").get("failures") != "0"
+          assert json.load(open("demo.sarif"))["runs"][0]["results"]
+          assert json.load(open("demo.json"))["gate"]["passed"] is False
+          assert json.load(open("demo-gitlab.json"))
+          assert "Changes requested" in open("demo.md").read()
+          print("demo gate and all report formats OK")
+          PY
