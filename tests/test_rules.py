@@ -630,3 +630,12 @@ class WorkflowCurlPipeRule(unittest.TestCase):
         safe = ("permissions: {}\njobs:\n  a:\n    steps:\n      - run: |\n          curl -fsSLo t.sh https://x/t.sh\n"
                 "          echo \"$SUM  t.sh\" | sha256sum -c\n")
         self.assertNotIn("ACR-GHA-012", ids(".github/workflows/x.yml", safe, gha))
+
+
+class DockerActionPinRule(unittest.TestCase):
+    def test_docker_uses(self):
+        gha = {"github-actions"}
+        wf = "permissions: {}\njobs:\n  a:\n    steps:\n      - uses: docker://alpine:3.20\n"
+        self.assertIn("ACR-GHA-013", ids(".github/workflows/x.yml", wf, gha))
+        pinned = wf.replace("alpine:3.20", "alpine:3.20@sha256:" + "b" * 64)
+        self.assertNotIn("ACR-GHA-013", ids(".github/workflows/x.yml", pinned, gha))

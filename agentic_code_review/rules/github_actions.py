@@ -190,3 +190,16 @@ def workflow_curl_pipe(path, text, lines):
     for i, line in enumerate(lines, start=1):
         if i in run_lines and pat.search(line) and not line.lstrip().startswith("#"):
             yield make(info, path, i)
+
+
+@rule("ACR-GHA-013", "Container action not pinned to an image digest", Severity.MEDIUM, "ci-cd", GHA,
+      fix="Pin docker:// steps by digest (uses: docker://alpine:3.20@sha256:...); a tag can be repointed to a different image.",
+      references=[HARDENING])
+def docker_action_pin(path, text, lines):
+    info = docker_action_pin.info
+    pat = re.compile(r"""uses\s*:\s*['"]?docker://([^'"\s#]+)""")
+    for f in line_matches(info, path, lines, pat):
+        ref = pat.search(lines[f.line - 1]).group(1)
+        if "@sha256:" not in ref:
+            f.detail = f"'{ref}' is pulled by tag."
+            yield f

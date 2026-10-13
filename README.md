@@ -226,7 +226,7 @@ provider keys, private-key blocks and hardcoded passwords in the diff or tool ou
 
 ## Built-in rules
 
-92 rules, generated from the code (`acr rules`; `acr explain <id>` for details):
+93 rules, generated from the code (`acr rules`; `acr explain <id>` for details):
 
 <!-- regenerate: acr rules --format markdown -->
 
@@ -312,6 +312,7 @@ provider keys, private-key blocks and hardcoded passwords in the diff or tool ou
 | GitHub Actions | `ACR-GHA-010` | high | Insecure workflow commands re-enabled (ACTIONS_ALLOW_UNSECURE_COMMANDS) |
 | GitHub Actions | `ACR-GHA-011` | high | Every secret serialised into one value with toJSON(secrets) |
 | GitHub Actions | `ACR-GHA-012` | high | Workflow pipes a remote script straight into a shell |
+| GitHub Actions | `ACR-GHA-013` | medium | Container action not pinned to an image digest |
 | Terraform | `ACR-TF-001` | critical | Sensitive port open to the whole internet |
 | Terraform | `ACR-TF-002` | high | Storage or data service exposed publicly |
 | Terraform | `ACR-TF-003` | high | Encryption or TLS weakened |
