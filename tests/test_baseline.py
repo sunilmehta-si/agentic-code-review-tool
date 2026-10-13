@@ -54,3 +54,15 @@ class FingerprintTests(unittest.TestCase):
         self.assertEqual(moved.findings[0].fingerprint, first.fingerprint)
         sarif = json.loads(report.to_sarif(moved))["runs"][0]["results"][0]
         self.assertEqual(sarif["partialFingerprints"], {"acrFingerprint/v1": first.fingerprint})
+
+
+class BaselineCheckTests(unittest.TestCase):
+    def test_check_reports_fixed_findings(self):
+        root = git_repo({"a.py": "os.system(a)\nos.popen(b)\n"})
+        run(root, "baseline")
+        self.assertEqual(run(root, "baseline", "--check")[0], 0)
+        (root / "a.py").write_text("os.system(a)\nsafe = 1\n")  # one accepted finding is fixed
+        code, out = run(root, "baseline", "--check")
+        self.assertEqual(code, 1)
+        self.assertIn("1 stale of 2", out)
+        self.assertIn("ACR-APP-002 in a.py", out)

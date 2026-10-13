@@ -35,6 +35,24 @@ def write(root: Path, result: ReviewResult, path: str = DEFAULT_PATH) -> int:
     return len(entries)
 
 
+def entries(root: Path, path: str = DEFAULT_PATH) -> list[dict]:
+    """The baseline's entries as written (fingerprint, rule, path); [] if missing or unreadable."""
+    p = root / path
+    if not p.is_file():
+        return []
+    try:
+        found = json.loads(p.read_text()).get("findings", [])
+    except (ValueError, AttributeError):
+        return []
+    return [e for e in found if isinstance(e, dict) and "fingerprint" in e]
+
+
+def stale(root: Path, result: ReviewResult, path: str = DEFAULT_PATH) -> list[dict]:
+    """Baseline entries that no longer match any finding: the problem was fixed or the line changed."""
+    current = {fingerprint(root, f) for f in result.findings}
+    return [e for e in entries(root, path) if e["fingerprint"] not in current]
+
+
 def load(root: Path, path: str = DEFAULT_PATH) -> set[str]:
     p = root / path
     if not p.is_file():
