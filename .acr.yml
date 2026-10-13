@@ -1,0 +1,6 @@
+# Settings for reviews of this repository. Test fixtures and the demo project contain
+# deliberately insecure code, so they are not reviewed on pull requests.
+fail_on: high
+exclude:
+  - "tests/*"
+  - "examples/*"
