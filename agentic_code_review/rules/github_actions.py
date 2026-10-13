@@ -177,3 +177,16 @@ def unsecure_commands(path, text, lines):
       references=[HARDENING])
 def all_secrets(path, text, lines):
     yield from line_matches(all_secrets.info, path, lines, re.compile(r"toJSON\(\s*secrets\s*\)", re.I))
+
+
+@rule("ACR-GHA-012", "Workflow pipes a remote script straight into a shell", Severity.HIGH, "ci-cd", GHA,
+      fix="Download to a file, verify a pinned checksum (sha256sum -c) or signature, then run it; or use a pinned action "
+          "or package. The script runs with this job's token and secrets.",
+      references=[HARDENING])
+def workflow_curl_pipe(path, text, lines):
+    info = workflow_curl_pipe.info
+    run_lines = _run_block_lines(lines)
+    pat = re.compile(r"\b(curl|wget)\b[^|\n]*\|\s*(sudo\s+)?(-E\s+)?(ba|z|da)?sh\b|\b(ba)?sh\s+<\(\s*(curl|wget)\b")
+    for i, line in enumerate(lines, start=1):
+        if i in run_lines and pat.search(line) and not line.lstrip().startswith("#"):
+            yield make(info, path, i)
