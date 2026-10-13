@@ -49,6 +49,8 @@ def _parser() -> argparse.ArgumentParser:
                    help="Have an LLM agent verify findings and explain fixes (claude needs the [claude] extra).")
     r.add_argument("--model", help="Model override (default: claude-opus-5-5 for claude; ACR_MODEL for openai).")
     r.add_argument("--max-steps", type=int, default=12, help="Maximum agent tool-use steps (default: 12).")
+    r.add_argument("--ai-max-findings", type=int, default=50,
+                   help="Send at most this many findings (most severe first) to the AI reviewer (default: 50).")
     r.add_argument("--github-review", action="store_true",
                    help="Post a summary and inline comments to the current pull request (needs GITHUB_TOKEN).")
     r.add_argument("--pr", type=int, help="Pull request number (default: from the GitHub Actions event).")
@@ -209,7 +211,7 @@ def _cmd_review(args: argparse.Namespace) -> int:
             result.ai_error = str(exc)
         else:
             apply_ai(result, Path(args.root).resolve(), reviewer, base=args.base, head=args.head, full=args.full,
-                     staged=args.staged, diff_text=diff_text)
+                     staged=args.staged, diff_text=diff_text, max_findings=args.ai_max_findings)
         if result.ai_error:
             print(f"acr: AI review skipped: {result.ai_error}", file=sys.stderr)
     threshold = FAIL_LEVELS.get(args.fail_on)

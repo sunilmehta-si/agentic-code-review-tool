@@ -209,3 +209,24 @@ class PayloadTests(unittest.TestCase):
         sent = json.loads(cap.message.split("\n", 1)[1].split("\n\nUnified diff")[0])
         self.assertEqual(sent[0]["category"], "app-security")
         self.assertIn("argument list", sent[0]["rule_fix"])
+
+
+class MaxFindingsTests(unittest.TestCase):
+    def test_only_the_most_severe_findings_are_sent(self):
+        from agentic_code_review.engine import ReviewResult
+        from agentic_code_review.models import Finding, Severity
+        findings = [Finding("R-1", "a", Severity.CRITICAL, "a.py", 1, "acr"), Finding("R-2", "b", Severity.HIGH, "a.py", 2, "acr"),
+                    Finding("R-3", "c", Severity.LOW, "a.py", 3, "acr")]
+        result = ReviewResult(findings, {}, {})
+
+        class Capture:
+            usage = {}
+
+            def review(self, message, tools):
+                self.sent = json.loads(message.split("\n", 1)[1].split("\n\nUnified diff")[0])
+                return {"verdicts": [], "new_findings": [], "summary": ""}
+        cap = Capture()
+        apply_ai(result, __import__("pathlib").Path("."), cap, full=True, max_findings=2)
+        self.assertEqual([f["rule"] for f in cap.sent], ["R-1", "R-2"])
+        self.assertEqual(result.ai_unverified, 1)
+        self.assertIn("1 lower-severity finding(s) were not sent", report.to_markdown(result))

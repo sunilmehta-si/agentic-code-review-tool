@@ -86,6 +86,8 @@ def to_markdown(result: ReviewResult, threshold: Severity = Severity.HIGH) -> st
         lines += ["", f"**AI reviewer:** {result.ai_summary}"]
     if result.ai_error:
         lines += ["", f"⚠️ AI review skipped: {result.ai_error} The findings below come from rules and scanners only."]
+    if result.ai_unverified:
+        lines.append(f"{result.ai_unverified} lower-severity finding(s) were not sent to the AI reviewer (--ai-max-findings).")
     dropped = len(result.findings) - len(shown)
     if dropped:
         lines.append(f"The AI reviewer dismissed **{dropped}** finding(s) as false positives.")
