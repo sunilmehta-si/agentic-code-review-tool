@@ -182,3 +182,37 @@ class AgentInstructionClassificationTests(unittest.TestCase):
             self.assertIn("agent-instructions", kinds(path, "Be concise.\n"), path)
         for path in ("README.md", "docs/agents.txt", "notes/claude.mdx"):
             self.assertNotIn("agent-instructions", kinds(path, "x\n"), path)
+
+
+class ContextLineTests(unittest.TestCase):
+    def test_only_plus_lines_count_in_diffs_with_context(self):
+        from agentic_code_review.diff import parse_unified_diff
+        d = ("--- a/x.py\n+++ b/x.py\n@@ -1,4 +1,5 @@\n a = 1\n+b = 2\n c = 3\n-d = 4\n+d = 5\n e = 6\n"
+             "\\ No newline at end of file\n@@ -20,2 +21,3 @@\n y = 1\n+z = 2\n w = 3\n"
+             "--- /dev/null\n+++ b/new.py\n@@ -0,0 +1,2 @@\n+one\n+two\n")
+        files = parse_unified_diff(d)
+        self.assertEqual(sorted(files["x.py"].added_lines), [2, 4, 22])
+        self.assertEqual(sorted(files["new.py"].added_lines), [1, 2])
+
+    def test_a_plus_plus_plus_line_inside_a_hunk_is_content(self):
+        from agentic_code_review.diff import parse_unified_diff
+        d = "--- a/n.md\n+++ b/n.md\n@@ -1,0 +1,1 @@\n+++ b/heading-looking-text\n"
+        self.assertEqual(list(parse_unified_diff(d)), ["n.md"])  # not mistaken for a new file header
+        self.assertEqual(sorted(parse_unified_diff(d)["n.md"].added_lines), [1])
+
+    def test_piped_context_diff_reports_only_changed_lines(self):
+        import subprocess
+
+        from agentic_code_review.engine import review
+        from tests.helpers import git_repo
+        root = git_repo({"a.py": "os.system(a)\nx = 1\n"})
+        (root / "a.py").write_text("os.system(a)\nx = 1\nos.popen(b)\n")
+        patch = subprocess.run(["git", "-C", str(root), "diff"], capture_output=True, text=True).stdout  # default -U3
+        self.assertEqual([f.line for f in review(root, use_scanners=False, diff_text=patch).findings], [3])
+
+    def test_untracked_files_are_still_fully_reviewed(self):
+        from agentic_code_review.engine import review
+        from tests.helpers import git_repo
+        root = git_repo({"a.py": "x = 1\n"})
+        (root / "new.py").write_text("x = 1\nos.system(a)\n")
+        self.assertEqual([(f.path, f.line) for f in review(root, use_scanners=False).findings], [("new.py", 2)])

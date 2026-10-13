@@ -31,11 +31,16 @@ def unquote(name: str) -> str:
 
 
 def parse_unified_diff(text: str) -> dict[str, ChangedFile]:
-    """Parse `git diff -U0` output into added line numbers per file."""
+    """Parse a unified diff into added line numbers per file.
+
+    Only '+' lines count, so diffs with context lines (plain `git diff`, patches from other tools)
+    give the same result as `git diff -U0`.
+    """
     files: dict[str, ChangedFile] = {}
     current: ChangedFile | None = None
+    new_line, remaining = 0, 0          # position in the new file and lines left in the current hunk
     for raw in text.splitlines():
-        if raw.startswith("+++ "):
+        if remaining <= 0 and raw.startswith("+++ "):
             target = unquote(raw[4:].strip())
             if target == "/dev/null":
                 current = None
@@ -43,12 +48,18 @@ def parse_unified_diff(text: str) -> dict[str, ChangedFile]:
             path = target[2:] if target.startswith("b/") else target
             current = files.setdefault(path, ChangedFile(path))
             continue
-        if raw.startswith("--- "):
-            continue
         m = HUNK.match(raw)
-        if m and current is not None:
-            start, count = int(m.group(1)), int(m.group(2) or "1")
-            current.added_lines.update(range(start, start + count))
+        if m:
+            new_line, remaining = int(m.group(1)), int(m.group(2) or "1")
+            continue
+        if current is None or remaining <= 0:
+            continue
+        if raw.startswith("+"):
+            current.added_lines.add(new_line)
+        elif raw.startswith("-") or raw.startswith("\\"):
+            continue                    # removed line or "\ No newline at end of file": not in the new file
+        new_line += 1
+        remaining -= 1
     return files
 
 
@@ -70,15 +81,14 @@ def changed_files(root: Path, base: str | None, head: str | None, staged: bool =
     if staged:
         return parse_unified_diff(_git(root, "diff", "--cached", "-U0", "--no-color", "--diff-filter=ACMR"))
     if base:
-        text = _range_diff(root, base, head, "-U0")
-    else:
-        text = _git(root, "diff", "-U0", "--no-color", "--diff-filter=ACMR", "HEAD")
-        # Untracked files count as fully added in workspace mode.
-        for path in map(unquote, _git(root, "ls-files", "--others", "--exclude-standard").splitlines()):
-            p = root / path
-            if p.is_file():
-                text += f"\n+++ b/{path}\n@@ -0,0 +1,{max(1, _line_count(p))} @@\n"
-    return parse_unified_diff(text)
+        return parse_unified_diff(_range_diff(root, base, head, "-U0"))
+    files = parse_unified_diff(_git(root, "diff", "-U0", "--no-color", "--diff-filter=ACMR", "HEAD"))
+    # Untracked files count as fully added in workspace mode.
+    for path in map(unquote, _git(root, "ls-files", "--others", "--exclude-standard").splitlines()):
+        p = root / path
+        if p.is_file():
+            files[path] = ChangedFile(path, set(range(1, _line_count(p) + 1)))
+    return files
 
 
 def staged_text(root: Path, path: str, max_bytes: int) -> str | None:
