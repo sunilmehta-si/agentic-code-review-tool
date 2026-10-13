@@ -679,3 +679,10 @@ class AllowAllIngressRule(unittest.TestCase):
         self.assertNotIn("ACR-K8S-019", ids("np.yaml", scoped, {"kubernetes"}))
         deny_all = np.replace("  ingress:\n    - {}\n", "")
         self.assertNotIn("ACR-K8S-019", ids("np.yaml", deny_all, {"kubernetes"}))
+
+
+class AutoEnableMcpRule(unittest.TestCase):
+    def test_all_project_servers_enabled(self):
+        st = {"agent-settings"}
+        self.assertIn("ACR-AI-014", ids(".claude/settings.json", '{\n  "enableAllProjectMcpServers": true\n}\n', st))
+        self.assertEqual(ids(".claude/settings.json", '{"enabledMcpjsonServers": ["github"]}\n', st), [])

@@ -194,3 +194,12 @@ def skill_shell(path, text, lines):
             continue
         if any(re.fullmatch(r"Bash(\(\s*\*?\s*\))?", e) for e in entries):
             yield make(info, path, i + 1)
+
+
+@rule("ACR-AI-014", "Agent settings auto-start every MCP server in the repository", Severity.MEDIUM, "ai-security", SETTINGS,
+      fix="Remove enableAllProjectMcpServers and list the reviewed servers in enabledMcpjsonServers instead, so a server "
+          "added to .mcp.json by a later pull request still needs approval before it runs.",
+      references=["https://docs.anthropic.com/en/docs/claude-code/settings"])
+def auto_enable_mcp(path, text, lines):
+    pat = re.compile(r'"enableAllProjectMcpServers"\s*:\s*true\b')
+    yield from line_matches(auto_enable_mcp.info, path, lines, pat, skip_comments=False)

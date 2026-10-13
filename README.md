@@ -226,7 +226,7 @@ provider keys, private-key blocks and hardcoded passwords in the diff or tool ou
 
 ## Built-in rules
 
-97 rules, generated from the code (`acr rules`; `acr explain <id>` for details):
+98 rules, generated from the code (`acr rules`; `acr explain <id>` for details):
 
 <!-- regenerate: acr rules --format markdown -->
 
@@ -265,6 +265,7 @@ provider keys, private-key blocks and hardcoded passwords in the diff or tool ou
 | AI / LLM / agent code | `ACR-AI-011` | high | Agent settings pre-approve any shell command or risky ones (LLM06 Excessive Agency) |
 | AI / LLM / agent code | `ACR-AI-012` | high | Model server started with remote code execution enabled (LLM03 Supply Chain) |
 | AI / LLM / agent code | `ACR-AI-013` | medium | Model demo published on a public share link |
+| AI / LLM / agent code | `ACR-AI-014` | medium | Agent settings auto-start every MCP server in the repository |
 | AI / LLM / agent code | `ACR-MCP-001` | high | MCP server installed from an unpinned package |
 | AI / LLM / agent code | `ACR-MCP-003` | high | MCP server over plain HTTP or with broad host access |
 | AI / LLM / agent code | `ACR-MCP-004` | medium | MCP tools run without asking the user |
