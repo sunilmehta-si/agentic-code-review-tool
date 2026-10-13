@@ -584,3 +584,12 @@ class ComposeRules(unittest.TestCase):
         for line in ("    privileged: true", "    network_mode: host", "    pid: \"host\""):
             self.assertIn("ACR-COMPOSE-001", ids("compose.yaml", f"services:\n  app:\n{line}\n", self.C), line)
         self.assertNotIn("ACR-COMPOSE-001", ids("compose.yaml", "services:\n  app:\n    network_mode: bridge\n", self.C))
+
+    def test_sensitive_host_mounts(self):
+        for vol in ("/var/run/docker.sock:/var/run/docker.sock", "/:/host:ro", "\"/etc:/host-etc\""):
+            src = f"services:\n  app:\n    volumes:\n      - {vol}\n"
+            self.assertIn("ACR-COMPOSE-002", ids("compose.yaml", src, self.C), vol)
+        long = "services:\n  app:\n    volumes:\n      - type: bind\n        source: /var/run/docker.sock\n"
+        self.assertIn("ACR-COMPOSE-002", ids("compose.yaml", long, self.C))
+        ok = "services:\n  app:\n    volumes:\n      - ./data:/data\n      - pgdata:/var/lib/postgresql/data\n"
+        self.assertNotIn("ACR-COMPOSE-002", ids("compose.yaml", ok, self.C))
