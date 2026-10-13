@@ -34,3 +34,22 @@ class DemoTests(unittest.TestCase):
         result = review(DEMO, full=True, use_scanners=False)
         sock = [f for f in result.findings if f.rule_id == "ACR-K8S-003" and f.path == "k8s/trainer.yaml"]
         self.assertEqual([f.severity.label() for f in sock], ["critical"])
+
+
+class CiTemplateTests(unittest.TestCase):
+    def test_gitlab_template_uses_valid_acr_flags(self):
+        import shlex
+
+        import yaml
+
+        from agentic_code_review.cli import _parser
+        job = yaml.safe_load((DEMO.parents[1] / "templates" / "gitlab-ci.yml").read_text())["acr-review"]
+        commands = [c for c in job["script"] if c.strip().startswith("acr ")]
+        self.assertTrue(commands)
+        import re
+        env = {**job["variables"], "CI_MERGE_REQUEST_TARGET_BRANCH_NAME": "main"}
+        for cmd in commands:
+            expanded = re.sub(r"\$\{?(\w+)\}?", lambda m: str(env[m.group(1)]), cmd)  # as GitLab would
+            args = _parser().parse_args(shlex.split(expanded)[1:])
+            self.assertEqual((args.command, args.format), ("review", "gitlab"))
+        self.assertEqual(job["artifacts"]["reports"]["codequality"], "gl-code-quality-report.json")

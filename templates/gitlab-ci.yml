@@ -1,0 +1,32 @@
+# agentic-code-review-tool for GitLab merge requests.
+#
+# Use it from another project:
+#   include:
+#     - remote: https://raw.githubusercontent.com/sunilmehta-si/agentic-code-review-tool/v0.5.0/templates/gitlab-ci.yml
+#
+# Findings appear in the merge request's Code Quality widget; the job fails on findings at or above ACR_FAIL_ON.
+acr-review:
+  stage: test
+  image: python:3.12-slim
+  variables:
+    ACR_VERSION: v0.5.0
+    ACR_FAIL_ON: high
+    ACR_MIN_SEVERITY: low
+    GIT_DEPTH: "0"            # full history, so the review covers exactly what the merge request adds
+  rules:
+    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
+  before_script:
+    - apt-get update && apt-get install -y --no-install-recommends git && rm -rf /var/lib/apt/lists/*
+    - pip install --no-cache-dir "git+https://github.com/sunilmehta-si/agentic-code-review-tool@${ACR_VERSION}"
+  script:
+    - git fetch --no-tags origin "$CI_MERGE_REQUEST_TARGET_BRANCH_NAME"
+    - >
+      acr review --base "origin/$CI_MERGE_REQUEST_TARGET_BRANCH_NAME"
+      --fail-on "$ACR_FAIL_ON" --min-severity "$ACR_MIN_SEVERITY"
+      --format gitlab --output gl-code-quality-report.json --markdown acr-summary.md
+  artifacts:
+    when: always
+    reports:
+      codequality: gl-code-quality-report.json
+    paths:
+      - acr-summary.md
