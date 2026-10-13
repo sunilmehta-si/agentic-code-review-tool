@@ -15,8 +15,8 @@ $ acr review --base origin/main
 
 ## Why another code reviewer?
 
-- **The whole PR, not one language.** Real PRs change Python *and* the Dockerfile, the Helm chart and a workflow. One review covers all of it.
-- **AI/agent code is a first-class target.** Rules mapped to the [OWASP Top 10 for LLM Applications](https://genai.owasp.org/llm-top-10/): prompt injection, LLM output reaching `exec`/SQL/HTML, `trust_remote_code`, unbounded token spend, provider keys in the browser — plus the new AI supply chain: unpinned or auto-approved **MCP servers**, tokens in MCP configs, **agent skills** that pipe scripts into a shell, read credentials or hide instructions, and **coding agents** (Claude Code, Codex, Gemini CLI) launched with their permission checks off.
+- **The whole PR, not one language.** Real PRs change Python *and* the Dockerfile, the Compose file, the Helm chart and a workflow. One review covers all of it.
+- **AI/agent code is a first-class target.** Rules mapped to the [OWASP Top 10 for LLM Applications](https://genai.owasp.org/llm-top-10/): prompt injection, LLM output reaching `exec`/SQL/HTML, `trust_remote_code`, unbounded token spend, provider keys in the browser — plus the new AI supply chain: unpinned or auto-approved **MCP servers**, tokens in MCP configs, **agent skills** that pipe scripts into a shell, read credentials or hide instructions, **agent instruction files** (`AGENTS.md`, `CLAUDE.md`, `.cursorrules`) carrying hidden instructions, and **coding agents** (Claude Code, Codex, Gemini CLI) launched with their permission checks off.
 - **Grounded, not guessed.** Deterministic rules and real scanners decide *what* and *where*; the agent only verifies and explains. Every finding has an exact file and line.
 - **Adoptable on legacy code.** Only changed lines are reviewed, so turning it on doesn't drown every PR in old debt.
 - **Works without any LLM.** The deterministic layer is useful on its own; the agent is opt-in.
@@ -49,6 +49,9 @@ acr review --base origin/main      # what a PR would change (merge-base)
 acr review --all                   # audit every tracked file
 acr review --format sarif -o acr.sarif   # for GitHub code scanning
 acr review --format github         # annotations in a GitHub Actions log
+acr review --format gitlab -o gl-code-quality-report.json   # GitLab merge request Code Quality
+acr review --format junit -o acr.xml    # Jenkins, Azure DevOps, CircleCI, Bitbucket test reports
+git diff origin/main... | acr review --diff-file -   # review any unified diff
 acr rules                          # list built-in and custom rules (--format markdown|json)
 acr classify Dockerfile k8s/app.yaml   # which file kinds and rules apply to a file
 ```
@@ -62,10 +65,13 @@ acr classify Dockerfile k8s/app.yaml   # which file kinds and rules apply to a f
 | `--include 'services/api/*'` | everything | Only review matching paths (repeatable); `include:` in `.acr.yml` |
 | `--sarif`, `--json`, `--markdown PATH` | — | Write extra report formats from the same run (no re-scan) |
 | `--baseline FILE` | `.acr-baseline.json` if present | Suppress findings accepted with `acr baseline` |
+| `--min-severity medium` | show everything | Leave out findings below this level; `min_severity:` in `.acr.yml` |
+| `--timings` | off | Print how long the rules and each scanner took |
 
 Suppress a deliberate, reviewed line with an inline comment. `acr:ignore` silences every rule on that line;
 `acr:ignore[ACR-APP-004, semgrep:*]` silences only the listed rules (ids or globs), so anything else on the line
-is still reported. Markers work for built-in rules and external scanner findings alike.
+is still reported. Markers work for built-in rules and external scanner findings alike. Add `until=2026-12-31` to make a
+suppression lapse on that date; after it, the finding is reported again with a note that its exemption expired.
 
 ## Configure once per repository
 
@@ -104,6 +110,8 @@ or an unknown key stops the review with a message naming the rule.
 
 **Adopting on an existing codebase:** run `acr baseline` once and commit `.acr-baseline.json`. Known findings are suppressed,
 matched by rule and line *content* so they survive code moving around, and only new problems fail pull requests.
+`acr baseline --check` fails when baselined findings have since been fixed, and `acr baseline --prune` removes those
+entries without accepting anything new, so the baseline only ever shrinks.
 
 
 ## Demo
@@ -219,6 +227,8 @@ acr review --base origin/main --ai openai
 | `--ai openai` | `ACR_MODEL` required | Standard-library HTTP only, so it works air-gapped with a local model |
 | `--model`, `ACR_MODEL`, `ACR_EFFORT` | — | Override model and effort |
 | `--max-steps` | 12 | Upper bound on agent tool calls |
+| `--ai-max-findings` | 50 | Only the most severe findings are sent to the model, bounding cost on large changes |
+| `--ai-dry-run` | — | Print the redacted request the model would receive, without calling it |
 
 **The agent is treated as untrusted too.** Repository content is passed as data, the prompt tells the model not to follow instructions found in code, the tools cannot write, execute or leave the repository, and new findings off the changed lines are discarded.
 Credentials never reach the model provider: the tools refuse files such as `.env`, private keys and `*.tfstate`, and
@@ -356,15 +366,19 @@ When two tools report the same issue on the same line, the report shows it once 
 
 | Part | State |
 |---|---|
-| Diff-aware engine, 87 built-in rules, 7 scanner adapters (run in parallel) | ✅ Done, unit-tested |
+| Diff-aware engine, 103 built-in rules, 7 scanner adapters (run in parallel) | ✅ Done, unit-tested |
 | Markdown / JSON / SARIF reports, CLI with severity gate | ✅ Done, unit-tested |
 | AI review agent (Claude + OpenAI-compatible) with read-only tools | ✅ Done, unit-tested with a fake model |
 | Inline PR comments and composite GitHub Action (single run) | ✅ Done, unit-tested; first live run pending |
 | `.acr.yml` config, baseline, `acr explain`, pre-commit hook, container image | ✅ Done (v0.2.0) |
 | Scoped suppressions, `--staged`, GitHub annotations, `acr init`, coding-agent rules | ✅ Done (v0.3.0) |
 | Custom rules, `--include`, `acr classify`, SARIF fingerprints, secret redaction for the agent | ✅ Done (v0.4.0) |
+| GitLab and JUnit reports, `--diff-file`, expiring suppressions, baseline check/prune, Compose and agent-instruction files | ✅ Done (v0.5.0) |
 
 ## Design notes
+
+How the pipeline is ordered and why: [docs/architecture.md](docs/architecture.md). Setups for GitLab, Jenkins, Azure
+DevOps, CircleCI, Bitbucket and other systems: [docs/ci-integrations.md](docs/ci-integrations.md).
 
 Inspired by the hybrid "deterministic pipeline + agent" approach popularised by [Open Code Review](https://github.com/alibaba/open-code-review); this project is an independent implementation focused on security, infrastructure and AI/agent code, with no code shared.
 
