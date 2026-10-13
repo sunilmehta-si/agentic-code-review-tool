@@ -4,6 +4,10 @@
 
 `acr` reviews only the lines a PR changes, runs high-precision built-in rules plus the open-source scanners you already trust, merges duplicates, and (optionally) hands every finding to an LLM agent that reads the surrounding code to confirm it, dismiss false positives and write the fix. The output is one PR comment, inline annotations, SARIF for GitHub code scanning, and an exit code that can gate the merge.
 
+**[See a live AI review →](https://github.com/sunilmehta-si/agentic-code-review-tool/pull/1)** A real pull request with deliberately insecure AI, Kubernetes and Docker code,
+reviewed by this tool's GitHub Action with Claude. The reviewer confirmed 11 of 12 findings, dismissed the one planted
+false positive, and wrote a fix for each. The PR stays open as a showcase and will not be merged.
+
 ```text
 $ acr review --base origin/main
 ## Agentic code review · ❌ Changes requested
@@ -208,6 +212,8 @@ Outputs: `findings`, `blocking` (counts) and `report-file` (the JSON report, whi
 Use `fetch-depth: 0` so the PR diff is exact; on a shallow clone `acr` falls back to a direct diff and says so.
 
 ## AI review
+
+Live example: [the demo pull request](https://github.com/sunilmehta-si/agentic-code-review-tool/pull/1). Every inline comment there was written by the Claude reviewer.
 
 With `--ai`, an LLM agent verifies every deterministic finding before you see it. It reads the surrounding code with three **read-only, repository-confined tools** (`read_file`, `search_repo`, `list_changed_files`), then marks each finding *confirmed*, *false positive* or *uncertain*, explains it in plain language and writes a concrete fix. It may add up to five issues of its own, but only on lines the PR changes.
 
