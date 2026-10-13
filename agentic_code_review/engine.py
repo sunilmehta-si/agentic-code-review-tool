@@ -76,8 +76,7 @@ def _read(root: Path, path: str) -> str | None:
 
 
 def _suppressed(file_lines: dict[str, list[str]], f: Finding) -> bool:
-    lines = file_lines.get(f.path) or []
-    return 1 <= f.line <= len(lines) and rules_base.ignored(lines[f.line - 1], f.rule_id)
+    return rules_base.suppressed(file_lines.get(f.path) or [], f)
 
 
 def _run_custom(custom_rules, path: str, lines: list[str]) -> list[Finding]:

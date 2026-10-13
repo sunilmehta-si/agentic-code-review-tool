@@ -5,6 +5,7 @@ tools installed, so the review is useful on a laptop, in CI, and before any LLM 
 """
 from __future__ import annotations
 
+import datetime
 import fnmatch
 import re
 from dataclasses import dataclass
@@ -14,14 +15,10 @@ from ..models import Finding, Severity
 
 IGNORE_MARKER = "acr:ignore"
 IGNORE_SCOPED = re.compile(r"acr:ignore\[([^\]]*)\]")
+IGNORE_UNTIL = re.compile(r"acr:ignore(?:\[[^\]]*\])?\s+until=(\d{4}-\d{2}-\d{2})\b")
 
 
-def ignored(text: str, rule_id: str) -> bool:
-    """True if a line carries an inline suppression that covers `rule_id`.
-
-    A bare `acr:ignore` silences every rule on the line; `acr:ignore[ACR-AI-005, semgrep:*]`
-    silences only the listed rule ids or globs, so other problems on the same line still show.
-    """
+def _covers(text: str, rule_id: str) -> bool:
     if IGNORE_MARKER not in text:
         return False
     scoped = IGNORE_SCOPED.findall(text)
@@ -29,6 +26,41 @@ def ignored(text: str, rule_id: str) -> bool:
         return True
     wanted = [p.strip().upper() for group in scoped for p in group.split(",") if p.strip()]
     return any(fnmatch.fnmatchcase(rule_id.upper(), pat) for pat in wanted)
+
+
+def expired_on(text: str, rule_id: str, today: datetime.date | None = None) -> str | None:
+    """The `until=` date of a marker covering `rule_id` if that date has passed, else None."""
+    m = IGNORE_UNTIL.search(text)
+    if not m or not _covers(text, rule_id):
+        return None
+    try:
+        until = datetime.date.fromisoformat(m.group(1))
+    except ValueError:
+        return None
+    return m.group(1) if (today or datetime.date.today()) > until else None
+
+
+def ignored(text: str, rule_id: str, today: datetime.date | None = None) -> bool:
+    """True if a line carries an inline suppression that covers `rule_id`.
+
+    A bare `acr:ignore` silences every rule on the line; `acr:ignore[ACR-AI-005, semgrep:*]`
+    silences only the listed rule ids or globs, so other problems on the same line still show.
+    Adding `until=YYYY-MM-DD` makes the suppression lapse after that date.
+    """
+    return _covers(text, rule_id) and expired_on(text, rule_id, today) is None
+
+
+def suppressed(lines: list[str], f: Finding) -> bool:
+    """Apply the marker on the finding's line; a lapsed marker lets the finding through with a note."""
+    if not 1 <= f.line <= len(lines):
+        return False
+    text = lines[f.line - 1]
+    if ignored(text, f.rule_id):
+        return True
+    lapsed = expired_on(text, f.rule_id)
+    if lapsed:
+        f.detail = (f.detail + f" The acr:ignore on this line expired on {lapsed}.").strip()
+    return False
 
 
 @dataclass(frozen=True)
@@ -85,10 +117,6 @@ def find_line(lines: list[str], needle: str | re.Pattern[str], start: int = 1) -
     return 1
 
 
-def _suppressed(lines: list[str], f: Finding) -> bool:
-    return 1 <= f.line <= len(lines) and ignored(lines[f.line - 1], f.rule_id)
-
-
 def run_rules(path: str, text: str, kinds: set[str]) -> list[Finding]:
     lines = text.splitlines()
     out: list[Finding] = []
@@ -97,7 +125,7 @@ def run_rules(path: str, text: str, kinds: set[str]) -> list[Finding]:
             try:
                 # Suppression is checked at the reported line, so structural rules (which point at a
                 # container, block or server entry) honour `acr:ignore` exactly like line rules do.
-                out.extend(f for f in fn(path, text, lines) if not _suppressed(lines, f))
+                out.extend(f for f in fn(path, text, lines) if not suppressed(lines, f))
             except Exception as exc:  # a broken rule must never break the whole review
                 out.append(Finding(rule_id="ACR-INTERNAL", title=f"Rule {info.rule_id} failed: {exc.__class__.__name__}",
                                    severity=Severity.INFO, path=path, line=1, tool="acr", category="other"))

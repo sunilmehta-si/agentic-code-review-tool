@@ -67,3 +67,19 @@ class ScopedMarkerDoesNotHideOtherRules(unittest.TestCase):
         self.assertEqual(ids(".github/workflows/x.yml", workflow, {"github-actions"}), ["ACR-GHA-003"])
         dockerfile = "FROM base  # acr:ignore[ACR-DOCKER-002]\nUSER 1\n"
         self.assertEqual(ids("Dockerfile", dockerfile, {"dockerfile"}), ["ACR-DOCKER-001"])
+
+
+class ExpiringSuppressionTests(unittest.TestCase):
+    def test_until_date(self):
+        import datetime
+        line = "x = 1  # acr:ignore[ACR-APP-004] until=2026-12-31"
+        self.assertTrue(ignored(line, "ACR-APP-004", today=datetime.date(2026, 12, 31)))
+        self.assertFalse(ignored(line, "ACR-APP-004", today=datetime.date(2027, 1, 1)))
+        self.assertTrue(ignored("x  # acr:ignore until=2999-01-01", "ACR-APP-001"))
+
+    def test_lapsed_marker_reports_the_finding_with_a_note(self):
+        from agentic_code_review.rules import base
+        found = base.run_rules("a.py", "cfg = yaml.load(fh)  # acr:ignore[ACR-APP-004] until=2020-01-01\n", PY)
+        self.assertEqual([f.rule_id for f in found], ["ACR-APP-004"])
+        self.assertIn("expired on 2020-01-01", found[0].detail)
+        self.assertEqual(ids("a.py", "cfg = yaml.load(fh)  # acr:ignore[ACR-APP-004] until=2999-01-01\n", PY), [])
