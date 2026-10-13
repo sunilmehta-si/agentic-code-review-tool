@@ -27,6 +27,8 @@ def _parser() -> argparse.ArgumentParser:
     r.add_argument("--base", help="Base ref, e.g. origin/main. Reviews base...head (merge-base) like a PR.")
     r.add_argument("--head", help="Head ref (default: HEAD).")
     r.add_argument("--all", dest="full", action="store_true", help="Review every tracked file, not just the change.")
+    r.add_argument("--diff-file", metavar="PATH",
+                   help="Review the changed lines of a unified diff file ('-' for stdin) against the files in --root.")
     r.add_argument("--staged", action="store_true", help="Review only staged changes, as they will be committed (for git hooks).")
     r.add_argument("--format", choices=("markdown", "json", "sarif", "github"), default="markdown",
                    help="github prints workflow-command annotations for GitHub Actions.")
@@ -174,13 +176,20 @@ def _cmd_review(args: argparse.Namespace) -> int:
     if args.staged and (args.full or args.base):
         print("acr: --staged cannot be combined with --all or --base.", file=sys.stderr)
         return 2
+    diff_text = None
+    if args.diff_file:
+        if args.staged or args.full or args.base:
+            print("acr: --diff-file cannot be combined with --staged, --all or --base.", file=sys.stderr)
+            return 2
+        diff_text = sys.stdin.read() if args.diff_file == "-" else Path(args.diff_file).read_text(encoding="utf-8", errors="replace")
     args.fail_on = args.fail_on or cfg.fail_on or "high"
     args.ai = args.ai or cfg.ai
     only = {s.strip() for s in args.scanners.split(",")} if args.scanners else (set(cfg.scanners) if cfg.scanners else None)
     result = review(Path(args.root), base=args.base, head=args.head, full=args.full,
                     use_scanners=not args.no_scanners, only_scanners=only, excludes=tuple(args.exclude) + tuple(cfg.exclude),
                     disable=tuple(cfg.disable), severity_overrides=cfg.severity, staged=args.staged,
-                    includes=tuple(args.include) or tuple(cfg.include), custom_rules=tuple(cfg.custom_rules))
+                    includes=tuple(args.include) or tuple(cfg.include), custom_rules=tuple(cfg.custom_rules),
+                    diff_text=diff_text)
     from . import baseline as baseline_mod
     baseline_mod.apply(Path(args.root).resolve(), result,
                        baseline_mod.load(Path(args.root).resolve(), args.baseline or cfg.baseline or baseline_mod.DEFAULT_PATH))
@@ -193,7 +202,7 @@ def _cmd_review(args: argparse.Namespace) -> int:
             result.ai_error = str(exc)
         else:
             apply_ai(result, Path(args.root).resolve(), reviewer, base=args.base, head=args.head, full=args.full,
-                     staged=args.staged)
+                     staged=args.staged, diff_text=diff_text)
         if result.ai_error:
             print(f"acr: AI review skipped: {result.ai_error}", file=sys.stderr)
     threshold = FAIL_LEVELS.get(args.fail_on)

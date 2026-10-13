@@ -131,3 +131,36 @@ class NoMergeBaseTests(unittest.TestCase):
             result = review(root, base="main", use_scanners=False)
         self.assertEqual([(f.path, f.line) for f in result.findings], [("a.py", 2)])
         self.assertIn("no merge base", err.getvalue())
+
+
+class DiffFileTests(unittest.TestCase):
+    def test_review_a_patch_from_file_and_stdin(self):
+        import io
+        import json
+        import subprocess
+        from contextlib import redirect_stdout
+        from unittest import mock
+
+        from agentic_code_review.cli import main
+        from tests.helpers import git_repo
+        root = git_repo({"a.py": "x = 1\n", "b.py": "y = 1\n"})
+        (root / "a.py").write_text("x = 1\nos.system(cmd)\n")
+        (root / "b.py").write_text("y = 1\nos.popen(cmd)\n")
+        patch = subprocess.run(["git", "-C", str(root), "diff", "-U0", "--", "a.py"], capture_output=True, text=True).stdout
+        (root / "change.patch").write_text(patch)
+
+        def paths(*extra, stdin=None):
+            buf = io.StringIO()
+            with redirect_stdout(buf), mock.patch("sys.stdin", io.StringIO(stdin or "")):
+                main(["review", "--root", str(root), "--no-scanners", "--format", "json", "--fail-on", "never", *extra])
+            return [(f["path"], f["line"]) for f in json.loads(buf.getvalue())["findings"]]
+        self.assertEqual(paths("--diff-file", str(root / "change.patch")), [("a.py", 2)])  # b.py is not in the patch
+        self.assertEqual(paths("--diff-file", "-", stdin=patch), [("a.py", 2)])
+
+    def test_diff_file_conflicts_with_other_modes(self):
+        import io
+        from contextlib import redirect_stderr
+
+        from agentic_code_review.cli import main
+        with redirect_stderr(io.StringIO()):
+            self.assertEqual(main(["review", "--diff-file", "-", "--all"]), 2)
