@@ -1,5 +1,7 @@
 # agentic-code-review-tool
 
+[![ci](https://github.com/sunilmehta-si/agentic-code-review-tool/actions/workflows/ci.yml/badge.svg)](https://github.com/sunilmehta-si/agentic-code-review-tool/actions/workflows/ci.yml) [![code-review](https://github.com/sunilmehta-si/agentic-code-review-tool/actions/workflows/code-review.yml/badge.svg)](https://github.com/sunilmehta-si/agentic-code-review-tool/actions/workflows/code-review.yml)
+
 **Agentic, scanner-grounded code review for the whole pull request** — application code, infrastructure, and the AI/LLM/agent code most review tools don't understand yet.
 
 `acr` reviews only the lines a PR changes, runs high-precision built-in rules plus the open-source scanners you already trust, merges duplicates, and (optionally) hands every finding to an LLM agent that reads the surrounding code to confirm it, dismiss false positives and write the fix. The output is one PR comment, inline annotations, SARIF for GitHub code scanning, and an exit code that can gate the merge.
@@ -387,6 +389,15 @@ How the pipeline is ordered and why: [docs/architecture.md](docs/architecture.md
 DevOps, CircleCI, Bitbucket and other systems: [docs/ci-integrations.md](docs/ci-integrations.md).
 
 Inspired by the hybrid "deterministic pipeline + agent" approach popularised by [Open Code Review](https://github.com/alibaba/open-code-review); this project is an independent implementation focused on security, infrastructure and AI/agent code, with no code shared.
+
+## Related projects
+
+Other open-source infrastructure work by [Sunil Mehta](https://github.com/sunilmehta-si):
+
+- [k8s-gpu-scheduler-benchmark](https://github.com/sunilmehta-si/k8s-gpu-scheduler-benchmark): Benchmarks Kubernetes GPU schedulers (default, Kueue, Volcano, KAI) in simulation and on real clusters.
+- [ai-devsecops-cicd](https://github.com/sunilmehta-si/ai-devsecops-cicd): Reference DevSecOps pipeline for LLM and AI-agent services: AI security tests, SBOM/AI-BOM, signing, admission policy.
+- [llm-inference-platform](https://github.com/sunilmehta-si/llm-inference-platform): GPU-backed LLM serving with a streaming gateway, monitoring and reproducible benchmarks.
+- [jev-inference-router](https://github.com/sunilmehta-si/jev-inference-router): Observable decision routing for local GPU inference, evaluated against rule-based and classifier baselines.
 
 ## License
 
