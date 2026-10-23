@@ -1,6 +1,6 @@
 # agentic-code-review-tool
 
-[![ci](https://github.com/sunilmehta-si/agentic-code-review-tool/actions/workflows/ci.yml/badge.svg)](https://github.com/sunilmehta-si/agentic-code-review-tool/actions/workflows/ci.yml) [![code-review](https://github.com/sunilmehta-si/agentic-code-review-tool/actions/workflows/code-review.yml/badge.svg)](https://github.com/sunilmehta-si/agentic-code-review-tool/actions/workflows/code-review.yml)
+[![ci](https://github.com/sunilmehta-si/agentic-code-review-tool/actions/workflows/ci.yml/badge.svg)](https://github.com/sunilmehta-si/agentic-code-review-tool/actions/workflows/ci.yml) [![code-review](https://github.com/sunilmehta-si/agentic-code-review-tool/actions/workflows/code-review.yml/badge.svg)](https://github.com/sunilmehta-si/agentic-code-review-tool/actions/workflows/code-review.yml) [![M8ven Score](https://m8ven.ai/badge/mcp/sunilmehta-si-agentic-code-review-tool-1i5x99?v=3b160ed084cbc5e553d8d3960a7423e0&variant=verified)](https://m8ven.ai/mcp/sunilmehta-si-agentic-code-review-tool-1i5x99?s=readme)
 
 **Agentic, scanner-grounded code review for the whole pull request** — application code, infrastructure, and the AI/LLM/agent code most review tools don't understand yet.
 
