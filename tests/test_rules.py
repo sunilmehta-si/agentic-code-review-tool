@@ -795,3 +795,15 @@ class MovingGitInstallRule(unittest.TestCase):
                     "cargo install --git https://github.com/org/tool --rev 0123abcd",
                     "pip install tool==1.2.3"):
             self.assertNotIn("ACR-GHA-016", ids(".github/workflows/x.yml", head + f"          {cmd}\n", gha), cmd)
+
+
+class CopyFromPinRule(unittest.TestCase):
+    def test_external_copy_sources(self):
+        df = {"dockerfile"}
+        head = "FROM python:3.12-slim\nUSER 10001\n"
+        self.assertIn("ACR-DOCKER-011", ids("Dockerfile", head + "COPY --from=ghcr.io/astral-sh/uv /uv /usr/local/bin/uv\n", df))
+        self.assertIn("ACR-DOCKER-011", ids("Dockerfile", head + "COPY --chown=app --from=docker/buildx-bin:latest /buildx /b\n", df))
+        self.assertNotIn("ACR-DOCKER-011", ids("Dockerfile", head + "COPY --from=ghcr.io/astral-sh/uv:0.13.5 /uv /usr/local/bin/uv\n", df))
+        self.assertNotIn("ACR-DOCKER-011", ids("Dockerfile", head + "COPY --from=ghcr.io/astral-sh/uv:0.13.5@sha256:" + "c" * 64 + " /uv /u\n", df))
+        staged = "FROM golang:1.27 AS build\nFROM gcr.io/distroless/static:nonroot\nCOPY --from=build /app /app\nCOPY --from=0 /x /x\n"
+        self.assertNotIn("ACR-DOCKER-011", ids("Dockerfile", staged, df))

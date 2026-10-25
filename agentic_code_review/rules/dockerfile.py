@@ -112,3 +112,22 @@ def ssh_in_image(path, text, lines):
     pat = re.compile(r"\b(apt-get|apt|apk|yum|dnf|microdnf|zypper)\b[^\n]*\b(install|add)\b[^\n]*\bopenssh-server\b"
                      r"|^\s*EXPOSE\s+([^\n#]*\s)?22(/tcp)?(\s|$)", re.I)
     yield from line_matches(ssh_in_image.info, path, lines, pat)
+
+
+@rule("ACR-DOCKER-011", "Stage copies from an external image not pinned (latest or no tag)", Severity.MEDIUM, "container", DF,
+      fix="Pin the image a COPY --from takes files from, ideally by digest: COPY --from=ghcr.io/astral-sh/uv:0.13.5@sha256:... "
+          "The copied binary runs in your image with none of the base-image checks applied to it.",
+      references=[CIS])
+def copy_from_pin(path, text, lines):
+    info = copy_from_pin.info
+    stages = {m.group(1).lower() for l in lines for m in [re.match(r"^\s*FROM\s+(?:--platform=\S+\s+)?\S+\s+AS\s+(\S+)", l, re.I)] if m}
+    for i, line in enumerate(lines, start=1):
+        m = re.match(r"^\s*COPY\s+(?:--[\w-]+(?:=\S+)?\s+)*--from=(\S+)", line, re.I)
+        if not m:
+            continue
+        ref = m.group(1).strip("\"'")
+        if ref.lower() in stages or ref.isdigit() or "@sha256:" in ref or "$" in ref:
+            continue
+        name = ref.rsplit("/", 1)[-1]
+        if ":" not in name or name.endswith(":latest"):
+            yield make(info, path, i, f"'{ref}' can change between builds.")

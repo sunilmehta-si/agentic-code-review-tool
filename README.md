@@ -244,7 +244,7 @@ provider keys, private-key blocks and hardcoded passwords in the diff or tool ou
 
 ## Built-in rules
 
-106 rules, generated from the code (`acr rules`; `acr explain <id>` for details):
+107 rules, generated from the code (`acr rules`; `acr explain <id>` for details):
 
 <!-- regenerate: acr rules --format markdown -->
 
@@ -326,6 +326,7 @@ provider keys, private-key blocks and hardcoded passwords in the diff or tool ou
 | Containers (Dockerfile, Compose) | `ACR-DOCKER-008` | high | TLS or package signature checks disabled during the build |
 | Containers (Dockerfile, Compose) | `ACR-DOCKER-009` | high | Credential file copied into the image |
 | Containers (Dockerfile, Compose) | `ACR-DOCKER-010` | medium | SSH server installed or exposed in the image |
+| Containers (Dockerfile, Compose) | `ACR-DOCKER-011` | medium | Stage copies from an external image not pinned (latest or no tag) |
 | GitHub Actions | `ACR-GHA-001` | critical | Privileged workflow checks out untrusted PR code |
 | GitHub Actions | `ACR-GHA-002` | high | Untrusted event data interpolated into a shell script |
 | GitHub Actions | `ACR-GHA-003` | medium | Third-party action not pinned to a commit SHA |
@@ -377,7 +378,7 @@ When two tools report the same issue on the same line, the report shows it once 
 
 | Part | State |
 |---|---|
-| Diff-aware engine, 106 built-in rules, 7 scanner adapters (run in parallel) | ✅ Done, unit-tested |
+| Diff-aware engine, 107 built-in rules, 7 scanner adapters (run in parallel) | ✅ Done, unit-tested |
 | Markdown / JSON / SARIF reports, CLI with severity gate | ✅ Done, unit-tested |
 | AI review agent (Claude + OpenAI-compatible) with read-only tools | ✅ Done, unit-tested with a fake model |
 | Inline PR comments and composite GitHub Action (single run) | ✅ Done, unit-tested; first live run pending |
