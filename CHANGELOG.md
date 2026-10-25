@@ -2,6 +2,27 @@
 
 All notable changes to this project. The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [0.6.0] - 2026-10-25
+
+The week of the GhostAction campaign, which planted credential-stealing workflows in tens of thousands of repositories,
+and of a plugin hash-pin bypass in a coding agent. Six rules for exactly those shapes.
+
+### Added
+- `ACR-GHA-014` (critical): a workflow step that posts `${{ secrets.* }}` or the job's token to a host other than
+  GitHub's, or pipes its environment into `curl`, `nc` or `base64`. The signature of the GhostAction workflows.
+- `ACR-GHA-015`: untrusted event data (titles, bodies, branch names) written into `$GITHUB_ENV` or `$GITHUB_PATH`,
+  directly or through an `env:` variable, which injects variables or binaries into every later step.
+- `ACR-GHA-016`: `pip`, `uv pip`, `npm`, `go install` or `cargo install` taking a dependency from a moving git ref
+  (a branch, `@latest`, no ref) in a workflow.
+- `ACR-DOCKER-011`: `COPY --from=` an external image that is not pinned (latest or no tag); the copied binary runs in
+  the image with none of the base-image checks applied.
+- `ACR-AI-016`: a coding-agent plugin marketplace entry (`.claude-plugin/marketplace.json`, `.grok-plugin/marketplace.json`)
+  whose source is not pinned to a 40-character commit sha.
+- `ACR-AI-017` (critical): a plugin `hooks.json` command that pipes a download into a shell, reads `~/.ssh`, `~/.aws`
+  and the like, or ships its environment out.
+- Coding-agent plugins are a file kind of their own (`agent-plugin`): marketplace indexes, plugin manifests and hooks
+  under `.claude-plugin/` or `.grok-plugin/`.
+
 ## [0.5.0] - 2026-10-13
 
 ### Added
