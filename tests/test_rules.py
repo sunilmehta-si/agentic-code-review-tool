@@ -807,3 +807,16 @@ class CopyFromPinRule(unittest.TestCase):
         self.assertNotIn("ACR-DOCKER-011", ids("Dockerfile", head + "COPY --from=ghcr.io/astral-sh/uv:0.13.5@sha256:" + "c" * 64 + " /uv /u\n", df))
         staged = "FROM golang:1.27 AS build\nFROM gcr.io/distroless/static:nonroot\nCOPY --from=build /app /app\nCOPY --from=0 /x /x\n"
         self.assertNotIn("ACR-DOCKER-011", ids("Dockerfile", staged, df))
+
+
+class PluginMarketplaceRule(unittest.TestCase):
+    def test_entries_without_a_commit_sha(self):
+        kinds_ = {"agent-plugin"}
+        tag = json.dumps({"plugins": [{"name": "acme", "source": {"source": "url", "url": "https://github.com/acme/plugin.git", "sha": "v1.2.3"}}]})
+        self.assertIn("ACR-AI-016", ids(".claude-plugin/marketplace.json", tag, kinds_))
+        none = json.dumps({"plugins": [{"name": "acme", "source": "acme/plugin"}]})
+        self.assertIn("ACR-AI-016", ids(".grok-plugin/marketplace.json", none, kinds_))
+        pinned = json.dumps({"plugins": [{"name": "acme", "source": {"source": "url", "url": "https://github.com/acme/plugin.git", "sha": "d" * 40}},
+                                         {"name": "local", "source": {"type": "local", "path": "./plugins/local"}}]})
+        self.assertNotIn("ACR-AI-016", ids(".claude-plugin/marketplace.json", pinned, kinds_))
+        self.assertNotIn("ACR-AI-016", ids("plugins/acme/.claude-plugin/plugin.json", json.dumps({"name": "acme"}), kinds_))

@@ -15,6 +15,8 @@ MCP = ["mcp-config"]
 SKILL = ["agent-skill"]
 # Skills and always-loaded instruction files (AGENTS.md, .cursorrules, ...) are attacked the same way.
 SKILL_AND_RULES = ["agent-skill", "agent-instructions"]
+PLUGIN = ["agent-plugin"]
+COMMIT_SHA = re.compile(r"^[0-9a-f]{40}$")
 MCP_SEC = "https://modelcontextprotocol.io/specification/draft/basic/security_best_practices"
 CRED_NAME = re.compile(r"(?i)(token|secret|password|passwd|api[_-]?key|access[_-]?key|private[_-]?key)")
 PLACEHOLDER = re.compile(r"(?i)^\$\{|^\$[A-Z_]|<[^>]+>|example|changeme|your[_-]|x{4,}|^env:")
@@ -227,3 +229,34 @@ def broad_file_access(path, text, lines):
         m = re.fullmatch(r"\s*(Read|Edit|Write|MultiEdit)\((~/\*\*|//\*\*|/\*\*|~/?|\*\*)\)\s*", str(entry))
         if m:
             yield make(info, path, find_line(lines, f'"{entry}"'), f"'{entry}' lets the agent {m.group(1).lower()} files anywhere.")
+
+
+def _plugins(text: str) -> list:
+    try:
+        data = json.loads(text)
+    except ValueError:
+        return []
+    plugins = data.get("plugins") if isinstance(data, dict) else None
+    return [p for p in plugins if isinstance(p, dict)] if isinstance(plugins, list) else []
+
+
+@rule("ACR-AI-016", "Agent plugin marketplace entry not pinned to a commit (LLM03 Supply Chain)", Severity.HIGH, "ai-security", PLUGIN,
+      fix="Point the entry at a full 40-character commit sha (\"sha\": \"...\"); a branch, a tag or no ref lets a later push to "
+          "the plugin's repository ship new code to everyone who installs or updates it.",
+      references=["https://genai.owasp.org/llmrisk/llm032025-supply-chain/"])
+def plugin_unpinned(path, text, lines):
+    info = plugin_unpinned.info
+    if not path.lower().endswith("marketplace.json"):
+        return
+    for entry in _plugins(text):
+        name = str(entry.get("name", "?"))
+        source = entry.get("source")
+        if isinstance(source, dict):
+            if source.get("type") == "local" or source.get("path"):
+                continue
+            ref = str(source.get("sha") or source.get("ref") or source.get("commit") or "")
+            where = source.get("url") or source.get("repo") or "its repository"
+        else:
+            ref, where = "", str(source or "its repository")
+        if not COMMIT_SHA.match(ref):
+            yield make(info, path, find_line(lines, f'"{name}"'), f"'{name}' is fetched from {where} at {ref or 'whatever the default branch holds'}.")
