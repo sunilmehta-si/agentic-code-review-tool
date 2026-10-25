@@ -752,3 +752,22 @@ class SecretExfilRule(unittest.TestCase):
                                             head + "          curl -sSfL -o kind https://kind.sigs.k8s.io/dl/v0.33.0/kind-linux-amd64\n", gha))
         self.assertNotIn("ACR-GHA-014", ids(".github/workflows/x.yml",
                                             "permissions: {}\njobs:\n  a:\n    steps:\n      - run: echo done\n        env:\n          TOKEN: ${{ secrets.T }}\n", gha))
+
+
+class EnvFileInjectionRule(unittest.TestCase):
+    def test_event_data_into_github_env_and_path(self):
+        gha = {"github-actions"}
+        wf = ("on: pull_request_target\npermissions: {}\njobs:\n  a:\n    steps:\n      - run: |\n"
+              "          echo \"BRANCH=${{ github.head_ref }}\" >> $GITHUB_ENV\n")
+        self.assertIn("ACR-GHA-015", ids(".github/workflows/x.yml", wf, gha))
+        via_env = ("permissions: {}\njobs:\n  a:\n    steps:\n      - env:\n          TITLE: ${{ github.event.pull_request.title }}\n"
+                   "        run: |\n          echo \"PR_TITLE=$TITLE\" >> \"$GITHUB_ENV\"\n          echo \"$HOME/bin\" >> \"$GITHUB_PATH\"\n")
+        found = ids(".github/workflows/x.yml", via_env, gha)
+        self.assertEqual(found.count("ACR-GHA-015"), 1)
+
+    def test_trusted_values_and_outputs_are_fine(self):
+        gha = {"github-actions"}
+        safe = ("permissions: {}\njobs:\n  a:\n    steps:\n      - run: |\n"
+                "          echo \"SHA=${{ github.sha }}\" >> $GITHUB_ENV\n          echo \"$RUNNER_TEMP/bin\" >> $GITHUB_PATH\n"
+                "          echo \"title=${{ github.event.pull_request.title }}\" >> $GITHUB_OUTPUT\n")
+        self.assertNotIn("ACR-GHA-015", ids(".github/workflows/x.yml", safe, gha))

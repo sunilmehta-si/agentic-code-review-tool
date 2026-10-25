@@ -11,6 +11,7 @@ HARDENING = "https://docs.github.com/en/actions/security-for-github-actions/secu
 UNTRUSTED = re.compile(r"\$\{\{\s*(github\.event\.(issue|pull_request|comment|review|review_comment|discussion|head_commit|commits|pages)"
                        r"[^}]*\.(title|body|message|name|label|ref|email|head_ref)|github\.head_ref)[^}]*\}\}")
 FIRST_PARTY = ("actions/", "github/")
+ENV_FILE_WRITE = re.compile(r">>?\s*\"?\$\{?(GITHUB_ENV|GITHUB_PATH)\b")
 
 
 def _run_block_lines(lines: list[str]) -> set[int]:
@@ -232,3 +233,41 @@ def secret_exfil(path, text, lines):
         external = [u for u in urls if not GITHUB_HOSTS.match(u)]
         if external or not urls:
             yield make(info, path, i, f"A secret is sent to {external[0] if external else 'a host named outside the script'}.")
+
+
+def _untrusted_env_names(lines: list[str]) -> set[str]:
+    """Names of env: variables whose value is untrusted event data, so a script that writes them somewhere is
+    writing attacker-controlled text."""
+    names, in_env, indent = set(), False, 0
+    for line in lines:
+        m = re.match(r"^(\s*)(-\s*)?env\s*:\s*$", line)
+        if m:
+            in_env, indent = True, len(m.group(1)) + (2 if m.group(2) else 0)
+            continue
+        if in_env:
+            if line.strip() and len(line) - len(line.lstrip()) <= indent:
+                in_env = False
+                continue
+            kv = re.match(r"^\s*([A-Za-z_][A-Za-z0-9_]*)\s*:\s*(.+)$", line)
+            if kv and UNTRUSTED.search(kv.group(2)):
+                names.add(kv.group(1))
+    return names
+
+
+@rule("ACR-GHA-015", "Untrusted event data written into GITHUB_ENV or GITHUB_PATH", Severity.HIGH, "ci-cd", GHA,
+      fix="A value appended to $GITHUB_ENV becomes an environment variable for every later step, and a line in "
+          "$GITHUB_PATH a directory searched for every command, so a crafted title or branch name can inject "
+          "variables (LD_PRELOAD, NODE_OPTIONS) or a binary. Validate the value first, write it with a delimiter "
+          "(name<<EOF), or pass it to the step that needs it as its own env: entry.",
+      references=[HARDENING])
+def env_file_injection(path, text, lines):
+    info = env_file_injection.info
+    run_lines = _run_block_lines(lines)
+    names = _untrusted_env_names(lines)
+    for i, line in enumerate(lines, start=1):
+        if i not in run_lines or not ENV_FILE_WRITE.search(line) or line.lstrip().startswith("#"):
+            continue
+        if UNTRUSTED.search(line):
+            yield make(info, path, i, "Event data is written straight into the file.")
+        elif any(re.search(rf"\$\{{?{re.escape(n)}\b", line) for n in names):
+            yield make(info, path, i, "The variable written here holds untrusted event data.")
