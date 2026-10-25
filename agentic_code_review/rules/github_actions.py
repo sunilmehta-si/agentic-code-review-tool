@@ -271,3 +271,24 @@ def env_file_injection(path, text, lines):
             yield make(info, path, i, "Event data is written straight into the file.")
         elif any(re.search(rf"\$\{{?{re.escape(n)}\b", line) for n in names):
             yield make(info, path, i, "The variable written here holds untrusted event data.")
+
+
+MOVING_GIT_INSTALL = re.compile(
+    r"\bpip3?\s+install\b[^\n]*\bgit\+(https?|ssh)://(?![^\s]*@[0-9a-f]{40}\b)[^\s]+"
+    r"|\buv\s+pip\s+install\b[^\n]*\bgit\+(https?|ssh)://(?![^\s]*@[0-9a-f]{40}\b)[^\s]+"
+    r"|\bnpm\s+(install|i|add)\b[^\n]*\s(github:|git\+https?://|https?://github\.com/)(?![^\s]*#[0-9a-f]{40}\b)[^\s]+"
+    r"|\bgo\s+install\s+[^\s]+@(latest|main|master|HEAD)\b"
+    r"|\bcargo\s+install\b[^\n]*--git\s+[^\s]+(?![^\n]*--rev\s+[0-9a-f]{7,})")
+
+
+@rule("ACR-GHA-016", "Dependency installed from a moving git ref in a workflow", Severity.MEDIUM, "dependency", GHA,
+      fix="Pin the commit: pip install git+https://host/org/repo@<40-char sha>, npm install github:org/repo#<sha>, "
+          "go install pkg@v1.2.3, cargo install --git url --rev <sha>. A branch or 'latest' ships whatever the upstream "
+          "repository holds on the day the job runs, including a compromised commit.",
+      references=[HARDENING])
+def moving_git_install(path, text, lines):
+    info = moving_git_install.info
+    run_lines = _run_block_lines(lines)
+    for i, line in enumerate(lines, start=1):
+        if i in run_lines and not line.lstrip().startswith("#") and MOVING_GIT_INSTALL.search(line):
+            yield make(info, path, i)

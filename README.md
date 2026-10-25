@@ -244,7 +244,7 @@ provider keys, private-key blocks and hardcoded passwords in the diff or tool ou
 
 ## Built-in rules
 
-105 rules, generated from the code (`acr rules`; `acr explain <id>` for details):
+106 rules, generated from the code (`acr rules`; `acr explain <id>` for details):
 
 <!-- regenerate: acr rules --format markdown -->
 
@@ -355,6 +355,7 @@ provider keys, private-key blocks and hardcoded passwords in the diff or tool ou
 | Terraform | `ACR-TF-012` | low | Bucket uses per-object ACLs instead of uniform access |
 | Terraform | `ACR-TF-013` | high | Serverless function exposed on a public URL without authentication |
 | Terraform | `ACR-TF-014` | medium | Secrets and keys can be permanently deleted at once |
+| dependency | `ACR-GHA-016` | medium | Dependency installed from a moving git ref in a workflow |
 
 ## Optional scanners
 
@@ -376,7 +377,7 @@ When two tools report the same issue on the same line, the report shows it once 
 
 | Part | State |
 |---|---|
-| Diff-aware engine, 105 built-in rules, 7 scanner adapters (run in parallel) | ✅ Done, unit-tested |
+| Diff-aware engine, 106 built-in rules, 7 scanner adapters (run in parallel) | ✅ Done, unit-tested |
 | Markdown / JSON / SARIF reports, CLI with severity gate | ✅ Done, unit-tested |
 | AI review agent (Claude + OpenAI-compatible) with read-only tools | ✅ Done, unit-tested with a fake model |
 | Inline PR comments and composite GitHub Action (single run) | ✅ Done, unit-tested; first live run pending |

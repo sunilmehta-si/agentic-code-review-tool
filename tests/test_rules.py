@@ -771,3 +771,27 @@ class EnvFileInjectionRule(unittest.TestCase):
                 "          echo \"SHA=${{ github.sha }}\" >> $GITHUB_ENV\n          echo \"$RUNNER_TEMP/bin\" >> $GITHUB_PATH\n"
                 "          echo \"title=${{ github.event.pull_request.title }}\" >> $GITHUB_OUTPUT\n")
         self.assertNotIn("ACR-GHA-015", ids(".github/workflows/x.yml", safe, gha))
+
+
+class MovingGitInstallRule(unittest.TestCase):
+    def test_branches_and_latest_are_flagged(self):
+        gha = {"github-actions"}
+        head = "permissions: {}\njobs:\n  a:\n    steps:\n      - run: |\n"
+        for cmd in ("pip install git+https://github.com/org/tool@main",
+                    "pip install git+https://github.com/org/tool",
+                    "uv pip install git+ssh://git@github.com/org/tool.git@dev",
+                    "npm install github:org/tool#main",
+                    "npm i https://github.com/org/tool",
+                    "go install github.com/org/tool/cmd/tool@latest",
+                    "cargo install --git https://github.com/org/tool"):
+            self.assertIn("ACR-GHA-016", ids(".github/workflows/x.yml", head + f"          {cmd}\n", gha), cmd)
+
+    def test_pinned_commits_and_versions_are_fine(self):
+        gha = {"github-actions"}
+        head = "permissions: {}\njobs:\n  a:\n    steps:\n      - run: |\n"
+        for cmd in ("pip install git+https://github.com/org/tool@" + "a" * 40,
+                    "npm install github:org/tool#" + "b" * 40,
+                    "go install github.com/org/tool/cmd/tool@v1.4.2",
+                    "cargo install --git https://github.com/org/tool --rev 0123abcd",
+                    "pip install tool==1.2.3"):
+            self.assertNotIn("ACR-GHA-016", ids(".github/workflows/x.yml", head + f"          {cmd}\n", gha), cmd)
