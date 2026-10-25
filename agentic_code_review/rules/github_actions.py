@@ -203,3 +203,32 @@ def docker_action_pin(path, text, lines):
         if "@sha256:" not in ref:
             f.detail = f"'{ref}' is pulled by tag."
             yield f
+
+
+# Hosts a workflow legitimately talks to with its own token; anything else receiving a secret is exfiltration.
+GITHUB_HOSTS = re.compile(r"https?://([\w.-]+\.)?(github\.com|githubusercontent\.com|githubassets\.com|github\.io|ghcr\.io|pkg\.github\.com|npm\.pkg\.github\.com)(/|\s|$|\")")
+NETWORK_CMD = re.compile(r"\b(curl|wget|nc|ncat|socat|Invoke-WebRequest|iwr|Invoke-RestMethod|irm)\b", re.I)
+SECRET_REF = re.compile(r"\$\{\{\s*secrets\.|\$\{?(GITHUB_TOKEN|ACTIONS_RUNTIME_TOKEN|ACTIONS_ID_TOKEN_REQUEST_TOKEN)\b", re.I)
+ENV_DUMP = re.compile(r"\b(env|printenv|set)\b[^|\n]*\|\s*[^|\n]*\b(curl|wget|nc|ncat|socat|base64)\b")
+
+
+@rule("ACR-GHA-014", "Secret sent to an external host from a workflow step", Severity.CRITICAL, "ci-cd", GHA,
+      fix="Secrets only go to the service that issued them, through a pinned action or official CLI. A step that posts "
+          "${{ secrets.* }} or the job's token to another host, or pipes the environment into curl, is the shape of the "
+          "GhostAction credential-theft workflows; remove it, rotate every secret the job could read, and check who pushed it.",
+      references=[HARDENING])
+def secret_exfil(path, text, lines):
+    info = secret_exfil.info
+    run_lines = _run_block_lines(lines)
+    for i, line in enumerate(lines, start=1):
+        if i not in run_lines or line.lstrip().startswith("#"):
+            continue
+        if ENV_DUMP.search(line):
+            yield make(info, path, i, "The step dumps its environment, secrets included, into a network command or an encoder.")
+            continue
+        if not (NETWORK_CMD.search(line) and SECRET_REF.search(line)):
+            continue
+        urls = re.findall(r"https?://[^\s\"\'\)]+", line)
+        external = [u for u in urls if not GITHUB_HOSTS.match(u)]
+        if external or not urls:
+            yield make(info, path, i, f"A secret is sent to {external[0] if external else 'a host named outside the script'}.")
