@@ -37,6 +37,8 @@ def kinds(path: str, text: str) -> set[str]:
         out.add("mcp-config")
     if _is_agent_settings(lower):
         out.add("agent-settings")
+    if _is_agent_plugin(lower):
+        out.add("agent-plugin")
     if _is_agent_instructions(lower):
         out.add("agent-instructions")
     if lower.endswith("skill.md") or "/skills/" in lower and p.suffix == ".md":
@@ -95,6 +97,16 @@ AGENT_SETTINGS = ("*.claude/settings.json", "*.claude/settings.local.json", "*.c
 
 def _is_agent_settings(lower: str) -> bool:
     return any(fnmatch.fnmatch("/" + lower, "*/" + pat.lstrip("*")) for pat in AGENT_SETTINGS)
+
+
+# Coding-agent plugins and the marketplaces that index them (Claude Code, Grok Build). A marketplace entry names
+# where a plugin's code is fetched from; a plugin's hooks run on the developer's machine.
+AGENT_PLUGIN = (".claude-plugin/marketplace.json", ".grok-plugin/marketplace.json", ".claude-plugin/plugin.json",
+                ".grok-plugin/plugin.json", "hooks/hooks.json")
+
+
+def _is_agent_plugin(lower: str) -> bool:
+    return any(fnmatch.fnmatch("/" + lower, "*/" + pat) for pat in AGENT_PLUGIN)
 
 
 # Instruction files coding agents load automatically; text in them steers the agent like a system prompt.

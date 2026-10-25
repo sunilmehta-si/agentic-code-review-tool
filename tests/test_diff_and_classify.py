@@ -83,6 +83,13 @@ class ShellClassificationTests(unittest.TestCase):
 
 
 class AgentSettingsClassificationTests(unittest.TestCase):
+    def test_coding_agent_plugins_and_marketplaces(self):
+        for path in (".claude-plugin/marketplace.json", "plugins/x/.claude-plugin/plugin.json", ".grok-plugin/marketplace.json",
+                     "external_plugins/acme/.grok-plugin/plugin.json", "plugins/acme/hooks/hooks.json"):
+            self.assertIn("agent-plugin", kinds(path, "{}"), path)
+        for path in ("package.json", "hooks.json", ".claude/settings.json", "docs/hooks/readme.json"):
+            self.assertNotIn("agent-plugin", kinds(path, "{}"), path)
+
     def test_coding_agent_permission_files(self):
         from agentic_code_review.classify import kinds
         for path in (".claude/settings.json", ".claude/settings.local.json", "svc/.claude/settings.json", ".codex/config.toml"):
