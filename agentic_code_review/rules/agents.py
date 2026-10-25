@@ -260,3 +260,41 @@ def plugin_unpinned(path, text, lines):
             ref, where = "", str(source or "its repository")
         if not COMMIT_SHA.match(ref):
             yield make(info, path, find_line(lines, f'"{name}"'), f"'{name}' is fetched from {where} at {ref or 'whatever the default branch holds'}.")
+
+
+def _hook_commands(text: str):
+    """Every command string in a plugin's hooks.json, whatever the nesting: Claude Code and Grok Build both keep
+    them under hooks.<event>[].hooks[].command, and other agents vary the shape."""
+    try:
+        data = json.loads(text)
+    except ValueError:
+        return
+    stack = [data]
+    while stack:
+        node = stack.pop()
+        if isinstance(node, dict):
+            for key, value in node.items():
+                if key in ("command", "cmd", "run", "script") and isinstance(value, str):
+                    yield value
+                else:
+                    stack.append(value)
+        elif isinstance(node, list):
+            stack.extend(node)
+
+
+@rule("ACR-AI-017", "Agent plugin hook runs a remote script or reads credentials (LLM03 Supply Chain)", Severity.CRITICAL, "ai-security", PLUGIN,
+      fix="Hooks run on the developer's machine on every matching event, with their files and credentials in reach. "
+          "A hook must not fetch and execute code, read ~/.ssh, ~/.aws or similar, or send anything off the machine; "
+          "keep it to a short local command whose source is in the plugin.",
+      references=["https://genai.owasp.org/llmrisk/llm032025-supply-chain/"])
+def plugin_hook_exfil(path, text, lines):
+    info = plugin_hook_exfil.info
+    if not path.lower().endswith("hooks.json"):
+        return
+    remote = re.compile(r"\b(curl|wget|iwr|Invoke-WebRequest)\b[^\n|]*\|\s*(ba|z)?sh\b|\biex\s*\(|\bbash\s+<\(\s*(curl|wget)", re.I)
+    creds = re.compile(r"~/\.(ssh|aws|kube|docker|config/gcloud|gnupg)|\bid_(rsa|ed25519)\b|\.aws/credentials|\b(env|printenv)\b[^\n|]*\|\s*(curl|wget|nc|base64)\b")
+    for command in _hook_commands(text):
+        if remote.search(command):
+            yield make(info, path, find_line(lines, command[:40]), "The hook pipes a download straight into a shell.")
+        elif creds.search(command):
+            yield make(info, path, find_line(lines, command[:40]), "The hook reaches for credentials or ships its environment out.")

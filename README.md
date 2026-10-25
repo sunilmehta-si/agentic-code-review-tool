@@ -244,7 +244,7 @@ provider keys, private-key blocks and hardcoded passwords in the diff or tool ou
 
 ## Built-in rules
 
-108 rules, generated from the code (`acr rules`; `acr explain <id>` for details):
+109 rules, generated from the code (`acr rules`; `acr explain <id>` for details):
 
 <!-- regenerate: acr rules --format markdown -->
 
@@ -289,6 +289,7 @@ provider keys, private-key blocks and hardcoded passwords in the diff or tool ou
 | AI / LLM / agent code | `ACR-AI-014` | medium | Agent settings auto-start every MCP server in the repository |
 | AI / LLM / agent code | `ACR-AI-015` | high | Agent settings open the whole disk or home directory to the agent |
 | AI / LLM / agent code | `ACR-AI-016` | high | Agent plugin marketplace entry not pinned to a commit (LLM03 Supply Chain) |
+| AI / LLM / agent code | `ACR-AI-017` | critical | Agent plugin hook runs a remote script or reads credentials (LLM03 Supply Chain) |
 | AI / LLM / agent code | `ACR-MCP-001` | high | MCP server installed from an unpinned package |
 | AI / LLM / agent code | `ACR-MCP-003` | high | MCP server over plain HTTP or with broad host access |
 | AI / LLM / agent code | `ACR-MCP-004` | medium | MCP tools run without asking the user |
@@ -379,7 +380,7 @@ When two tools report the same issue on the same line, the report shows it once 
 
 | Part | State |
 |---|---|
-| Diff-aware engine, 108 built-in rules, 7 scanner adapters (run in parallel) | ✅ Done, unit-tested |
+| Diff-aware engine, 109 built-in rules, 7 scanner adapters (run in parallel) | ✅ Done, unit-tested |
 | Markdown / JSON / SARIF reports, CLI with severity gate | ✅ Done, unit-tested |
 | AI review agent (Claude + OpenAI-compatible) with read-only tools | ✅ Done, unit-tested with a fake model |
 | Inline PR comments and composite GitHub Action (single run) | ✅ Done, unit-tested; first live run pending |
