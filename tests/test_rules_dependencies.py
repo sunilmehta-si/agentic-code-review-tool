@@ -88,3 +88,23 @@ class ExtraIndexRule(unittest.TestCase):
         self.assertNotIn("ACR-DEP-003", ids("requirements.txt", "--extra-index-url https://x/simple  # acr:ignore[ACR-DEP-003]\n", LOCK))
         # uv records the index each package came from in the lock, so the lock itself is not ambiguous
         self.assertNotIn("ACR-DEP-003", ids("uv.lock", '# --extra-index-url https://pkgs.corp/simple\n', LOCK))
+
+
+class NpmGitDependencyRule(unittest.TestCase):
+    GIT = ('{\n  "packages": {\n    "node_modules/left-pad": {\n      "version": "1.3.0",\n'
+           '      "resolved": "git+ssh://git@github.com/org/left-pad.git#5ce5a42c3f6f1b2e8bb2c9a05c3f9f2a70ee1a2e",\n'
+           '      "license": "MIT"\n    }\n  }\n}\n')
+    REGISTRY = ('{\n  "packages": {\n    "node_modules/left-pad": {\n      "version": "1.3.0",\n'
+                '      "resolved": "https://registry.npmjs.org/left-pad/-/left-pad-1.3.0.tgz",\n'
+                '      "integrity": "sha512-XI5MPzVNApjAyhQzphX8BkmKsKUxD4LdyK24iZeQEYvSwnx6YQ2MWJYwpFQqUNmO9lY+QKqRkmBqD8+ZB2P/bw=="\n'
+                '    }\n  }\n}\n')
+
+    def test_git_and_github_tarball_sources_without_a_hash_are_flagged(self):
+        self.assertIn("ACR-DEP-004", ids("web/package-lock.json", self.GIT, LOCK))
+        tarball = self.GIT.replace("git+ssh://git@github.com/org/left-pad.git#5ce5a42c3f6f1b2e8bb2c9a05c3f9f2a70ee1a2e",
+                                   "https://codeload.github.com/org/left-pad/tar.gz/5ce5a42c3f6f1b2e8bb2c9a05c3f9f2a70ee1a2e")
+        self.assertIn("ACR-DEP-004", ids("package-lock.json", tarball, LOCK))
+
+    def test_registry_packages_with_integrity_and_other_files_are_fine(self):
+        self.assertNotIn("ACR-DEP-004", ids("package-lock.json", self.REGISTRY, LOCK))
+        self.assertNotIn("ACR-DEP-004", ids("requirements.txt", self.GIT, LOCK))

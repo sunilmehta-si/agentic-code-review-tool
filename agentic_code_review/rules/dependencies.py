@@ -116,3 +116,25 @@ def extra_index_confusion(path: str, text: str, lines: list[str]) -> Iterable[Fi
     for i, line in enumerate(lines, start=1):
         if (m := EXTRA_INDEX.match(line)) and not ignored(line, info.rule_id):
             yield make(info, path, i, f"{m.group(1)} is searched alongside the default index for every package.")
+
+
+NPM_RESOLVED = re.compile(r'^\s*"resolved"\s*:\s*"((?:git\+[a-z]+://|git://|github:|https://codeload\.github\.com/)[^"]+)"')
+NPM_INTEGRITY = re.compile(r'^\s*"integrity"\s*:\s*"sha(256|384|512)-')
+
+
+@rule("ACR-DEP-004", "npm lock installs a package from git with no integrity hash", Severity.LOW, "dependency", LOCK,
+      fix="Depend on a published registry version, whose tarball the lock pins by hash; if the git source is needed, "
+          "vendor it or publish it to your own registry.",
+      references=("https://docs.npmjs.com/cli/configuring-npm/package-lock-json",))
+def npm_git_without_integrity(path: str, text: str, lines: list[str]) -> Iterable[Finding]:
+    """npm checks a registry tarball against the lock's integrity hash; a git dependency has none, so the code that
+    installs is whatever the remote serves for that commit, unverified."""
+    info = npm_git_without_integrity.info
+    if not path.lower().endswith(("package-lock.json", "npm-shrinkwrap.json")):
+        return
+    for i, line in enumerate(lines, start=1):
+        if not (m := NPM_RESOLVED.match(line)) or ignored(line, info.rule_id):
+            continue
+        entry = lines[max(0, i - 6):i + 6]                    # the package's own object: a few lines either side
+        if not any(NPM_INTEGRITY.match(other) for other in entry):
+            yield make(info, path, i, f"{m.group(1)[:120]} is installed without a hash to check it against.")

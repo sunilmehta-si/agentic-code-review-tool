@@ -245,7 +245,7 @@ provider keys, private-key blocks and hardcoded passwords in the diff or tool ou
 
 ## Built-in rules
 
-113 rules, generated from the code (`acr rules`; `acr explain <id>` for details):
+114 rules, generated from the code (`acr rules`; `acr explain <id>` for details):
 
 <!-- regenerate: acr rules --format markdown -->
 
@@ -363,6 +363,7 @@ provider keys, private-key blocks and hardcoded passwords in the diff or tool ou
 | Dependencies | `ACR-DEP-001` | high | certifi pinned before 2026.10.23, which still trusts the compromised emSign roots |
 | Dependencies | `ACR-DEP-002` | high | Packages fetched over plain HTTP or from a host exempted from TLS checks |
 | Dependencies | `ACR-DEP-003` | medium | Extra package index next to PyPI, open to dependency confusion |
+| Dependencies | `ACR-DEP-004` | low | npm lock installs a package from git with no integrity hash |
 | Dependencies | `ACR-GHA-016` | medium | Dependency installed from a moving git ref in a workflow |
 
 ## Optional scanners
