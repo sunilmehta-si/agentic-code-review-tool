@@ -847,3 +847,12 @@ class EcdsaScalarBigIntRule(unittest.TestCase):
         self.assertNotIn("ACR-APP-019", ids("k.go", self.HEAD + "\tscalar, err := key.Bytes()\n\tif key.D == nil {\n", go))
         self.assertNotIn("ACR-APP-019", ids("k.go", self.HEAD + "\t// key.D.Cmp(n) used to check the range\n", go))
         self.assertNotIn("ACR-APP-019", ids("grid.go", "package grid\n\nfunc f(p Point) int { return p.D.Sign() }\n", go))
+
+    def test_a_key_from_another_package_is_caught_by_its_name(self):
+        go = {"app", "lang:go"}
+        # vehicle-command's keyring.go before the fix: the key type lives in internal/authentication
+        keyring = ('package cli\n\nimport "github.com/teslamotors/vehicle-command/internal/authentication"\n\n'
+                   "\tif (nativeKey.D.BitLen()+7)/8 != len(scalar) {\n")
+        self.assertIn("ACR-APP-019", ids("pkg/cli/keyring.go", keyring, go))
+        self.assertIn("ACR-APP-019", ids("s.go", "package s\n\n\tsigner.PrivateKey.D.Cmp(n)\n", go))
+        self.assertNotIn("ACR-APP-019", ids("s.go", "package s\n\n\tscalar, err := privKey.Bytes()\n", go))

@@ -195,8 +195,12 @@ def csrf_off(path, text, lines):
 def ecdsa_scalar_big_int(path, text, lines):
     """big.Int is not constant time: comparing, measuring or re-encoding a private scalar with it can leak the key
     through timing, and setting D by hand skips the checks the key constructors make."""
-    if '"crypto/ecdsa"' not in text:
-        return
-    pat = re.compile(r"\.D\.(Cmp|CmpAbs|BitLen|Bits|Bytes|FillBytes|Sign|Text|String|Int64|Uint64)\(|\.D\s*=[^=]")
+    calls = r"\.D\.(Cmp|CmpAbs|BitLen|Bits|Bytes|FillBytes|Sign|Text|String|Int64|Uint64)\(|\.D\s*=[^=]"
+    if '"crypto/ecdsa"' in text:
+        pat = re.compile(calls)
+    else:
+        # The key can come from another package (a wrapper type embedding *ecdsa.PrivateKey), so outside files that
+        # import crypto/ecdsa only a receiver named like a key counts.
+        pat = re.compile(r"\b\w*(?:[Kk]ey|[Pp]riv|[Ss]igner)\w*(?:\.PrivateKey)?(?:" + calls + ")")
     yield from line_matches(ecdsa_scalar_big_int.info, path, lines, pat)
 
