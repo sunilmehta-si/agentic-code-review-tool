@@ -831,3 +831,19 @@ class PluginHookRule(unittest.TestCase):
         self.assertEqual(found.count("ACR-AI-017"), 2)
         ok = json.dumps({"hooks": {"PreToolUse": [{"matcher": "Bash", "hooks": [{"type": "command", "command": "python3 scripts/check.py"}]}]}})
         self.assertNotIn("ACR-AI-017", ids("plugins/acme/hooks/hooks.json", ok, kinds_))
+
+
+class EcdsaScalarBigIntRule(unittest.TestCase):
+    HEAD = 'package cli\n\nimport (\n\t"crypto/ecdsa"\n\t"math/big"\n)\n\n'
+
+    def test_big_int_work_on_a_private_scalar_is_flagged(self):
+        go = {"app", "lang:go"}
+        for line in ("\tif (key.D.BitLen()+7)/8 != 32 {", "\tif key.D.Cmp(curve.Params().N) >= 0 {",
+                     "\tdata := nativeKey.D.FillBytes(make([]byte, 32))", "\tsk.D = d.SetBytes(privateScalar)"):
+            self.assertIn("ACR-APP-019", ids("pkg/cli/keyring.go", self.HEAD + line + "\n", go), line)
+
+    def test_the_go_1_25_api_and_unrelated_d_fields_are_fine(self):
+        go = {"app", "lang:go"}
+        self.assertNotIn("ACR-APP-019", ids("k.go", self.HEAD + "\tscalar, err := key.Bytes()\n\tif key.D == nil {\n", go))
+        self.assertNotIn("ACR-APP-019", ids("k.go", self.HEAD + "\t// key.D.Cmp(n) used to check the range\n", go))
+        self.assertNotIn("ACR-APP-019", ids("grid.go", "package grid\n\nfunc f(p Point) int { return p.D.Sign() }\n", go))

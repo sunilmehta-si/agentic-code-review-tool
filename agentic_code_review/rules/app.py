@@ -1,4 +1,4 @@
-"""Application-code security rules for Python and JavaScript/TypeScript.
+"""Application-code security rules for Python and JavaScript/TypeScript, and a few for Go.
 
 These are intentionally narrow, high-precision patterns. Broad SAST coverage comes from
 Semgrep/CodeQL when installed; these keep the review useful when they are not.
@@ -12,6 +12,7 @@ from .base import line_matches, rule
 
 PY = ["lang:python"]
 JS = ["lang:javascript", "lang:typescript"]
+GO = ["lang:go"]
 
 
 @rule("ACR-APP-001", "SQL built with string formatting", Severity.HIGH, "app-security", PY + JS,
@@ -183,3 +184,19 @@ def django_allowed_hosts(path, text, lines):
 def csrf_off(path, text, lines):
     pat = re.compile(r"^\s*@csrf_exempt\b|\bWTF_CSRF_ENABLED\s*[=:]\s*False\b|\bWTF_CSRF_CHECK_DEFAULT\s*[=:]\s*False\b")
     yield from line_matches(csrf_off.info, path, lines, pat)
+
+
+@rule("ACR-APP-019", "ECDSA private key handled through big.Int arithmetic on its D field", Severity.MEDIUM,
+      "app-security", GO,
+      fix="Encode and validate keys with `PrivateKey.Bytes()` and build them with `ecdsa.ParseRawPrivateKey` "
+          "(Go 1.25+), which check the scalar without big.Int operations whose timing depends on the key.",
+      references=["https://pkg.go.dev/crypto/ecdsa#PrivateKey.Bytes",
+                  "https://pkg.go.dev/crypto/ecdsa#ParseRawPrivateKey"])
+def ecdsa_scalar_big_int(path, text, lines):
+    """big.Int is not constant time: comparing, measuring or re-encoding a private scalar with it can leak the key
+    through timing, and setting D by hand skips the checks the key constructors make."""
+    if '"crypto/ecdsa"' not in text:
+        return
+    pat = re.compile(r"\.D\.(Cmp|CmpAbs|BitLen|Bits|Bytes|FillBytes|Sign|Text|String|Int64|Uint64)\(|\.D\s*=[^=]")
+    yield from line_matches(ecdsa_scalar_big_int.info, path, lines, pat)
+
