@@ -46,3 +46,33 @@ class CertifiRootsRule(unittest.TestCase):
         self.assertNotIn("ACR-DEP-001", ids("requirements.txt", "certifi==2025.8.3  # acr:ignore[ACR-DEP-001]\n", LOCK))
         # another package's version on the line after a name must not be read as certifi's
         self.assertNotIn("ACR-DEP-001", ids("uv.lock", '[[package]]\nname = "certifi-extras"\nversion = "2020.1.1"\n', LOCK))
+
+
+class InsecurePackageSourceRule(unittest.TestCase):
+    def test_plain_http_indexes_and_trusted_hosts_are_flagged(self):
+        flagged = [
+            ("uv.lock", '[[package]]\nname = "x"\nversion = "1.0"\nsource = { registry = "http://pypi.internal/simple" }\n'),
+            ("poetry.lock", '[package.source]\ntype = "legacy"\nurl = "http://mirror.corp/simple"\n'),
+            ("web/package-lock.json", '    "node_modules/x": {\n      "resolved": "http://registry.corp/x/-/x-1.0.0.tgz",\n'),
+            ("requirements.txt", "--index-url http://pypi.corp/simple\nflask==3.0.0\n"),
+            ("requirements.txt", "-i http://pypi.corp/simple\n"),
+            ("requirements-dev.txt", "--extra-index-url=http://pypi.corp/simple\n"),
+            ("requirements.txt", "--trusted-host pypi.corp\n"),
+        ]
+        for path, text in flagged:
+            self.assertIn("ACR-DEP-002", ids(path, text, LOCK), text)
+
+    def test_https_localhost_and_comments_are_fine(self):
+        fine = [
+            ("uv.lock", '[[package]]\nname = "x"\nsource = { registry = "https://pypi.org/simple" }\n'),
+            ("requirements.txt", "--index-url https://pypi.corp/simple\n"),
+            ("requirements.txt", "--index-url http://localhost:8080/simple\n"),
+            ("requirements.txt", "-i http://127.0.0.1/simple\n"),
+            ("requirements.txt", "# --index-url http://old.corp/simple\n"),
+            ("requirements.txt", "--trusted-host pypi.corp  # acr:ignore[ACR-DEP-002]\n"),
+            ("uv.lock", '[[package]]\nname = "x"\nsource = { registry = "http://localhost.evil.com/simple" }\n'),
+        ]
+        for path, text in fine[:-1]:
+            self.assertNotIn("ACR-DEP-002", ids(path, text, LOCK), text)
+        # a hostname that only starts with localhost is not this machine
+        self.assertIn("ACR-DEP-002", ids(*fine[-1], LOCK))

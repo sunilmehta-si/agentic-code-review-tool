@@ -72,3 +72,26 @@ def certifi_with_compromised_roots(path: str, text: str, lines: list[str]) -> It
         if package == "certifi" and when and when < CERTIFI_FIXED and not ignored(lines[line - 1], info.rule_id):
             yield make(info, path, line, f"certifi {version}: any TLS connection that trusts this bundle also trusts "
                                          "certificates issued under the emSign roots.")
+
+
+# A package URL or index over plain http, except on this machine (a local mirror or a test server).
+INSECURE_SOURCE = re.compile(
+    r"""(registry\s*=\s*"|url\s*=\s*"|"resolved"\s*:\s*"|--(?:extra-)?index-url[=\s]+|(?:^|\s)-i\s+|--find-links[=\s]+|-f\s+)"""
+    r"""(http://(?!(?:localhost|127\.0\.0\.1|\[::1\])(?:[:/]|$))[^\s"']+)""")
+TRUSTED_HOST = re.compile(r"^\s*--trusted-host[=\s]+(\S+)")
+
+
+@rule("ACR-DEP-002", "Packages fetched over plain HTTP or from a host exempted from TLS checks",
+      Severity.HIGH, "dependency", LOCK,
+      fix="Serve the index over HTTPS and drop `--trusted-host`; a mirror behind a private CA can use "
+          "`--cert` or `UV_NATIVE_TLS` instead of turning verification off.",
+      references=("https://pip.pypa.io/en/stable/topics/https-certificates/",))
+def insecure_package_source(path: str, text: str, lines: list[str]) -> Iterable[Finding]:
+    info = insecure_package_source.info
+    for i, line in enumerate(lines, start=1):
+        if line.lstrip().startswith("#") or ignored(line, info.rule_id):
+            continue
+        if m := INSECURE_SOURCE.search(line):
+            yield make(info, path, i, f"{m.group(2)}: anyone on the network path can serve a different package.")
+        elif m := TRUSTED_HOST.match(line):
+            yield make(info, path, i, f"--trusted-host {m.group(1)} accepts any certificate, or none, from that host.")
