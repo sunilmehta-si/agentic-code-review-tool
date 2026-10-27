@@ -22,6 +22,11 @@ class ClassifyTests(unittest.TestCase):
         self.assertIn("kubernetes", kinds("k8s/d.yaml", "apiVersion: v1\nkind: Pod\n"))
         self.assertNotIn("kubernetes", kinds("config.yaml", "foo: bar"))
         self.assertIn("terraform", kinds("main.tf", ""))
+        for lock in ("uv.lock", "python/kserve/uv.lock", "poetry.lock", "Pipfile.lock", "web/package-lock.json",
+                     "requirements.txt", "requirements-dev.txt", "constraints.txt", "requirements/base.txt", "requirements.in"):
+            self.assertIn("lockfile", kinds(lock, ""), lock)
+        for other in ("requirements.md", "docs/requirements-notes.rst", "package.json", "uv.toml", "lock.py"):
+            self.assertNotIn("lockfile", kinds(other, ""), other)
         self.assertIn("mcp-config", kinds(".mcp.json", "{}"))
         self.assertIn("agent-skill", kinds("skills/x/SKILL.md", ""))
 

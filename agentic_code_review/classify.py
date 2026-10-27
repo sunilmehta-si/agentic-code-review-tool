@@ -33,6 +33,8 @@ def kinds(path: str, text: str) -> set[str]:
             out.add("kubernetes")
     if _is_shell(p, text):
         out.add("shell")
+    if _is_lockfile(p):
+        out.add("lockfile")
     if name in ("mcp.json", ".mcp.json", "claude_desktop_config.json") or fnmatch.fnmatch(lower, "*mcp*.json"):
         out.add("mcp-config")
     if _is_agent_settings(lower):
@@ -81,6 +83,14 @@ def _imports_ai(text: str) -> bool:
 
 
 COMPOSE = re.compile(r"(docker-)?compose(\.[\w.-]+)?\.ya?ml")  # compose.yaml, docker-compose.prod.yml, ...
+# Files that pin exact dependency versions: what a CVE or a compromised release is checked against.
+LOCKFILES = {"uv.lock", "poetry.lock", "pipfile.lock", "pdm.lock", "package-lock.json", "npm-shrinkwrap.json"}
+PIP_PINS = re.compile(r"(requirements|constraints)([-_.][\w.-]+)?\.(txt|in)")
+
+
+def _is_lockfile(p: Path) -> bool:
+    name = p.name.lower()
+    return name in LOCKFILES or bool(PIP_PINS.fullmatch(name)) or (p.parent.name == "requirements" and p.suffix == ".txt")
 SHEBANG = re.compile(r"^#!\s*(/usr/bin/env\s+)?(/bin/|/usr/bin/|/usr/local/bin/)?(ba|z|da|k)?sh\b")
 
 
