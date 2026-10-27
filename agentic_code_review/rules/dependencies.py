@@ -95,3 +95,24 @@ def insecure_package_source(path: str, text: str, lines: list[str]) -> Iterable[
             yield make(info, path, i, f"{m.group(2)}: anyone on the network path can serve a different package.")
         elif m := TRUSTED_HOST.match(line):
             yield make(info, path, i, f"--trusted-host {m.group(1)} accepts any certificate, or none, from that host.")
+
+
+EXTRA_INDEX = re.compile(r"^\s*--extra-index-url[=\s]+(\S+)")
+
+
+@rule("ACR-DEP-003", "Extra package index next to PyPI, open to dependency confusion",
+      Severity.MEDIUM, "dependency", LOCK,
+      fix="Serve internal packages through one index that proxies PyPI (`--index-url` only), or use uv's index "
+          "pinning (`[tool.uv.sources]` with `explicit = true`) so each internal package comes from one index only.",
+      references=("https://docs.astral.sh/uv/configuration/indexes/",
+                  "https://pip.pypa.io/en/stable/cli/pip_install/#finding-packages"))
+def extra_index_confusion(path: str, text: str, lines: list[str]) -> Iterable[Finding]:
+    """pip treats every index as equal and installs the highest version it finds, so a public package that takes an
+    internal package's name and a higher version number wins; pinning the version does not help if the attacker
+    publishes the same one."""
+    info = extra_index_confusion.info
+    if not path.lower().endswith((".txt", ".in")):
+        return
+    for i, line in enumerate(lines, start=1):
+        if (m := EXTRA_INDEX.match(line)) and not ignored(line, info.rule_id):
+            yield make(info, path, i, f"{m.group(1)} is searched alongside the default index for every package.")

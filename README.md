@@ -245,7 +245,7 @@ provider keys, private-key blocks and hardcoded passwords in the diff or tool ou
 
 ## Built-in rules
 
-111 rules, generated from the code (`acr rules`; `acr explain <id>` for details):
+112 rules, generated from the code (`acr rules`; `acr explain <id>` for details):
 
 <!-- regenerate: acr rules --format markdown -->
 
@@ -361,6 +361,7 @@ provider keys, private-key blocks and hardcoded passwords in the diff or tool ou
 | Terraform | `ACR-TF-014` | medium | Secrets and keys can be permanently deleted at once |
 | Dependencies | `ACR-DEP-001` | high | certifi pinned before 2026.10.23, which still trusts the compromised emSign roots |
 | Dependencies | `ACR-DEP-002` | high | Packages fetched over plain HTTP or from a host exempted from TLS checks |
+| Dependencies | `ACR-DEP-003` | medium | Extra package index next to PyPI, open to dependency confusion |
 | Dependencies | `ACR-GHA-016` | medium | Dependency installed from a moving git ref in a workflow |
 
 ## Optional scanners

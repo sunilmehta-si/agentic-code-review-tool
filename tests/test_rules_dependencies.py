@@ -76,3 +76,15 @@ class InsecurePackageSourceRule(unittest.TestCase):
             self.assertNotIn("ACR-DEP-002", ids(path, text, LOCK), text)
         # a hostname that only starts with localhost is not this machine
         self.assertIn("ACR-DEP-002", ids(*fine[-1], LOCK))
+
+
+class ExtraIndexRule(unittest.TestCase):
+    def test_an_extra_index_in_a_pip_file_is_flagged(self):
+        self.assertIn("ACR-DEP-003", ids("requirements.txt", "--extra-index-url https://pkgs.corp/simple\nacme-auth==1.2\n", LOCK))
+        self.assertIn("ACR-DEP-003", ids("constraints.txt", "--extra-index-url=https://pkgs.corp/simple\n", LOCK))
+
+    def test_a_single_index_and_other_lock_formats_are_fine(self):
+        self.assertNotIn("ACR-DEP-003", ids("requirements.txt", "--index-url https://pkgs.corp/simple\nacme-auth==1.2\n", LOCK))
+        self.assertNotIn("ACR-DEP-003", ids("requirements.txt", "--extra-index-url https://x/simple  # acr:ignore[ACR-DEP-003]\n", LOCK))
+        # uv records the index each package came from in the lock, so the lock itself is not ambiguous
+        self.assertNotIn("ACR-DEP-003", ids("uv.lock", '# --extra-index-url https://pkgs.corp/simple\n', LOCK))
