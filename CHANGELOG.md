@@ -2,6 +2,25 @@
 
 All notable changes to this project. The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [Unreleased]
+
+Lock files are now reviewed. Each rule here comes from a real failure this week: a CA bundle that kept trusting
+compromised roots, and a timing side channel in a Go key check that a maintainer caught in review.
+
+### Added
+- A `lockfile` file kind: `uv.lock`, `poetry.lock`, `Pipfile.lock`, `pdm.lock`, `package-lock.json`,
+  `npm-shrinkwrap.json`, and pip `requirements*.txt` and `constraints*.txt`.
+- `ACR-DEP-001` (high): certifi pinned before 2026.10.23, which still trusts the compromised emSign roots, in any of
+  those formats. On KServe it found two test-resource locks a manual sweep had missed.
+- `ACR-DEP-002` (high): packages fetched over plain HTTP, or `--trusted-host`, in a lock or pip file.
+- `ACR-DEP-003`: `--extra-index-url` in a pip file, which lets a public package that takes an internal name win.
+- `ACR-DEP-004` (low): an npm lock entry installed from git or a GitHub tarball, which has no integrity hash.
+- `ACR-APP-019`: Go code that compares, measures or sets an ECDSA private key's `D` with `big.Int`, with
+  `PrivateKey.Bytes` and `ParseRawPrivateKey` as the fix.
+
+### Changed
+- The README's rule table names the dependency area, and its rule count is tested against the registry.
+
 ## [0.6.0] - 2026-10-25
 
 The week of the GhostAction campaign, which planted credential-stealing workflows in tens of thousands of repositories,
