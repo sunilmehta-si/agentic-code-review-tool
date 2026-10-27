@@ -11,7 +11,7 @@ class DemoTests(unittest.TestCase):
     def test_every_category_is_caught(self):
         result = review(DEMO, full=True, use_scanners=False)
         categories = {f.category for f in result.findings}
-        for cat in ("secrets", "app-security", "ai-security", "kubernetes", "container", "ci-cd", "iac"):
+        for cat in ("secrets", "app-security", "ai-security", "kubernetes", "container", "ci-cd", "iac", "dependency"):
             self.assertIn(cat, categories)
         rules = {f.rule_id for f in result.findings}
         for rid in ("ACR-AI-001", "ACR-AI-002", "ACR-AI-004", "ACR-AI-005", "ACR-MCP-001", "ACR-MCP-002",
@@ -27,7 +27,9 @@ class DemoTests(unittest.TestCase):
                     # 0.5.0 rules
                     "ACR-COMPOSE-001", "ACR-COMPOSE-002", "ACR-COMPOSE-003", "ACR-COMPOSE-004", "ACR-GHA-012",
                     "ACR-GHA-013", "ACR-TF-013", "ACR-TF-014", "ACR-K8S-018", "ACR-K8S-019", "ACR-AI-014", "ACR-AI-015",
-                    "ACR-APP-016", "ACR-APP-017", "ACR-APP-018", "ACR-DOCKER-010"):
+                    "ACR-APP-016", "ACR-APP-017", "ACR-APP-018", "ACR-DOCKER-010",
+                    # 0.7.0 rules
+                    "ACR-DEP-001", "ACR-DEP-002", "ACR-DEP-003", "ACR-APP-019"):
             self.assertIn(rid, rules)
 
     def test_clean_pod_only_trips_the_rule_it_demonstrates(self):

@@ -1,0 +1,7 @@
+# Deliberately insecure pins for the demo: an extra index next to PyPI, TLS checks off for it,
+# and a certifi from before the emSign roots were removed.
+--extra-index-url http://pkgs.example.internal/simple
+--trusted-host pkgs.example.internal
+certifi==2026.7.22
+flask==3.0.3
+acme-internal-auth==1.4.0
