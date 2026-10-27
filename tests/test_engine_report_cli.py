@@ -179,11 +179,15 @@ class RulesFormatTests(unittest.TestCase):
 
     def test_readme_catalogue_is_up_to_date(self):
         from pathlib import Path
+
+        from agentic_code_review.rules import base
         buf = io.StringIO()
         with redirect_stdout(buf):
             main(["rules", "--format", "markdown"])
         readme = (Path(__file__).resolve().parents[1] / "README.md").read_text()
         self.assertIn(buf.getvalue().strip(), readme, "README rule table is stale: run `acr rules --format markdown`")
+        self.assertIn(f"\n{len(base.REGISTRY)} rules, generated from the code", readme, "README rule count is stale")
+        self.assertNotRegex(buf.getvalue(), r"^\| [a-z-]+ \|", "every area in the table needs a name in RULE_AREAS")
 
 
 class SkippedFilesTests(unittest.TestCase):

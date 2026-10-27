@@ -359,7 +359,7 @@ provider keys, private-key blocks and hardcoded passwords in the diff or tool ou
 | Terraform | `ACR-TF-012` | low | Bucket uses per-object ACLs instead of uniform access |
 | Terraform | `ACR-TF-013` | high | Serverless function exposed on a public URL without authentication |
 | Terraform | `ACR-TF-014` | medium | Secrets and keys can be permanently deleted at once |
-| dependency | `ACR-GHA-016` | medium | Dependency installed from a moving git ref in a workflow |
+| Dependencies | `ACR-GHA-016` | medium | Dependency installed from a moving git ref in a workflow |
 
 ## Optional scanners
 
