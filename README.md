@@ -245,7 +245,7 @@ provider keys, private-key blocks and hardcoded passwords in the diff or tool ou
 
 ## Built-in rules
 
-109 rules, generated from the code (`acr rules`; `acr explain <id>` for details):
+110 rules, generated from the code (`acr rules`; `acr explain <id>` for details):
 
 <!-- regenerate: acr rules --format markdown -->
 
@@ -359,6 +359,7 @@ provider keys, private-key blocks and hardcoded passwords in the diff or tool ou
 | Terraform | `ACR-TF-012` | low | Bucket uses per-object ACLs instead of uniform access |
 | Terraform | `ACR-TF-013` | high | Serverless function exposed on a public URL without authentication |
 | Terraform | `ACR-TF-014` | medium | Secrets and keys can be permanently deleted at once |
+| Dependencies | `ACR-DEP-001` | high | certifi pinned before 2026.10.23, which still trusts the compromised emSign roots |
 | Dependencies | `ACR-GHA-016` | medium | Dependency installed from a moving git ref in a workflow |
 
 ## Optional scanners
