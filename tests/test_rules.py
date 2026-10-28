@@ -967,3 +967,13 @@ class RbacEscalationRule(unittest.TestCase):
                             ('- apiGroups: [""]\n  resources: ["pods", "configmaps"]\n  verbs: ["get", "list", "watch"]\n', "ClusterRole"),
                             ('- apiGroups: ["*"]\n  resources: ["*"]\n  verbs: ["*"]\n', "ClusterRole")):  # ACR-K8S-010's
             self.assertNotIn("ACR-K8S-020", ids("rbac.yaml", self.role(rules, kind), self.K8S), rules)
+
+
+class ImagePlaceholderTests(unittest.TestCase):
+    def test_images_filled_in_at_deploy_time_are_not_judged_here(self):
+        # k8s-inference-routing-benchmark's model servers: envsubst fills both from a file of digests
+        for image in ("${SIM_IMAGE}", "'${RENDER_IMAGE}'", "registry.local/app:${TAG}", "$(params.image)"):
+            pod = f"apiVersion: v1\nkind: Pod\nmetadata:\n  name: p\nspec:\n  containers:\n    - name: c\n      image: {image}\n"
+            self.assertNotIn("ACR-K8S-005", ids("deploy/pod.yaml", pod, {"kubernetes"}), image)
+        latest = "apiVersion: v1\nkind: Pod\nmetadata:\n  name: p\nspec:\n  containers:\n    - name: c\n      image: app:latest\n"
+        self.assertIn("ACR-K8S-005", ids("deploy/pod.yaml", latest, {"kubernetes"}))

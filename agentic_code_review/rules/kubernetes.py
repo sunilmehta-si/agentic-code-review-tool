@@ -75,7 +75,8 @@ def image_pin(path, text, lines):
         if not m or "{{" in line:
             continue
         ref = m.group(1)
-        if "@sha256:" in ref or "*" in ref or ref.startswith("!"):
+        # A ${VAR} or $(VAR) is filled in at deploy time (envsubst, kustomize, Tekton), so the pin is not in this file.
+        if "@sha256:" in ref or "*" in ref or ref.startswith("!") or "$" in ref:
             continue
         name = ref.rsplit("/", 1)[-1]
         if ":" not in name or name.endswith(":latest"):
