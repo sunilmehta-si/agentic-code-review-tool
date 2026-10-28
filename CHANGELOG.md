@@ -4,9 +4,14 @@ All notable changes to this project. The format follows [Keep a Changelog](https
 
 ## [Unreleased]
 
-Lock files are now reviewed. Each rule here comes from a real failure this week: a CA bundle that kept trusting
-compromised roots and a timing side channel in a Go key check that a maintainer caught in review. The HTTP timeout
-rules came out of reading LLM-serving clients' HTTP code, and the artifact rule out of Unit 42's token-leak research.
+## [0.7.0] - 2026-10-28
+
+Lock files are now reviewed, and so are HTTP calls with no timeout, the checkout token shipped in a workflow
+artifact, and RBAC escalation paths short of `*`; 118 rules in all. The lock-file and Go key rules come from real
+failures this month: a CA bundle that kept trusting a compromised root, and a timing side channel in a Go key check
+that a maintainer caught in review. The timeout rules came out of reading LLM-serving clients' HTTP code, the artifact
+rule out of Unit 42's token-leak research, and the RBAC rule out of the Kubernetes RBAC good-practices page. Each new
+rule was run over real repositories before it shipped, and the counts are below.
 
 ### Added
 - A `lockfile` file kind: `uv.lock`, `poetry.lock`, `Pipfile.lock`, `pdm.lock`, `package-lock.json`,
@@ -27,7 +32,8 @@ rules came out of reading LLM-serving clients' HTTP code, and the artifact rule 
   from Argo CD, MLflow, KServe, Kubeflow and others.
 - `ACR-K8S-020`: RBAC escalation paths short of `*`, from the Kubernetes good-practices page. `escalate`, `bind`,
   `impersonate`, `nodes/proxy`, minting service-account tokens and approving CSRs are high; cluster-wide Secret reads
-  and admission-webhook writes, which operators such as KServe, Argo CD and Istio hold routinely, are medium.
+  and admission-webhook writes, which operators such as KServe, Argo CD and Istio hold routinely, are medium. Over
+  the RBAC in KServe, Argo CD, KAI, Kubeflow Pipelines and llm-d it found 77 grants, 73 of them those two kinds.
 
 ### Changed
 - The README's rule table names the dependency area, and its rule count is tested against the registry.
