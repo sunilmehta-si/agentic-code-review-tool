@@ -5,7 +5,8 @@ All notable changes to this project. The format follows [Keep a Changelog](https
 ## [Unreleased]
 
 Lock files are now reviewed. Each rule here comes from a real failure this week: a CA bundle that kept trusting
-compromised roots, and a timing side channel in a Go key check that a maintainer caught in review.
+compromised roots and a timing side channel in a Go key check that a maintainer caught in review. The HTTP timeout
+rules came out of reading LLM-serving clients' HTTP code, and the artifact rule out of Unit 42's token-leak research.
 
 ### Added
 - A `lockfile` file kind: `uv.lock`, `poetry.lock`, `Pipfile.lock`, `pdm.lock`, `package-lock.json`,
@@ -17,6 +18,13 @@ compromised roots, and a timing side channel in a Go key check that a maintainer
 - `ACR-DEP-004` (low): an npm lock entry installed from git or a GitHub tarball, which has no integrity hash.
 - `ACR-APP-019`: Go code that compares, measures or sets an ECDSA private key's `D` with `big.Int`, with
   `PrivateKey.Bytes` and `ParseRawPrivateKey` as the fix.
+- `ACR-APP-020` (low): Go HTTP requests with no timeout: `http.Get` and friends, and the default or a bare client in
+  files that never give a request a context or deadline. On llm-d's simulator it found a dataset download with none.
+- `ACR-APP-021` (low): Python `requests` and `urlopen` calls without `timeout=`, skipping docstring examples, other
+  objects' `urlopen` methods and tests. Ten hits across MLflow and KServe, all real calls.
+- `ACR-GHA-017` (high): a checkout that keeps its credentials followed by an artifact of the workspace with hidden
+  files, which carries the job's token in `.git/config` (Unit 42's ArtiPACKED). No false positives in 249 workflows
+  from Argo CD, MLflow, KServe, Kubeflow and others.
 
 ### Changed
 - The README's rule table names the dependency area, and its rule count is tested against the registry.
