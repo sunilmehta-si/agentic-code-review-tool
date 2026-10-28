@@ -25,6 +25,9 @@ rules came out of reading LLM-serving clients' HTTP code, and the artifact rule 
 - `ACR-GHA-017` (high): a checkout that keeps its credentials followed by an artifact of the workspace with hidden
   files, which carries the job's token in `.git/config` (Unit 42's ArtiPACKED). No false positives in 249 workflows
   from Argo CD, MLflow, KServe, Kubeflow and others.
+- `ACR-K8S-020`: RBAC escalation paths short of `*`, from the Kubernetes good-practices page. `escalate`, `bind`,
+  `impersonate`, `nodes/proxy`, minting service-account tokens and approving CSRs are high; cluster-wide Secret reads
+  and admission-webhook writes, which operators such as KServe, Argo CD and Istio hold routinely, are medium.
 
 ### Changed
 - The README's rule table names the dependency area, and its rule count is tested against the registry.
