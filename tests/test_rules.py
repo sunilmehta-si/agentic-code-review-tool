@@ -856,3 +856,29 @@ class EcdsaScalarBigIntRule(unittest.TestCase):
         self.assertIn("ACR-APP-019", ids("pkg/cli/keyring.go", keyring, go))
         self.assertIn("ACR-APP-019", ids("s.go", "package s\n\n\tsigner.PrivateKey.D.Cmp(n)\n", go))
         self.assertNotIn("ACR-APP-019", ids("s.go", "package s\n\n\tscalar, err := privKey.Bytes()\n", go))
+
+
+class HttpTimeoutRules(unittest.TestCase):
+    GO = {"app", "lang:go"}
+    PY = {"app", "lang:python"}
+
+    def test_go_default_client_helpers_are_flagged(self):
+        for line in ("\tresp, err := http.Get(url)", "\tresp, err := http.Post(u, \"application/json\", body)",
+                     "\tresp, err := http.DefaultClient.Do(req)"):
+            self.assertIn("ACR-APP-020", ids("dl.go", "package dl\n\n" + line + "\n", self.GO), line)
+
+    def test_go_client_without_a_timeout_field_is_flagged_across_lines(self):
+        src = "package dl\n\nvar c = &http.Client{\n\tTransport: t,\n}\n"
+        self.assertIn("ACR-APP-020", ids("dl.go", src, self.GO))
+        self.assertNotIn("ACR-APP-020", ids("dl.go", src.replace("\tTransport: t,", "\tTransport: t,\n\tTimeout: 5 * time.Second,"), self.GO))
+
+    def test_go_requests_that_carry_a_context_or_tests_are_left_alone(self):
+        # llm-d-inference-sim's render client: a bare client, but every request is built with a timeout context
+        render = ("package tokenizer\n\nfunc n() { return &http.Client{} }\n\nfunc p() {\n"
+                  "\treqCtx, cancel := context.WithTimeout(rc.ctx, timeout)\n}\n")
+        self.assertNotIn("ACR-APP-020", ids("pkg/tokenizer/render_client.go", render, self.GO))
+        caller = "package c\n\nvar c = &http.Client{}\nreq, _ := http.NewRequestWithContext(ctx, \"GET\", u, nil)\n"
+        self.assertNotIn("ACR-APP-020", ids("c.go", caller, self.GO))
+        self.assertNotIn("ACR-APP-020", ids("dl_test.go", "package dl\n\n\tresp, err := http.Get(url)\n", self.GO))
+        self.assertNotIn("ACR-APP-020", ids("test/e2e/metrics.go", "package m\n\n\tresp, err := http.Get(url)\n", self.GO))
+        self.assertNotIn("ACR-APP-020", ids("dl.go", "package dl\n\n// resp, err := http.Get(url)\n", self.GO))

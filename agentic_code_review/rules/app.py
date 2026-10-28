@@ -8,7 +8,7 @@ from __future__ import annotations
 import re
 
 from ..models import Severity
-from .base import line_matches, rule
+from .base import ignored, line_matches, make, rule
 
 PY = ["lang:python"]
 JS = ["lang:javascript", "lang:typescript"]
@@ -203,4 +203,52 @@ def ecdsa_scalar_big_int(path, text, lines):
         # import crypto/ecdsa only a receiver named like a key counts.
         pat = re.compile(r"\b\w*(?:[Kk]ey|[Pp]riv|[Ss]igner)\w*(?:\.PrivateKey)?(?:" + calls + ")")
     yield from line_matches(ecdsa_scalar_big_int.info, path, lines, pat)
+
+
+
+TEST_DIRS = {"test", "tests", "e2e", "testdata", "testutil", "testing"}
+
+
+def _is_test(path: str) -> bool:
+    *dirs, name = path.split("/")
+    return (name.endswith("_test.go") or name.startswith("test_") or name.endswith("_test.py")
+            or name == "conftest.py" or bool(TEST_DIRS & set(dirs)))
+
+
+def _bracketed(text: str, start: int, open_: str, close: str) -> str:
+    """Text from `start` (at or before an opening bracket) through its matching close, or to the end if unbalanced."""
+    depth, i = 0, text.find(open_, start)
+    while 0 <= i < len(text):
+        depth += {open_: 1, close: -1}.get(text[i], 0)
+        if depth == 0:
+            return text[start:i + 1]
+        i += 1
+    return text[start:]
+
+
+def _report_spans(info, path, text, lines, spans, detail):
+    for pos in spans:
+        line = text.count("\n", 0, pos) + 1
+        src = lines[line - 1]
+        if not ignored(src, info.rule_id) and not src.lstrip().startswith(("#", "//")):
+            yield make(info, path, line, detail)
+
+
+@rule("ACR-APP-020", "Go HTTP request sent without a timeout", Severity.LOW, "app-security", GO,
+      fix="Give the client a `Timeout`, or build the request with `http.NewRequestWithContext` and a context from "
+          "`context.WithTimeout`; `http.Get`, `http.Post` and `http.DefaultClient` have none.",
+      references=["https://pkg.go.dev/net/http#Client", "https://cwe.mitre.org/data/definitions/400.html"])
+def go_http_no_timeout(path, text, lines):
+    """Go's default client waits forever: a server that accepts the connection and never answers holds the calling
+    goroutine, and its connection, until the process exits."""
+    if _is_test(path):
+        return
+    spans = [m.start() for m in re.finditer(r"\bhttp\.(Get|Head|Post|PostForm)\(", text)]
+    # A request can carry a deadline, its own or its caller's, so the default client and bare clients only count in
+    # files that never attach a context or deadline to one.
+    if not re.search(r"\bcontext\.With(Timeout|Deadline)\(|\.SetDeadline\(|NewRequestWithContext\(|\.WithContext\(", text):
+        spans += [m.start() for m in re.finditer(r"\bhttp\.DefaultClient\.(Do|Get|Head|Post|PostForm)\(", text)]
+        spans += [m.start() for m in re.finditer(r"\bhttp\.Client\{", text)
+                  if "Timeout:" not in _bracketed(text, m.start(), "{", "}")]
+    yield from _report_spans(go_http_no_timeout.info, path, text, lines, sorted(spans), "")
 
