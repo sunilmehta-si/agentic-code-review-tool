@@ -882,3 +882,19 @@ class HttpTimeoutRules(unittest.TestCase):
         self.assertNotIn("ACR-APP-020", ids("dl_test.go", "package dl\n\n\tresp, err := http.Get(url)\n", self.GO))
         self.assertNotIn("ACR-APP-020", ids("test/e2e/metrics.go", "package m\n\n\tresp, err := http.Get(url)\n", self.GO))
         self.assertNotIn("ACR-APP-020", ids("dl.go", "package dl\n\n// resp, err := http.Get(url)\n", self.GO))
+
+    def test_python_calls_without_timeout_are_flagged_across_lines(self):
+        self.assertIn("ACR-APP-021", ids("client.py", "import requests\nr = requests.get(url,\n    headers=h)\n", self.PY))
+        self.assertIn("ACR-APP-021", ids("ping.py", "from urllib.request import urlopen\nwith urlopen(req) as r:\n    pass\n", self.PY))
+        self.assertIn("ACR-APP-021", ids("proxy.py", "resp = requests.request(method, url, json=body)\n", self.PY))
+
+    def test_python_calls_with_timeout_docstrings_methods_and_tests_are_fine(self):
+        for src in ("r = requests.post(url, json=b, timeout=10)\n",
+                    "with urllib.request.urlopen(url, timeout=timeout) as resp:\n    pass\n",
+                    'def f():\n    """Example:\n\n        requests.get("https://example.com")\n    """\n',
+                    "return super().urlopen(method, url, **kwargs)\n",       # urllib3 pool method, not urllib's urlopen
+                    "def urlopen(self, method, url):\n    pass\n",
+                    "# requests.get(url)\n"):
+            self.assertNotIn("ACR-APP-021", ids("client.py", src, self.PY), src)
+        self.assertNotIn("ACR-APP-021", ids("tests/test_client.py", "requests.get(url)\n", self.PY))
+        self.assertNotIn("ACR-APP-021", ids("test_client.py", "requests.get(url)\n", self.PY))

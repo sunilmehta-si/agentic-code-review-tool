@@ -5,7 +5,9 @@ Semgrep/CodeQL when installed; these keep the review useful when they are not.
 """
 from __future__ import annotations
 
+import io
 import re
+import tokenize
 
 from ..models import Severity
 from .base import ignored, line_matches, make, rule
@@ -215,6 +217,19 @@ def _is_test(path: str) -> bool:
             or name == "conftest.py" or bool(TEST_DIRS & set(dirs)))
 
 
+def _python_strings(text: str) -> list[tuple[int, int]]:
+    """Character spans of string literals (docstring examples included), or none if the file doesn't tokenize."""
+    starts = [0]
+    for line in text.splitlines(keepends=True):
+        starts.append(starts[-1] + len(line))
+    kinds = {tokenize.STRING} | {getattr(tokenize, k) for k in ("FSTRING_START",) if hasattr(tokenize, k)}
+    try:
+        return [(starts[tok.start[0] - 1] + tok.start[1], starts[tok.end[0] - 1] + tok.end[1])
+                for tok in tokenize.generate_tokens(io.StringIO(text).readline) if tok.type in kinds]
+    except (tokenize.TokenError, SyntaxError, IndentationError):
+        return []
+
+
 def _bracketed(text: str, start: int, open_: str, close: str) -> str:
     """Text from `start` (at or before an opening bracket) through its matching close, or to the end if unbalanced."""
     depth, i = 0, text.find(open_, start)
@@ -252,3 +267,21 @@ def go_http_no_timeout(path, text, lines):
                   if "Timeout:" not in _bracketed(text, m.start(), "{", "}")]
     yield from _report_spans(go_http_no_timeout.info, path, text, lines, sorted(spans), "")
 
+
+@rule("ACR-APP-021", "Python HTTP request sent without a timeout", Severity.LOW, "app-security", PY,
+      fix="Pass `timeout=` (seconds, or a (connect, read) pair) to every `requests` call and to `urlopen`; both "
+          "default to waiting forever.",
+      references=["https://requests.readthedocs.io/en/latest/user/advanced/#timeouts",
+                  "https://cwe.mitre.org/data/definitions/400.html"])
+def py_http_no_timeout(path, text, lines):
+    """requests and urllib have no default timeout, so one unresponsive server hangs the worker that called it."""
+    if _is_test(path):
+        return
+    # A bare urlopen( is the imported function; .urlopen( is some other object's method (urllib3's pools have one).
+    call = re.compile(r"\brequests\.(get|head|post|put|patch|delete|options|request)\(|\burllib\.request\.urlopen\("
+                      r"|(?<![\w.])(?<!def )urlopen\(")
+    strings = _python_strings(text)
+    spans = [m.start() for m in call.finditer(text)
+             if not re.search(r"\btimeout\s*=", _bracketed(text, m.start(), "(", ")"))
+             and not any(a <= m.start() < b for a, b in strings)]
+    yield from _report_spans(py_http_no_timeout.info, path, text, lines, spans, "")
