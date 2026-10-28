@@ -4,6 +4,10 @@ All notable changes to this project. The format follows [Keep a Changelog](https
 
 ## [Unreleased]
 
+### Fixed
+- `ACR-K8S-005` no longer reports `image: ${VAR}` or `$(VAR)` placeholders as unpinned. The image is filled in at
+  deploy time, often from a file of digests, so the pin is not in the manifest; the Compose rule already skipped them.
+
 ## [0.7.0] - 2026-10-28
 
 Lock files are now reviewed, and so are HTTP calls with no timeout, the checkout token shipped in a workflow
