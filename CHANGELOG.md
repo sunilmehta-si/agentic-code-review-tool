@@ -11,8 +11,8 @@ rules came out of reading LLM-serving clients' HTTP code, and the artifact rule 
 ### Added
 - A `lockfile` file kind: `uv.lock`, `poetry.lock`, `Pipfile.lock`, `pdm.lock`, `package-lock.json`,
   `npm-shrinkwrap.json`, and pip `requirements*.txt` and `constraints*.txt`.
-- `ACR-DEP-001` (high): certifi pinned before 2026.10.23, which still trusts the compromised emSign roots, in any of
-  those formats. On KServe it found two test-resource locks a manual sweep had missed.
+- `ACR-DEP-001` (high): certifi pinned before 2026.10.18, which still trusts emSign ECC Root CA - G3, whose
+  intermediates' keys were compromised (GHSA-6q48-6c7w-9gw2), in any of those formats. On KServe it found two test-resource locks a manual sweep had missed.
 - `ACR-DEP-002` (high): packages fetched over plain HTTP, or `--trusted-host`, in a lock or pip file.
 - `ACR-DEP-003`: `--extra-index-url` in a pip file, which lets a public package that takes an internal name win.
 - `ACR-DEP-004` (low): an npm lock entry installed from git or a GitHub tarball, which has no integrity hash.

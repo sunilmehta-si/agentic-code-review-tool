@@ -57,21 +57,23 @@ def _calendar(version: str) -> tuple[int, ...] | None:
     return tuple(int(p) for p in parts) if all(p.isdigit() for p in parts) else None
 
 
-CERTIFI_FIXED = (2026, 10, 23)
+# 2026.10.18 dropped every emSign root and 2026.10.19 restored all but "emSign ECC Root CA - G3", the one whose
+# intermediates' keys were compromised (GHSA-6q48-6c7w-9gw2); the bundles were compared to confirm it.
+CERTIFI_FIXED = (2026, 10, 18)
 
 
-@rule("ACR-DEP-001", "certifi pinned before 2026.10.23, which still trusts the compromised emSign roots",
+@rule("ACR-DEP-001", "certifi pinned before 2026.10.18, which still trusts the compromised emSign ECC root",
       Severity.HIGH, "dependency", LOCK,
-      fix="Upgrade certifi to 2026.10.23 or later (`uv lock --upgrade-package certifi`, `poetry update certifi`, or "
+      fix="Upgrade certifi to 2026.10.19 or later (`uv lock --upgrade-package certifi`, `poetry update certifi`, or "
           "bump the pin), using the same uv or Poetry version your CI checks the lock with.",
-      references=("https://github.com/certifi/python-certifi",))
+      references=("https://github.com/advisories/GHSA-6q48-6c7w-9gw2", "https://github.com/certifi/python-certifi"))
 def certifi_with_compromised_roots(path: str, text: str, lines: list[str]) -> Iterable[Finding]:
     info = certifi_with_compromised_roots.info
     for package, version, line in pinned_versions(path, lines):
         when = _calendar(version)
         if package == "certifi" and when and when < CERTIFI_FIXED and not ignored(lines[line - 1], info.rule_id):
             yield make(info, path, line, f"certifi {version}: any TLS connection that trusts this bundle also trusts "
-                                         "certificates issued under the emSign roots.")
+                                         "certificates issued under emSign ECC Root CA - G3.")
 
 
 # A package URL or index over plain http, except on this machine (a local mirror or a test server).

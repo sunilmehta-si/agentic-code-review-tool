@@ -38,9 +38,11 @@ class CertifiRootsRule(unittest.TestCase):
         self.assertIn("ACR-DEP-001", ids("poetry.lock", '[[package]]\nname = "certifi"\nversion = "2026.10.5"\n', LOCK))
         self.assertIn("ACR-DEP-001", ids("requirements.txt", "certifi==2025.8.3\n", LOCK))
         self.assertIn("ACR-DEP-001", ids("Pipfile.lock", '"certifi": {\n  "version": "==2026.4.22"\n}\n', LOCK))
+        self.assertIn("ACR-DEP-001", ids("requirements.txt", "certifi==2026.10.5\n", LOCK))     # just before the fix
 
     def test_fixed_and_later_releases_and_unpinned_certifi_are_fine(self):
-        for version in ("2026.10.23", "2026.11.1", "2027.1.5"):
+        # 2026.10.18 and .19 are the advisory's fixed releases, not only the later .23
+        for version in ("2026.10.18", "2026.10.19", "2026.10.23", "2026.11.1", "2027.1.5"):
             self.assertNotIn("ACR-DEP-001", ids("uv.lock", UV_LOCK.format(certifi=version), LOCK), version)
         self.assertNotIn("ACR-DEP-001", ids("requirements.txt", "certifi>=2024.1.1\n", LOCK))
         self.assertNotIn("ACR-DEP-001", ids("requirements.txt", "certifi==2025.8.3  # acr:ignore[ACR-DEP-001]\n", LOCK))
