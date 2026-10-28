@@ -1,6 +1,7 @@
 import json
 import unittest
 
+from agentic_code_review.rules.base import run_rules
 from tests.helpers import ids
 
 PY = {"app", "lang:python"}
@@ -927,3 +928,42 @@ class ArtifactTokenLeakRule(unittest.TestCase):
         src = self.flow(ver="v3").replace("upload-artifact@v3", "upload-artifact@v3  # acr:ignore[ACR-GHA-017] public build, no checkout token")
         self.assertNotIn("ACR-GHA-017", ids(".github/workflows/b.yml", src, self.GHA))
         self.assertNotIn("ACR-GHA-017", ids(".github/workflows/b.yml", "jobs: [unclosed\n", self.GHA))
+
+
+class RbacEscalationRule(unittest.TestCase):
+    K8S = {"kubernetes"}
+
+    def role(self, rules, kind="ClusterRole", name="agent"):
+        return f"apiVersion: rbac.authorization.k8s.io/v1\nkind: {kind}\nmetadata:\n  name: {name}\nrules:\n{rules}"
+
+    def test_documented_escalation_paths_are_flagged(self):
+        for rules in ('- apiGroups: ["rbac.authorization.k8s.io"]\n  resources: ["clusterroles"]\n  verbs: ["escalate"]\n',
+                      '- apiGroups: ["rbac.authorization.k8s.io"]\n  resources: ["rolebindings"]\n  verbs: ["create", "bind"]\n',
+                      '- apiGroups: [""]\n  resources: ["users", "groups"]\n  verbs: ["impersonate"]\n',
+                      '- apiGroups: [""]\n  resources: ["nodes/proxy"]\n  verbs: ["get"]\n',
+                      '- apiGroups: [""]\n  resources: ["serviceaccounts/token"]\n  verbs: ["create"]\n',
+                      '- apiGroups: ["certificates.k8s.io"]\n  resources: ["certificatesigningrequests/approval"]\n  verbs: ["update"]\n',
+                      '- apiGroups: ["admissionregistration.k8s.io"]\n  resources: ["mutatingwebhookconfigurations"]\n  verbs: ["patch"]\n',
+                      '- apiGroups: [""]\n  resources: ["secrets"]\n  verbs: ["list", "watch"]\n'):
+            self.assertIn("ACR-K8S-020", ids("rbac.yaml", self.role(rules), self.K8S), rules)
+
+    def test_the_finding_points_at_the_permission_in_its_own_document(self):
+        src = (self.role('- apiGroups: [""]\n  resources: ["configmaps"]\n  verbs: ["get"]\n', name="reader") + "---\n"
+               + self.role('- apiGroups: [""]\n  resources:\n  - pods\n  - nodes/proxy\n  verbs: ["get"]\n', name="scraper"))
+        found = [f for f in run_rules("rbac.yaml", src, self.K8S) if f.rule_id == "ACR-K8S-020"]
+        self.assertEqual([(f.line, f.detail.split(":")[0]) for f in found], [(18, "ClusterRole 'scraper'")])
+
+    def test_paths_operators_commonly_hold_are_medium_the_rest_high(self):
+        def severity(rules):
+            return {f.severity.name.lower() for f in run_rules("rbac.yaml", self.role(rules), self.K8S) if f.rule_id == "ACR-K8S-020"}
+        self.assertEqual(severity('- apiGroups: [""]\n  resources: ["secrets"]\n  verbs: ["watch"]\n'), {"medium"})
+        self.assertEqual(severity('- apiGroups: ["admissionregistration.k8s.io"]\n  resources: ["validatingwebhookconfigurations"]\n'
+                                  '  verbs: ["update"]\n'), {"medium"})
+        self.assertEqual(severity('- apiGroups: [""]\n  resources: ["nodes/proxy"]\n  verbs: ["get"]\n'), {"high"})
+
+    def test_ordinary_scoped_and_wildcard_roles_are_left_to_other_rules(self):
+        for rules, kind in (('- apiGroups: [""]\n  resources: ["secrets"]\n  verbs: ["get", "list"]\n', "Role"),
+                            ('- apiGroups: [""]\n  resources: ["secrets"]\n  resourceNames: ["webhook-tls"]\n  verbs: ["get"]\n', "ClusterRole"),
+                            ('- apiGroups: [""]\n  resources: ["pods", "configmaps"]\n  verbs: ["get", "list", "watch"]\n', "ClusterRole"),
+                            ('- apiGroups: ["*"]\n  resources: ["*"]\n  verbs: ["*"]\n', "ClusterRole")):  # ACR-K8S-010's
+            self.assertNotIn("ACR-K8S-020", ids("rbac.yaml", self.role(rules, kind), self.K8S), rules)

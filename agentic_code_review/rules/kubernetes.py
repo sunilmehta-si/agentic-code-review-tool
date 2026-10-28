@@ -224,6 +224,48 @@ def rbac_wildcard(path, text, lines):
                        f"{doc['kind']} '{(doc.get('metadata') or {}).get('name', '')}' hands out cluster-admin.")
 
 
+# Escalation paths from the Kubernetes RBAC good-practices page: (verbs, resources, cluster roles only, why, severity).
+# Operators routinely hold the last two, so they are worth a look in review rather than a failed build.
+ESCALATIONS = [
+    ({"escalate"}, None, False, "'escalate' lets it grant permissions it does not hold", Severity.HIGH),
+    ({"bind"}, None, False, "'bind' lets it bind roles with permissions it does not hold", Severity.HIGH),
+    ({"impersonate"}, None, False, "'impersonate' lets it act as other users, groups or service accounts", Severity.HIGH),
+    (None, {"nodes/proxy"}, False, "nodes/proxy reaches the kubelet API, which can run commands in any pod on the node",
+     Severity.HIGH),
+    ({"create"}, {"serviceaccounts/token"}, False, "it can mint tokens for any service account it can name", Severity.HIGH),
+    ({"update", "patch"}, {"certificatesigningrequests/approval"}, False, "it can approve its own client certificates",
+     Severity.HIGH),
+    ({"create", "update", "patch"}, {"mutatingwebhookconfigurations", "validatingwebhookconfigurations"}, False,
+     "an admission webhook it controls sees, and can rewrite, every object the API server admits", Severity.MEDIUM),
+    ({"get", "list", "watch"}, {"secrets"}, True, "it can read every Secret in the cluster; list and watch return values too",
+     Severity.MEDIUM),
+]
+
+
+@rule("ACR-K8S-020", "RBAC grants a privilege-escalation path", Severity.HIGH, "kubernetes", ["kubernetes"],
+      fix="Remove the permission, or narrow it with resourceNames to the exact objects the workload needs and bind it "
+          "with a namespaced RoleBinding. If a controller truly needs it, run that controller in its own namespace and "
+          "suppress the finding there with a reason.",
+      references=["https://kubernetes.io/docs/concepts/security/rbac-good-practices/#privilege-escalation-risks"])
+def rbac_escalation(path, text, lines):
+    """Short of '*', a few permissions let a holder gain more than it was given; the API server documents them."""
+    info = rbac_escalation.info
+    for doc in _docs(text, {"Role", "ClusterRole"}):
+        name = (doc.get("metadata") or {}).get("name", "")
+        start = find_line(lines, re.compile(rf"^\s*name\s*:\s*['\"]?{re.escape(str(name))}['\"]?\s*$")) if name else 1
+        for r in doc.get("rules") or []:
+            verbs, resources = set(r.get("verbs") or []), set(r.get("resources") or [])
+            if "*" in verbs or "*" in resources or r.get("resourceNames"):
+                continue                                    # '*' is ACR-K8S-010; resourceNames scope it to named objects
+            for want_verbs, want_resources, cluster_only, why, severity in ESCALATIONS:
+                if cluster_only and doc["kind"] != "ClusterRole":
+                    continue
+                if (want_verbs is None or verbs & want_verbs) and (want_resources is None or resources & want_resources):
+                    needle = sorted(resources & want_resources)[0] if want_resources else sorted(verbs & want_verbs)[0]
+                    yield make(info, path, find_line(lines, re.compile(rf"\b{re.escape(needle)}\b"), start),
+                               f"{doc['kind']} '{name}': {why}.", severity)
+
+
 @rule("ACR-K8S-011", "Kubernetes Secret with real values committed to git", Severity.HIGH, "secrets", ["kubernetes"],
       fix="Secrets are only base64-encoded. Commit a SealedSecret, SOPS-encrypted file or ExternalSecret reference instead, and rotate this value.",
       references=["https://kubernetes.io/docs/concepts/security/secrets-good-practices/"])
