@@ -3,8 +3,10 @@ from __future__ import annotations
 
 import re
 
+import yaml
+
 from ..models import Severity
-from .base import line_matches, make, rule
+from .base import ignored, line_matches, make, rule
 
 GHA = ["github-actions"]
 HARDENING = "https://docs.github.com/en/actions/security-for-github-actions/security-guides/security-hardening-for-github-actions"
@@ -292,3 +294,57 @@ def moving_git_install(path, text, lines):
     for i, line in enumerate(lines, start=1):
         if i in run_lines and not line.lstrip().startswith("#") and MOVING_GIT_INSTALL.search(line):
             yield make(info, path, i)
+
+
+WORKSPACE_PATHS = {".", "./", "*", "**", "./*", "./**", "${{ github.workspace }}", "${{ github.workspace }}/"}
+
+
+def _upload_leaks_git(uses_line: str, with_: dict) -> str:
+    """Why this upload-artifact step would include .git/config, or "" if it would not."""
+    paths = [p.strip() for p in str(with_.get("path", "")).splitlines() if p.strip()]
+    if any(re.search(r"(^|[/\s])\.git(/|$)", p) for p in paths):
+        return "The artifact names .git directly."
+    if not WORKSPACE_PATHS & set(paths):
+        return ""
+    if str(with_.get("include-hidden-files", "")).lower() == "true":
+        return "It uploads the whole workspace with include-hidden-files: true, so .git/config goes with it."
+    # Before v4.4 upload-artifact included hidden files by default; a SHA pin says its version in the comment. A bare
+    # major tag (@v4) moves to that major's latest release.
+    version = re.search(r"@v(\d+)(?:\.(\d+))?|#\s*v(\d+)(?:\.(\d+))?", uses_line)
+    if version:
+        major, minor = int(version.group(1) or version.group(3)), version.group(2) or version.group(4)
+        if major < 4 or (major == 4 and minor is not None and int(minor) < 4):
+            shown = f"v{major}" if minor is None else f"v{major}.{minor}"
+            return f"upload-artifact {shown} includes hidden files by default, so .git/config goes with the workspace."
+    return ""
+
+
+@rule("ACR-GHA-017", "Checkout credentials uploaded in a workflow artifact", Severity.HIGH, "ci-cd", GHA,
+      fix="Set `persist-credentials: false` on actions/checkout (a later push step can authenticate explicitly), and "
+          "upload only the files the artifact needs, never the workspace with hidden files.",
+      references=["https://unit42.paloaltonetworks.com/github-repo-artifacts-leak-tokens/",
+                  "https://github.com/actions/checkout#usage"])
+def artifact_token_leak(path, text, lines):
+    """actions/checkout writes the job's token into .git/config unless persist-credentials is false; an artifact
+    built from the workspace with hidden files carries it to anyone who can download the run's artifacts."""
+    info = artifact_token_leak.info
+    try:
+        flow = yaml.safe_load(text)
+    except yaml.YAMLError:
+        return
+    if not isinstance(flow, dict) or not isinstance(flow.get("jobs"), dict):
+        return
+    upload_lines = iter(i for i, line in enumerate(lines, start=1)
+                        if re.search(r"uses\s*:\s*['\"]?actions/upload-artifact@", line))
+    for job in flow["jobs"].values():
+        persisted = False
+        for step in (job or {}).get("steps") or []:
+            uses = str((step or {}).get("uses", ""))
+            with_ = (step or {}).get("with") or {}
+            if uses.startswith("actions/checkout@"):
+                persisted = persisted or str(with_.get("persist-credentials", "true")).lower() != "false"
+            elif uses.startswith("actions/upload-artifact@"):
+                line = next(upload_lines, 1)
+                reason = _upload_leaks_git(lines[line - 1], with_) if persisted else ""
+                if reason and not ignored(lines[line - 1], info.rule_id):
+                    yield make(info, path, line, reason)

@@ -898,3 +898,32 @@ class HttpTimeoutRules(unittest.TestCase):
             self.assertNotIn("ACR-APP-021", ids("client.py", src, self.PY), src)
         self.assertNotIn("ACR-APP-021", ids("tests/test_client.py", "requests.get(url)\n", self.PY))
         self.assertNotIn("ACR-APP-021", ids("test_client.py", "requests.get(url)\n", self.PY))
+
+
+class ArtifactTokenLeakRule(unittest.TestCase):
+    GHA = {"github-actions"}
+    FLOW = ("on: push\njobs:\n  build:\n    runs-on: ubuntu-latest\n    steps:\n      - uses: actions/checkout@v4\n{checkout}"
+            "      - run: make\n      - uses: actions/upload-artifact@{ver}\n        with:\n          name: build\n"
+            "          path: {path}\n{extra}")
+
+    def flow(self, ver="v4", path=".", extra="", checkout=""):
+        return self.FLOW.format(ver=ver, path=path, extra=extra, checkout=checkout)
+
+    def test_workspace_with_hidden_files_after_a_persisting_checkout_is_flagged(self):
+        for src in (self.flow(extra="          include-hidden-files: true\n"),
+                    self.flow(ver="v3"),                                         # hidden files were in by default
+                    self.flow(ver="65462800fd760344b1a7b4382951275a0abb4808 # v4.3.3", path="${{ github.workspace }}"),
+                    self.flow(path="|\n            dist/\n            .git/config")):
+            self.assertIn("ACR-GHA-017", ids(".github/workflows/b.yml", src, self.GHA), src)
+
+    def test_safe_uploads_are_fine(self):
+        for src in (self.flow(),                                                 # v4.4+ leaves hidden files out
+                    self.flow(path="dist/", extra="          include-hidden-files: true\n"),
+                    self.flow(path=".github/workflows"),
+                    self.flow(ver="v3", checkout="        with:\n          persist-credentials: false\n")):
+            self.assertNotIn("ACR-GHA-017", ids(".github/workflows/b.yml", src, self.GHA), src)
+
+    def test_suppression_and_unparsable_workflows(self):
+        src = self.flow(ver="v3").replace("upload-artifact@v3", "upload-artifact@v3  # acr:ignore[ACR-GHA-017] public build, no checkout token")
+        self.assertNotIn("ACR-GHA-017", ids(".github/workflows/b.yml", src, self.GHA))
+        self.assertNotIn("ACR-GHA-017", ids(".github/workflows/b.yml", "jobs: [unclosed\n", self.GHA))
