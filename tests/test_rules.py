@@ -1009,3 +1009,23 @@ class GoWeakRandomTests(unittest.TestCase):
         self.assertNotIn("ACR-APP-010", ids("shuffle.go", head + "\tidx := rand.Intn(len(items))\n", self.GO))
         crypto = 'package auth\n\nimport "crypto/rand"\n\n\ttoken := make([]byte, 32)\n\t_, err := rand.Read(token)\n'
         self.assertNotIn("ACR-APP-010", ids("token.go", crypto, self.GO))
+
+
+class PredictableTempFileRule(unittest.TestCase):
+    def test_fixed_names_under_tmp_are_flagged_in_python_and_go(self):
+        py = {"app", "lang:python"}; go = {"app", "lang:go"}
+        for src in ("path = tempfile.mktemp(suffix=\".json\")\n",
+                    "path = os.path.join(tempfile.gettempdir(), \"model.bin\")\n",
+                    "with open(\"/tmp/results.json\", \"w\") as f:\n    pass\n"):
+            self.assertIn("ACR-APP-023", ids("run.py", src, py), src)
+        for src in ("\tp := filepath.Join(os.TempDir(), \"kubeconfig\")\n", "\tos.WriteFile(\"/tmp/token\", data, 0o600)\n"):
+            self.assertIn("ACR-APP-023", ids("run.go", "package run\n\n" + src, go), src)
+
+    def test_files_created_atomically_are_fine(self):
+        py = {"app", "lang:python"}; go = {"app", "lang:go"}
+        for src in ("fd, path = tempfile.mkstemp(suffix=\".json\")\n", "with tempfile.NamedTemporaryFile() as f:\n    pass\n",
+                    "with tempfile.TemporaryDirectory() as d:\n    path = os.path.join(d, \"model.bin\")\n",
+                    "path = os.path.join(tempfile.gettempdir(), name)\n"):   # a computed name is not this rule's call
+            self.assertNotIn("ACR-APP-023", ids("run.py", src, py), src)
+        self.assertNotIn("ACR-APP-023", ids("run.go", "package run\n\n\tf, err := os.CreateTemp(\"\", \"kubeconfig-*\")\n", go))
+        self.assertNotIn("ACR-APP-023", ids("tests/test_run.py", "open(\"/tmp/results.json\", \"w\")\n", py))

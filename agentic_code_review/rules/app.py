@@ -317,3 +317,17 @@ def archive_extract_unfiltered(path, text, lines):
             continue
         spans.append(m.start())
     yield from _report_spans(archive_extract_unfiltered.info, path, text, lines, spans, "")
+
+
+@rule("ACR-APP-023", "Temporary file created by name, open to a race (mktemp)", Severity.MEDIUM, "app-security", PY + GO,
+      fix="Create and open the file in one step: `tempfile.NamedTemporaryFile` / `mkstemp` / `TemporaryDirectory` in "
+          "Python, `os.CreateTemp` / `os.MkdirTemp` in Go. A name picked first can be claimed by another process (or a "
+          "symlink planted at it) before the file is opened, so the write lands where the attacker chose.",
+      references=["https://cwe.mitre.org/data/definitions/377.html",
+                  "https://docs.python.org/3/library/tempfile.html#tempfile.mktemp"])
+def predictable_temp_file(path, text, lines):
+    if _is_test(path):
+        return
+    pat = re.compile(r"\btempfile\.mktemp\(|\bos\.path\.join\(\s*(tempfile\.gettempdir\(\)|\"/tmp\"|'/tmp')\s*,\s*[\"']\w"
+                     r"""|\bopen\(\s*[\"']/tmp/\w[^\"']*[\"']\s*,\s*[\"']w|\bfilepath\.Join\(os\.TempDir\(\),\s*"\w|\bos\.(Create|WriteFile)\("/tmp/\w""")
+    yield from line_matches(predictable_temp_file.info, path, lines, pat)
