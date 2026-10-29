@@ -4,6 +4,17 @@ All notable changes to this project. The format follows [Keep a Changelog](https
 
 ## [Unreleased]
 
+### Added
+- `ACR-APP-022`: `tarfile` and `zipfile` extraction with no `filter=` and no member-path check, the zip-slip shape of
+  model and dataset downloads.
+- `ACR-APP-023`: temporary files created by a fixed name under `/tmp` (`tempfile.mktemp`, a literal joined onto the
+  temp directory, `open("/tmp/x", "w")`, Go's `filepath.Join(os.TempDir(), "x")`), open to a symlink race.
+- `ACR-DEP-005`: pip requirements installed from a git branch, tag or bare URL instead of a commit.
+
+### Changed
+- `ACR-APP-010` (predictable random numbers for a secret) covers Go's `math/rand`, in files that do not import
+  `crypto/rand`.
+
 ### Fixed
 - `ACR-K8S-005` no longer reports `image: ${VAR}` or `$(VAR)` placeholders as unpinned. The image is filled in at
   deploy time, often from a file of digests, so the pin is not in the manifest; the Compose rule already skipped them.
