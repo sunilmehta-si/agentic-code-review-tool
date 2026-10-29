@@ -66,3 +66,12 @@ ALLOWED_HOSTS = ["*"]
 @csrf_exempt
 def transfer_funds(request):
     return None
+
+
+def unpack_model(archive):
+    import tarfile
+    import tempfile
+    scratch = tempfile.mktemp(suffix=".tar")
+    with tarfile.open(archive) as tar:
+        tar.extractall("/opt/models")
+    return scratch
