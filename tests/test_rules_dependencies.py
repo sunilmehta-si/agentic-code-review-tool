@@ -110,3 +110,17 @@ class NpmGitDependencyRule(unittest.TestCase):
     def test_registry_packages_with_integrity_and_other_files_are_fine(self):
         self.assertNotIn("ACR-DEP-004", ids("package-lock.json", self.REGISTRY, LOCK))
         self.assertNotIn("ACR-DEP-004", ids("requirements.txt", self.GIT, LOCK))
+
+
+class MovingGitRequirementRule(unittest.TestCase):
+    def test_branch_tag_or_no_ref_is_flagged_and_a_commit_is_not(self):
+        for line in ("git+https://github.com/org/pkg.git@main#egg=pkg", "pkg @ git+https://github.com/org/pkg.git@v1.2.0",
+                     "git+ssh://git@github.com/org/pkg.git", "pkg[extra] @ git+https://github.com/org/pkg@develop"):
+            self.assertIn("ACR-DEP-005", ids("requirements.txt", line + "\n", LOCK), line)
+        sha = "a" * 40
+        for line in (f"pkg @ git+https://github.com/org/pkg.git@{sha}", f"git+https://github.com/org/pkg.git@{sha}#egg=pkg",
+                     "requests==2.32.4", "# git+https://github.com/org/pkg.git@main"):
+            self.assertNotIn("ACR-DEP-005", ids("requirements-dev.txt", line + "\n", LOCK), line)
+
+    def test_only_pip_files_are_read(self):
+        self.assertNotIn("ACR-DEP-005", ids("uv.lock", 'source = { git = "https://github.com/org/pkg?rev=main" }\n', LOCK))

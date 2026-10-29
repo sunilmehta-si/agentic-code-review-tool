@@ -8,6 +8,7 @@ from __future__ import annotations
 import re
 from typing import Iterable, Iterator
 
+from ..classify import PIP_PINS
 from ..models import Finding, Severity
 from .base import ignored, make, rule
 
@@ -140,3 +141,27 @@ def npm_git_without_integrity(path: str, text: str, lines: list[str]) -> Iterabl
         entry = lines[max(0, i - 6):i + 6]                    # the package's own object: a few lines either side
         if not any(NPM_INTEGRITY.match(other) for other in entry):
             yield make(info, path, i, f"{m.group(1)[:120]} is installed without a hash to check it against.")
+
+
+MOVING_GIT_REQUIREMENT = re.compile(
+    r"^\s*(?:[\w.\[\]-]+\s*@\s*)?git\+(?:https?|ssh)://[^\s#]+?(?:@(?P<ref>[^\s#]+))?(?:#|\s|$)")
+
+
+@rule("ACR-DEP-005", "pip requirement installed from a moving git ref", Severity.MEDIUM, "dependency",
+      ["lockfile"],
+      fix="Pin the commit: `pkg @ git+https://host/org/repo@<40-char sha>`. A branch, a tag or no ref at all installs "
+          "whatever the repository holds on the day pip runs, including a force-pushed or compromised commit, and a "
+          "lock file cannot record it.",
+      references=("https://pip.pypa.io/en/stable/topics/vcs-support/",))
+def moving_git_requirement(path: str, text: str, lines: list[str]) -> Iterable[Finding]:
+    info = moving_git_requirement.info
+    if not PIP_PINS.search(path.rsplit("/", 1)[-1]):
+        return
+    for i, line in enumerate(lines, start=1):
+        m = MOVING_GIT_REQUIREMENT.match(line)
+        if not m or ignored(line, info.rule_id):
+            continue
+        ref = m.group("ref") or ""
+        if re.fullmatch(r"[0-9a-f]{40}", ref):
+            continue
+        yield make(info, path, i, f"ref '{ref}' moves" if ref else "no ref: the default branch's tip at install time")
