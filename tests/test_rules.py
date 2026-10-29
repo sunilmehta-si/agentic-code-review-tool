@@ -977,3 +977,23 @@ class ImagePlaceholderTests(unittest.TestCase):
             self.assertNotIn("ACR-K8S-005", ids("deploy/pod.yaml", pod, {"kubernetes"}), image)
         latest = "apiVersion: v1\nkind: Pod\nmetadata:\n  name: p\nspec:\n  containers:\n    - name: c\n      image: app:latest\n"
         self.assertIn("ACR-K8S-005", ids("deploy/pod.yaml", latest, {"kubernetes"}))
+
+
+class ArchiveExtractRule(unittest.TestCase):
+    PY = {"app", "lang:python"}
+
+    def test_unfiltered_extraction_is_flagged(self):
+        for src in ("with tarfile.open(path) as tar:\n    tar.extractall(dest)\n",
+                    "tarfile.open(p).extractall(\n    path=dest,\n)\n",
+                    "zipfile.ZipFile(p).extractall(dest)\n",
+                    "for m in tar.getmembers():\n    tar.extract(m, dest)\n"):
+            self.assertIn("ACR-APP-022", ids("download.py", src, self.PY), src)
+
+    def test_filtered_checked_and_test_extractions_are_fine(self):
+        for src in ("tar.extractall(dest, filter=\"data\")\n",
+                    "tar.extractall(\n    dest,\n    filter=\"data\",\n)\n",
+                    "with zipfile.ZipFile(p) as z:\n    for m in z.infolist():\n        target = (dest / m.filename).resolve()\n"
+                    "        if not target.is_relative_to(dest):\n            raise ValueError(m.filename)\n    z.extractall(dest)\n",
+                    '"""tar.extractall(dest) is unsafe"""\n', "# tar.extractall(dest)\n"):
+            self.assertNotIn("ACR-APP-022", ids("download.py", src, self.PY), src)
+        self.assertNotIn("ACR-APP-022", ids("tests/test_download.py", "tar.extractall(dest)\n", self.PY))

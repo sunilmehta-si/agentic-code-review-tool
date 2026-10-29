@@ -285,3 +285,30 @@ def py_http_no_timeout(path, text, lines):
              if not re.search(r"\btimeout\s*=", _bracketed(text, m.start(), "(", ")"))
              and not any(a <= m.start() < b for a, b in strings)]
     yield from _report_spans(py_http_no_timeout.info, path, text, lines, spans, "")
+
+
+@rule("ACR-APP-022", "Archive extracted without a path filter (zip slip)", Severity.MEDIUM, "app-security", PY,
+      fix="Extract with `tar.extractall(path, filter=\"data\")` (Python 3.12+, backported to 3.8.17/3.9.17/3.10.12/3.11.4)"
+          " and check each zip member's resolved path stays under the target before `ZipFile.extractall`. An archive "
+          "member named `../../etc/cron.d/x` or a symlink out of the tree otherwise writes wherever it points.",
+      references=["https://docs.python.org/3/library/tarfile.html#tarfile-extraction-filter",
+                  "https://cwe.mitre.org/data/definitions/22.html"])
+def archive_extract_unfiltered(path, text, lines):
+    """Model and dataset downloads are archives from somewhere else; tarfile only refuses escaping members when asked."""
+    if _is_test(path):
+        return
+    call = re.compile(r"\.extractall\(|\.extract\(")
+    strings = _python_strings(text)
+    spans = []
+    for m in call.finditer(text):
+        if any(a <= m.start() < b for a, b in strings):
+            continue
+        args = _bracketed(text, m.start(), "(", ")")
+        if re.search(r"\bfilter\s*=", args):
+            continue
+        # a zip member checked against the target directory on the lines just above counts as filtered
+        before = text[max(0, m.start() - 400):m.start()]
+        if re.search(r"(realpath|resolve|abspath|commonpath|is_relative_to|startswith)\(", before) and "zip" in before.lower():
+            continue
+        spans.append(m.start())
+    yield from _report_spans(archive_extract_unfiltered.info, path, text, lines, spans, "")
