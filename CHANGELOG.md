@@ -9,7 +9,8 @@ All notable changes to this project. The format follows [Keep a Changelog](https
   model and dataset downloads. Run over MLflow, KServe and Kubeflow Pipelines before shipping: four real
   extractions, no false positives left.
 - `ACR-APP-023`: temporary files created by a fixed name under `/tmp` (`tempfile.mktemp`, a literal joined onto the
-  temp directory, `open("/tmp/x", "w")`, Go's `filepath.Join(os.TempDir(), "x")`), open to a symlink race.
+  temp directory, `open("/tmp/x", "w")`, Go's `filepath.Join(os.TempDir(), "x")`), open to a symlink race. Over Argo CD it found the dex
+  command writing its TLS key and config to fixed paths under `/tmp`, and MLflow's REPL cache under `/tmp/repl_tmp_data`.
 - `ACR-DEP-005`: pip requirements installed from a git branch, tag or bare URL instead of a commit.
 
 ### Changed
