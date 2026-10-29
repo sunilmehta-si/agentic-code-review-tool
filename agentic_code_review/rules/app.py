@@ -97,14 +97,19 @@ def cors_wildcard(path, text, lines):
     yield from line_matches(cors_wildcard.info, path, lines, wildcard)
 
 
-@rule("ACR-APP-010", "Predictable random numbers used for a secret value", Severity.MEDIUM, "app-security", PY + JS,
+@rule("ACR-APP-010", "Predictable random numbers used for a secret value", Severity.MEDIUM, "app-security", PY + JS + GO,
       fix="Use a CSPRNG: secrets.token_urlsafe() / secrets.choice() in Python, crypto.randomUUID() or "
-          "crypto.getRandomValues() in JavaScript. random and Math.random can be predicted from earlier outputs.",
+          "crypto.getRandomValues() in JavaScript, crypto/rand in Go. random, Math.random and math/rand can be "
+          "predicted from earlier outputs.",
       references=["https://cwe.mitre.org/data/definitions/338.html"])
 def weak_random(path, text, lines):
-    pat = re.compile(r"(?i)\b\w*(token|secret|passw|nonce|otp|salt|session_?id|csrf|api_?key|reset_?code|verification_?code)\w*"
-                     r"""["']?\s*[:=][^\n]*(\brandom\.(random|randint|choice|choices|randrange|getrandbits|sample)\(|\bMath\.random\(\))""")
+    names = r"(?i)\b\w*(token|secret|passw|nonce|otp|salt|session_?id|csrf|api_?key|reset_?code|verification_?code)\w*"
+    pat = re.compile(names + r"""["']?\s*[:=][^\n]*(\brandom\.(random|randint|choice|choices|randrange|getrandbits|sample)\(|\bMath\.random\(\))""")
     yield from line_matches(weak_random.info, path, lines, pat)
+    # Go: only math/rand's package functions; crypto/rand has Read and Int too, so a file that imports it is left alone
+    if '"math/rand"' in text and '"crypto/rand"' not in text:
+        go = re.compile(names + r"\s*:?=[^\n]*\brand\.(Int|Intn|Int31|Int31n|Int63|Int63n|Uint32|Uint64|Float64|Read|Perm|Shuffle)\(")
+        yield from line_matches(weak_random.info, path, lines, go)
 
 
 @rule("ACR-APP-011", "XML parser resolves external entities (XXE)", Severity.HIGH, "app-security", PY + JS,

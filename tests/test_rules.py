@@ -997,3 +997,15 @@ class ArchiveExtractRule(unittest.TestCase):
                     '"""tar.extractall(dest) is unsafe"""\n', "# tar.extractall(dest)\n"):
             self.assertNotIn("ACR-APP-022", ids("download.py", src, self.PY), src)
         self.assertNotIn("ACR-APP-022", ids("tests/test_download.py", "tar.extractall(dest)\n", self.PY))
+
+
+class GoWeakRandomTests(unittest.TestCase):
+    GO = {"app", "lang:go"}
+
+    def test_math_rand_for_a_secret_is_flagged_and_crypto_rand_is_not(self):
+        head = 'package auth\n\nimport "math/rand"\n\n'
+        self.assertIn("ACR-APP-010", ids("token.go", head + "\ttoken := rand.Int63()\n", self.GO))
+        self.assertIn("ACR-APP-010", ids("token.go", head + "\tresetCode = fmt.Sprint(rand.Intn(1000000))\n", self.GO))
+        self.assertNotIn("ACR-APP-010", ids("shuffle.go", head + "\tidx := rand.Intn(len(items))\n", self.GO))
+        crypto = 'package auth\n\nimport "crypto/rand"\n\n\ttoken := make([]byte, 32)\n\t_, err := rand.Read(token)\n'
+        self.assertNotIn("ACR-APP-010", ids("token.go", crypto, self.GO))
