@@ -6,7 +6,8 @@ All notable changes to this project. The format follows [Keep a Changelog](https
 
 ### Added
 - `ACR-APP-022`: `tarfile` and `zipfile` extraction with no `filter=` and no member-path check, the zip-slip shape of
-  model and dataset downloads.
+  model and dataset downloads. Run over MLflow, KServe and Kubeflow Pipelines before shipping: four real
+  extractions, no false positives left.
 - `ACR-APP-023`: temporary files created by a fixed name under `/tmp` (`tempfile.mktemp`, a literal joined onto the
   temp directory, `open("/tmp/x", "w")`, Go's `filepath.Join(os.TempDir(), "x")`), open to a symlink race.
 - `ACR-DEP-005`: pip requirements installed from a git branch, tag or bare URL instead of a commit.
