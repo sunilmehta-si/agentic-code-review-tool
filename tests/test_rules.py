@@ -994,7 +994,11 @@ class ArchiveExtractRule(unittest.TestCase):
                     "tar.extractall(\n    dest,\n    filter=\"data\",\n)\n",
                     "with zipfile.ZipFile(p) as z:\n    for m in z.infolist():\n        target = (dest / m.filename).resolve()\n"
                     "        if not target.is_relative_to(dest):\n            raise ValueError(m.filename)\n    z.extractall(dest)\n",
-                    '"""tar.extractall(dest) is unsafe"""\n', "# tar.extractall(dest)\n"):
+                    '"""tar.extractall(dest) is unsafe"""\n', "# tar.extractall(dest)\n",
+                    "ctx = TraceContextTextMapPropagator().extract(headers)\n",         # not an archive
+                    "return func.floor(func.extract(\"epoch\", func.now()) * 1000)\n",
+                    "for m in tar.getmembers():\n    dest_path = os.path.realpath(os.path.join(dest, m.name))\n"
+                    "    if not dest_path.startswith(dest):\n        raise ValueError(m.name)\n    tar.extract(m, path=dest)\n"):
             self.assertNotIn("ACR-APP-022", ids("download.py", src, self.PY), src)
         self.assertNotIn("ACR-APP-022", ids("tests/test_download.py", "tar.extractall(dest)\n", self.PY))
 

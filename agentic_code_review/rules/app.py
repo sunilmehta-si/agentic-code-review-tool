@@ -302,7 +302,9 @@ def archive_extract_unfiltered(path, text, lines):
     """Model and dataset downloads are archives from somewhere else; tarfile only refuses escaping members when asked."""
     if _is_test(path):
         return
-    call = re.compile(r"\.extractall\(|\.extract\(")
+    # extractall on anything; extract only on a receiver named like an archive (propagators and SQL functions have
+    # extract methods too)
+    call = re.compile(r"\.extractall\(|\b\w*(?:tar|zip|archive|tf|zf)\w*\.extract\(", re.I)
     strings = _python_strings(text)
     spans = []
     for m in call.finditer(text):
@@ -311,9 +313,9 @@ def archive_extract_unfiltered(path, text, lines):
         args = _bracketed(text, m.start(), "(", ")")
         if re.search(r"\bfilter\s*=", args):
             continue
-        # a zip member checked against the target directory on the lines just above counts as filtered
-        before = text[max(0, m.start() - 400):m.start()]
-        if re.search(r"(realpath|resolve|abspath|commonpath|is_relative_to|startswith)\(", before) and "zip" in before.lower():
+        # a member path checked against the target directory on the lines just above counts as filtered
+        before = text[max(0, m.start() - 600):m.start()]
+        if re.search(r"(realpath|resolve|abspath|commonpath|is_relative_to|startswith)\(", before):
             continue
         spans.append(m.start())
     yield from _report_spans(archive_extract_unfiltered.info, path, text, lines, spans, "")
