@@ -1115,7 +1115,7 @@ class WorldWritableModeTests(unittest.TestCase):
 
     def test_restrictive_modes_other_numbers_and_tests_are_fine(self):
         for src in ("os.chmod(path, 0o600)\n", "os.makedirs(cache, 0o755, exist_ok=True)\n", "os.chmod(path, mode)\n",
-                    "retries = 7\nos.chmod(path, 0o644)\n"):
+                    "retries = 7\nos.chmod(path, 0o644)\n", "os.chmod(path, 0o666 & ~current_umask)\n"):
             self.assertNotIn("ACR-APP-025", ids("setup_dirs.py", src, self.PY), src)
         for src in ("\tos.WriteFile(cfg, data, 0o600)\n", "\tos.MkdirAll(dir, 0o750)\n", "\tos.WriteFile(cfg, data, 0o644) // 7 retries\n"):
             self.assertNotIn("ACR-APP-025", ids("main.go", "package main\n\n" + src, self.GO), src)

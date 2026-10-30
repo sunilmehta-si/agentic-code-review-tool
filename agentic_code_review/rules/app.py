@@ -388,6 +388,8 @@ def world_writable_mode(path, text, lines):
         if not m or ignored(line, world_writable_mode.info.rule_id) or line.lstrip().startswith(("#", "//")):
             continue
         modes = [x for x in strict.findall(line) if x.lstrip("0o")[-1] in "67" and len(x.lstrip("0o")) in (3, 4)]
+        if re.search(r"0o?[0-7]{3,4}\s*&", line):          # masked by the umask: the caller is asking for the default
+            continue
         if modes:
             yield make(world_writable_mode.info, path, i, f"mode {modes[0]} lets any user write it.")
 
