@@ -1132,3 +1132,18 @@ class AssertForAuthorisationTests(unittest.TestCase):
                      "# assert user.is_admin was here"):
             self.assertNotIn("ACR-APP-026", ids("views.py", line + "\n", self.PY), line)
         self.assertNotIn("ACR-APP-026", ids("tests/test_views.py", "assert user.is_admin\n", self.PY))
+
+
+class GoOpenRedirectTests(unittest.TestCase):
+    GO = {"app", "lang:go"}
+
+    def test_redirects_to_request_values_are_flagged(self):
+        for line in ('\thttp.Redirect(w, r, r.URL.Query().Get("next"), http.StatusFound)',
+                     '\thttp.Redirect(w, r, r.FormValue("return_to"), 302)',
+                     '\tc.Redirect(http.StatusFound, c.Query("redirect"))'):
+            self.assertIn("ACR-APP-012", ids("login.go", "package web\n\n" + line + "\n", self.GO), line)
+
+    def test_fixed_or_validated_targets_are_fine(self):
+        for line in ('\thttp.Redirect(w, r, "/login", http.StatusFound)', '\thttp.Redirect(w, r, safeNext(r), http.StatusFound)',
+                     '\tc.Redirect(http.StatusFound, "/")'):
+            self.assertNotIn("ACR-APP-012", ids("login.go", "package web\n\n" + line + "\n", self.GO), line)

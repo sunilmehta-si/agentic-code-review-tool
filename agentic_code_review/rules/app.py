@@ -134,13 +134,15 @@ def xxe(path, text, lines):
 
 
 @rule("ACR-APP-012", "Redirect to a URL taken straight from the request (open redirect)", Severity.MEDIUM, "app-security",
-      PY + JS,
+      PY + JS + GO,
       fix="Redirect only to relative paths or an allow-list of hosts (e.g. url_has_allowed_host_and_scheme in Django); "
           "otherwise attackers use your domain to send users to phishing pages.",
       references=["https://cheatsheetseries.owasp.org/cheatsheets/Unvalidated_Redirects_and_Forwards_Cheat_Sheet.html"])
 def open_redirect(path, text, lines):
     pat = re.compile(r"\b(redirect|HttpResponseRedirect|RedirectResponse)\(\s*request\.(args|GET|POST|form|values|query_params)\b"
-                     r"|\bres\.redirect\(\s*(\d{3}\s*,\s*)?req\.(query|params|body)\.")
+                     r"|\bres\.redirect\(\s*(\d{3}\s*,\s*)?req\.(query|params|body)\."
+                     r"|\bhttp\.Redirect\(\s*\w+,\s*\w+,\s*(r|req|request)\.(URL\.Query\(\)\.Get|FormValue|PostFormValue|URL\.Query\(\)\[)"
+                     r"|\bc\.Redirect\(\s*[\w.]+,\s*c\.(Query|Param|PostForm|DefaultQuery)\(")
     yield from line_matches(open_redirect.info, path, lines, pat)
 
 
