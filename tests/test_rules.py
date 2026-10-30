@@ -1052,3 +1052,19 @@ class GoSqlFormattingTests(unittest.TestCase):
                      '\tdb.Where("name = ?", name).First(&u)',
                      '\tmsg := fmt.Sprintf("SELECT took %s", d)'):
             self.assertNotIn("ACR-APP-001", ids("store.go", "package store\n\n" + line + "\n", self.GO), line)
+
+
+class GoShellInjectionTests(unittest.TestCase):
+    GO = {"app", "lang:go"}
+
+    def test_a_shell_given_a_built_command_is_flagged(self):
+        for line in ('\tout, err := exec.Command("sh", "-c", "tar czf "+dest+" "+src).Output()',
+                     '\tcmd := exec.CommandContext(ctx, "/bin/bash", "-c", fmt.Sprintf("kubectl get %s", name))',
+                     '\tcmd := exec.Command("sh", "-c", script)'):
+            self.assertIn("ACR-APP-002", ids("run.go", "package run\n\n" + line + "\n", self.GO), line)
+
+    def test_argument_lists_and_literal_scripts_are_fine(self):
+        for line in ('\tcmd := exec.Command("kubectl", "get", "pods", "-n", ns)',
+                     '\tcmd := exec.Command("sh", "-c", "ulimit -n")',
+                     '\tcmd := exec.CommandContext(ctx, "tar", "czf", dest, src)'):
+            self.assertNotIn("ACR-APP-002", ids("run.go", "package run\n\n" + line + "\n", self.GO), line)

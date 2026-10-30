@@ -31,14 +31,20 @@ def sql_formatting(path, text, lines):
     yield from line_matches(sql_formatting.info, path, lines, sql_go)
 
 
-@rule("ACR-APP-002", "Shell command built from a string", Severity.HIGH, "app-security", PY + JS,
-      fix="Pass an argument list without a shell (subprocess.run([...]) / execFile), and validate any user input.",
+@rule("ACR-APP-002", "Shell command built from a string", Severity.HIGH, "app-security", PY + JS + GO,
+      fix="Pass an argument list without a shell (subprocess.run([...]) / execFile / exec.Command(name, args...)), "
+          "and validate any user input.",
       references=["https://cwe.mitre.org/data/definitions/78.html"])
 def shell_injection(path, text, lines):
     py = re.compile(r"\b(subprocess\.(run|call|Popen|check_output|check_call)\(.*shell\s*=\s*True|os\.system\(|os\.popen\()")
     js = re.compile(r"""\b(child_process\.)?exec(Sync)?\(\s*(`[^`]*\$\{|[^)]*\+)""")  # acr:ignore - rule pattern, not a call
+    # a shell asked to parse a command that is not one literal closing the call: the third argument starts with
+    # something other than a quote (a variable, a Sprintf), or is a literal followed by a + rather than the )
+    go = re.compile(r"""\bexec\.Command(Context)?\(\s*(ctx,\s*)?"(/bin/)?(sh|bash|zsh|dash|cmd|powershell)(\.exe)?",\s*"(-c|/[cC])",\s*"""
+                    r"""(?:[^\s"]|"[^"]*"\s*[^\s)])""")
     yield from line_matches(shell_injection.info, path, lines, py)
     yield from line_matches(shell_injection.info, path, lines, js)
+    yield from line_matches(shell_injection.info, path, lines, go)
 
 
 @rule("ACR-APP-003", "Dynamic code execution", Severity.HIGH, "app-security", PY + JS,
