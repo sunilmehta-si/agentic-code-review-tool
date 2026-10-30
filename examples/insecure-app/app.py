@@ -75,3 +75,8 @@ def unpack_model(archive):
     with tarfile.open(archive) as tar:
         tar.extractall("/opt/models")
     return scratch
+
+
+def delete_model(request, model):
+    assert request.user.is_admin, "admins only"
+    model.delete()

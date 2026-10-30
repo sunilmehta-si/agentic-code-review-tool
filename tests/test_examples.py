@@ -31,7 +31,8 @@ class DemoTests(unittest.TestCase):
                     # 0.7.0 rules
                     "ACR-DEP-001", "ACR-DEP-002", "ACR-DEP-003", "ACR-APP-019", "ACR-APP-020", "ACR-APP-021",
                     "ACR-GHA-017", "ACR-K8S-020",
-                    "ACR-APP-022", "ACR-APP-023", "ACR-DEP-005"):
+                    "ACR-APP-022", "ACR-APP-023", "ACR-DEP-005",
+                    "ACR-APP-024", "ACR-APP-025", "ACR-APP-026", "ACR-GHA-018", "ACR-K8S-021", "ACR-DOCKER-012"):
             self.assertIn(rid, rules)
 
     def test_clean_pod_only_trips_the_rule_it_demonstrates(self):
