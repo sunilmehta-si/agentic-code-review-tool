@@ -17,14 +17,18 @@ JS = ["lang:javascript", "lang:typescript"]
 GO = ["lang:go"]
 
 
-@rule("ACR-APP-001", "SQL built with string formatting", Severity.HIGH, "app-security", PY + JS,
-      fix="Use parameterised queries (placeholders + a parameters tuple), never f-strings, % or + to build SQL.",
+@rule("ACR-APP-001", "SQL built with string formatting", Severity.HIGH, "app-security", PY + JS + GO,
+      fix="Use parameterised queries (placeholders + a parameters tuple, or $1/? args in Go), never f-strings, %, +, "
+          ".format or fmt.Sprintf to build SQL.",
       references=["https://owasp.org/Top10/A03_2021-Injection/"])
 def sql_formatting(path, text, lines):
     pat = re.compile(r"""\.(execute|executemany|raw|query)\(\s*(f["']|["'][^"']*["']\s*(%|\+|\.format\())""", re.I)
     sql_js = re.compile(r"""\.query\(\s*`[^`]*\$\{""")
+    # database/sql, sqlx, pgx and GORM: the statement is the first argument; fmt.Sprintf or + on it is the bug
+    sql_go = re.compile(r"""\.(Query|QueryRow|Exec|Prepare|Select|Get|Raw|Where)(Context)?\(\s*(ctx,\s*)?(fmt\.Sprintf\(|"[^"]*"\s*\+)""")
     yield from line_matches(sql_formatting.info, path, lines, pat)
     yield from line_matches(sql_formatting.info, path, lines, sql_js)
+    yield from line_matches(sql_formatting.info, path, lines, sql_go)
 
 
 @rule("ACR-APP-002", "Shell command built from a string", Severity.HIGH, "app-security", PY + JS,

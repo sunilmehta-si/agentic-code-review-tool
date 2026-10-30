@@ -1033,3 +1033,22 @@ class PredictableTempFileRule(unittest.TestCase):
             self.assertNotIn("ACR-APP-023", ids("run.py", src, py), src)
         self.assertNotIn("ACR-APP-023", ids("run.go", "package run\n\n\tf, err := os.CreateTemp(\"\", \"kubeconfig-*\")\n", go))
         self.assertNotIn("ACR-APP-023", ids("tests/test_run.py", "open(\"/tmp/results.json\", \"w\")\n", py))
+
+
+
+class GoSqlFormattingTests(unittest.TestCase):
+    GO = {"app", "lang:go"}
+
+    def test_statements_built_with_sprintf_or_concatenation_are_flagged(self):
+        for line in ('\trows, err := db.Query(fmt.Sprintf("SELECT * FROM users WHERE id = %s", id))',
+                     '\trow := db.QueryRowContext(ctx, "SELECT name FROM users WHERE id = " + id)',
+                     '\t_, err = tx.Exec(fmt.Sprintf("DELETE FROM %s", table))',
+                     '\tdb.Where("name = \'" + name + "\'").First(&u)'):
+            self.assertIn("ACR-APP-001", ids("store.go", "package store\n\n" + line + "\n", self.GO), line)
+
+    def test_parameterised_statements_are_fine(self):
+        for line in ('\trows, err := db.Query("SELECT * FROM users WHERE id = $1", id)',
+                     '\trow := db.QueryRowContext(ctx, query, id)',
+                     '\tdb.Where("name = ?", name).First(&u)',
+                     '\tmsg := fmt.Sprintf("SELECT took %s", d)'):
+            self.assertNotIn("ACR-APP-001", ids("store.go", "package store\n\n" + line + "\n", self.GO), line)
