@@ -10,5 +10,8 @@ spec:
   containers:
     - name: sandbox
       image: ghcr.io/acme/sandbox@sha256:2c26b46b68ffc68ff99b453c1d30413413422d706483bfa0f98a5e886266e7ae
+      securityContext:
+        allowPrivilegeEscalation: false
+        capabilities: {drop: [ALL]}
       resources:
         limits: {cpu: "1", memory: 1Gi}

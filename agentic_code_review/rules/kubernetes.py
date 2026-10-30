@@ -267,6 +267,29 @@ def rbac_escalation(path, text, lines):
                                f"{doc['kind']} '{name}': {why}.", severity)
 
 
+@rule("ACR-K8S-021", "Container keeps its default capabilities or may escalate privileges", Severity.LOW, "kubernetes",
+      ["kubernetes"],
+      fix="Under every container's securityContext set `allowPrivilegeEscalation: false` and `capabilities: {drop: [ALL]}`, "
+          "adding back only the capabilities it needs. Pod Security's restricted profile requires both; without them a "
+          "process that gets code execution starts with setuid binaries and a dozen capabilities to work with.",
+      references=[PSS])
+def restricted_profile_gaps(path, text, lines):
+    info = restricted_profile_gaps.info
+    for doc in _workloads(text):
+        spec = _pod_spec(doc)
+        for c in (spec.get("containers") or []) + (spec.get("initContainers") or []):
+            sc = c.get("securityContext") or {}
+            drops = [str(x).upper() for x in ((sc.get("capabilities") or {}).get("drop") or [])]
+            missing = []
+            if sc.get("allowPrivilegeEscalation") is not False:
+                missing.append("allowPrivilegeEscalation: false")
+            if "ALL" not in drops:
+                missing.append("capabilities.drop: [ALL]")
+            if missing:
+                yield make(info, path, _container_line(lines, c.get("name")),
+                           f"Container '{c.get('name')}' lacks {' and '.join(missing)}.")
+
+
 @rule("ACR-K8S-011", "Kubernetes Secret with real values committed to git", Severity.HIGH, "secrets", ["kubernetes"],
       fix="Secrets are only base64-encoded. Commit a SealedSecret, SOPS-encrypted file or ExternalSecret reference instead, and rotate this value.",
       references=["https://kubernetes.io/docs/concepts/security/secrets-good-practices/"])

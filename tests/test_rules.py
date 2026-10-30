@@ -1183,3 +1183,24 @@ class LookAlikeActionTests(unittest.TestCase):
                      "sunilmehta-si/agentic-code-review-tool@6c21338", "helm/kind-action@v1", "./.github/actions/setup@main",
                      "pypa/gh-action-pypi-publish@release/v1"):
             self.assertNotIn("ACR-GHA-018", ids(".github/workflows/ci.yml", self.flow(uses), self.GHA), uses)
+
+
+class RestrictedProfileGapsTests(unittest.TestCase):
+    K8S = {"kubernetes"}
+
+    def pod(self, security_context):
+        return ("apiVersion: v1\nkind: Pod\nmetadata:\n  name: p\nspec:\n  containers:\n    - name: app\n      image: app:1.2\n"
+                + ("      securityContext:\n" + security_context if security_context else ""))
+
+    def test_missing_drop_all_or_escalation_setting_is_flagged_with_what_is_missing(self):
+        found = [f for f in run_rules("pod.yaml", self.pod(""), self.K8S) if f.rule_id == "ACR-K8S-021"]
+        self.assertEqual(len(found), 1)
+        self.assertIn("allowPrivilegeEscalation: false and capabilities.drop: [ALL]", found[0].detail)
+        self.assertEqual(found[0].line, 7)
+        only_drop = self.pod("        capabilities: {drop: [ALL]}\n")
+        found = [f for f in run_rules("pod.yaml", only_drop, self.K8S) if f.rule_id == "ACR-K8S-021"]
+        self.assertEqual(found[0].detail, "Container 'app' lacks allowPrivilegeEscalation: false.")
+
+    def test_a_restricted_container_is_fine(self):
+        full = self.pod("        allowPrivilegeEscalation: false\n        capabilities:\n          drop: [\"ALL\"]\n          add: [NET_BIND_SERVICE]\n")
+        self.assertNotIn("ACR-K8S-021", ids("pod.yaml", full, self.K8S))
