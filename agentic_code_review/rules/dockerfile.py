@@ -159,9 +159,10 @@ UNPINNED_INSTALL = re.compile(
 def unpinned_install(path, text, lines):
     info = unpinned_install.info
     for line_no, cmd in _run_commands(lines):
+        loose_all = []
         for m in UNPINNED_INSTALL.finditer(cmd):
             if m.group("go"):
-                yield make(info, path, line_no, f"'{m.group('go')}' moves with the branch.")
+                loose_all.append(f"'{m.group('go')}' moves with the branch")
                 continue
             args = (m.group("pip") or m.group("npm") or "").split()
             pkgs = [a for a in args if not a.startswith("-") and a not in ("install",) and "/" not in a and a not in (".", "..")]
@@ -169,5 +170,6 @@ def unpinned_install(path, text, lines):
             if any(a in ("-r", "--requirement", "-c", "--constraint", "-e", "--editable") for a in args) or not pkgs:
                 continue
             loose = [p for p in pkgs if not re.search(r"==|@\d|@v\d|@\^|@~|@[0-9a-f]{7,}", p) and not p.endswith((".whl", ".tar.gz", ".tgz"))]
-            if loose:
-                yield make(info, path, line_no, f"'{loose[0]}' has no version.")
+            loose_all += [f"'{p}' has no version" for p in loose]
+        if loose_all:                                      # one finding per RUN, naming everything loose in it
+            yield make(info, path, line_no, "; ".join(loose_all) + ".")

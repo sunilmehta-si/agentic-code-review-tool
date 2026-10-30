@@ -1220,6 +1220,12 @@ class UnpinnedInstallTests(unittest.TestCase):
                     "FROM python:3.12\nRUN apt-get update && \\\n    pip install \\\n      awscli\n"):
             self.assertIn("ACR-DOCKER-012", ids("Dockerfile", src, self.DF), src)
 
+    def test_one_finding_per_run_instruction(self):
+        src = "FROM python:3.12\nRUN pip install requests \\\n    uvicorn httpx\n"
+        found = [f for f in run_rules("Dockerfile", src, self.DF) if f.rule_id == "ACR-DOCKER-012"]
+        self.assertEqual(len(found), 1)
+        self.assertEqual(found[0].detail, "'requests' has no version; 'uvicorn' has no version; 'httpx' has no version.")
+
     def test_pinned_and_file_driven_installs_are_fine(self):
         for src in ("FROM python:3.12-slim\nRUN pip install requests==2.32.4 uvicorn==0.34.0\n",
                     "FROM python:3.12-slim\nCOPY requirements.txt .\nRUN pip install -r requirements.txt\n",
