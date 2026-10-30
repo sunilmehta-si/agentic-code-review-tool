@@ -1165,3 +1165,21 @@ class GoPathTraversalTests(unittest.TestCase):
                      '\tp := filepath.Join(root, safeName(name))',
                      '\thttp.ServeFile(w, r, indexPath)'):
             self.assertNotIn("ACR-APP-013", ids("files.go", "package web\n\n" + line + "\n", self.GO), line)
+
+
+class LookAlikeActionTests(unittest.TestCase):
+    GHA = {"github-actions"}
+
+    def flow(self, uses):
+        return f"on: push\njobs:\n  b:\n    runs-on: ubuntu-latest\n    steps:\n      - uses: {uses}\n"
+
+    def test_owners_one_edit_from_a_well_known_one_are_flagged(self):
+        for uses in ("action/checkout@v4", "actoins/setup-python@v5", "dockr/login-action@v3", "aws-action/configure-aws-credentials@v4",
+                     "hashicrop/setup-terraform@v3", "gitub/codeql-action/init@v3", "actions_/cache@v4"):
+            self.assertIn("ACR-GHA-018", ids(".github/workflows/ci.yml", self.flow(uses), self.GHA), uses)
+
+    def test_real_owners_and_unrelated_names_are_fine(self):
+        for uses in ("actions/checkout@v4", "docker/build-push-action@v6", "aws-actions/configure-aws-credentials@v4",
+                     "sunilmehta-si/agentic-code-review-tool@6c21338", "helm/kind-action@v1", "./.github/actions/setup@main",
+                     "pypa/gh-action-pypi-publish@release/v1"):
+            self.assertNotIn("ACR-GHA-018", ids(".github/workflows/ci.yml", self.flow(uses), self.GHA), uses)

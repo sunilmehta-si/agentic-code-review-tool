@@ -348,3 +348,47 @@ def artifact_token_leak(path, text, lines):
                 reason = _upload_leaks_git(lines[line - 1], with_) if persisted else ""
                 if reason and not ignored(lines[line - 1], info.rule_id):
                     yield make(info, path, line, reason)
+
+
+# Owners whose actions almost every workflow uses; a look-alike owner is how a typosquatted action gets installed.
+WELL_KNOWN_OWNERS = ("actions", "github", "docker", "aws-actions", "azure", "google-github-actions", "hashicorp",
+                     "codecov", "softprops", "peter-evans", "dependabot", "pypa", "astral-sh", "golangci", "sigstore",
+                     "helm", "kubernetes-sigs", "slsa-framework")
+
+
+def _edits(a: str, b: str) -> int:
+    """Edit distance counting a swap of two adjacent letters as one edit (the common typo), small inputs only."""
+    rows = [list(range(len(b) + 1))] + [[i] + [0] * len(b) for i in range(1, len(a) + 1)]
+    for i in range(1, len(a) + 1):
+        for j in range(1, len(b) + 1):
+            cost = a[i - 1] != b[j - 1]
+            rows[i][j] = min(rows[i - 1][j] + 1, rows[i][j - 1] + 1, rows[i - 1][j - 1] + cost)
+            if i > 1 and j > 1 and a[i - 1] == b[j - 2] and a[i - 2] == b[j - 1]:
+                rows[i][j] = min(rows[i][j], rows[i - 2][j - 2] + 1)
+    return rows[-1][-1]
+
+
+def _look_alike(owner: str) -> str | None:
+    low = owner.lower()
+    if low in WELL_KNOWN_OWNERS:
+        return None
+    plain = low.replace("-", "").replace("_", "")
+    for known in WELL_KNOWN_OWNERS:
+        if plain == known.replace("-", "") or (len(known) >= 6 and _edits(low, known) == 1):
+            return known
+    return None
+
+
+@rule("ACR-GHA-018", "Action from an owner that looks like a well-known one (typosquat)", Severity.HIGH, "ci-cd", GHA,
+      fix="Check the owner against the action's documentation and use the real one, pinned to a commit SHA. A "
+          "name one letter away from actions, docker or aws-actions is how a malicious copy gets into a workflow.",
+      references=[HARDENING])
+def look_alike_action(path, text, lines):
+    info = look_alike_action.info
+    for i, line in enumerate(lines, start=1):
+        m = re.search(r"uses\s*:\s*['\"]?([\w.-]+)/([\w.-]+)(/[^@'\"\s]+)?@", line)
+        if not m or line.lstrip().startswith("#"):
+            continue
+        real = _look_alike(m.group(1))
+        if real:
+            yield make(info, path, i, f"'{m.group(1)}/{m.group(2)}' is one edit away from '{real}/'; is that the action you meant?")
