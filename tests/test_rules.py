@@ -1147,3 +1147,21 @@ class GoOpenRedirectTests(unittest.TestCase):
         for line in ('\thttp.Redirect(w, r, "/login", http.StatusFound)', '\thttp.Redirect(w, r, safeNext(r), http.StatusFound)',
                      '\tc.Redirect(http.StatusFound, "/")'):
             self.assertNotIn("ACR-APP-012", ids("login.go", "package web\n\n" + line + "\n", self.GO), line)
+
+
+class GoPathTraversalTests(unittest.TestCase):
+    GO = {"app", "lang:go"}
+
+    def test_file_paths_from_the_request_are_flagged(self):
+        for line in ('\tdata, err := os.ReadFile(filepath.Join(dir, r.URL.Query().Get("name")))',
+                     '\thttp.ServeFile(w, r, "./uploads/"+r.FormValue("file"))',
+                     '\tp := filepath.Join(root, mux.Vars(r)["path"])',
+                     '\tf, err := os.Open(filepath.Join(base, chi.URLParam(r, "doc")))',
+                     '\tos.Remove(filepath.Join(dir, c.Param("id")))'):
+            self.assertIn("ACR-APP-013", ids("files.go", "package web\n\n" + line + "\n", self.GO), line)
+
+    def test_paths_from_fixed_or_validated_values_are_fine(self):
+        for line in ('\tdata, err := os.ReadFile(filepath.Join(dir, "config.yaml"))',
+                     '\tp := filepath.Join(root, safeName(name))',
+                     '\thttp.ServeFile(w, r, indexPath)'):
+            self.assertNotIn("ACR-APP-013", ids("files.go", "package web\n\n" + line + "\n", self.GO), line)

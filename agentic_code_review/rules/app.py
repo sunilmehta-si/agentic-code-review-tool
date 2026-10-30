@@ -146,7 +146,7 @@ def open_redirect(path, text, lines):
     yield from line_matches(open_redirect.info, path, lines, pat)
 
 
-@rule("ACR-APP-013", "File path taken straight from the request (path traversal)", Severity.HIGH, "app-security", PY + JS,
+@rule("ACR-APP-013", "File path taken straight from the request (path traversal)", Severity.HIGH, "app-security", PY + JS + GO,
       fix="Resolve the path under a fixed base directory and reject anything that escapes it (or look files up by id); "
           "Flask's send_from_directory and Express's sendFile({ root }) do this for you.",
       references=["https://owasp.org/www-community/attacks/Path_Traversal"])
@@ -154,7 +154,11 @@ def path_traversal(path, text, lines):
     pat = re.compile(r"\b(open|send_file|FileResponse|os\.remove|os\.unlink|shutil\.rmtree)\(\s*(f[\"'][^\"']*\{\s*)?request\."
                      r"(args|GET|POST|form|values|query_params|files)\b"
                      r"|\b(res\.(sendFile|download)|fs\.(readFile|readFileSync|createReadStream|unlink|unlinkSync))\(\s*"
-                     r"(`[^`]*\$\{\s*)?req\.(query|params|body)\.")
+                     r"(`[^`]*\$\{\s*)?req\.(query|params|body)\."
+                     # Go: a file call or a path join whose argument is read from the request or the route
+                     r"|\b(os\.(Open|ReadFile|Remove|RemoveAll|Create|WriteFile|Stat)|http\.ServeFile|filepath\.Join|path\.Join)\([^\n]*?"
+                     r"((r|req|request)\.(URL\.Query\(\)\.Get|FormValue|PostFormValue|URL\.Path|PathValue)\(|mux\.Vars\(|chi\.URLParam\(|"
+                     r"c\.(Param|Query|PostForm)\()")
     yield from line_matches(path_traversal.info, path, lines, pat)
 
 
