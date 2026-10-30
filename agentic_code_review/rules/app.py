@@ -25,7 +25,8 @@ def sql_formatting(path, text, lines):
     pat = re.compile(r"""\.(execute|executemany|raw|query)\(\s*(f["']|["'][^"']*["']\s*(%|\+|\.format\())""", re.I)
     sql_js = re.compile(r"""\.query\(\s*`[^`]*\$\{""")
     # database/sql, sqlx, pgx and GORM: the statement is the first argument; fmt.Sprintf or + on it is the bug
-    sql_go = re.compile(r"""\.(Query|QueryRow|Exec|Prepare|Select|Get|Raw|Where)(Context)?\(\s*(ctx,\s*)?(fmt\.Sprintf\(|"[^"]*"\s*\+)""")
+    # (not Get or Select: sqlx's take the destination first, and http.Client.Get takes a URL, which is often built)
+    sql_go = re.compile(r"""\.(Query|QueryRow|Exec|Prepare|Raw|Where)(Context)?\(\s*(ctx,\s*)?(fmt\.Sprintf\(|"[^"]*"\s*\+)""")
     yield from line_matches(sql_formatting.info, path, lines, pat)
     yield from line_matches(sql_formatting.info, path, lines, sql_js)
     yield from line_matches(sql_formatting.info, path, lines, sql_go)

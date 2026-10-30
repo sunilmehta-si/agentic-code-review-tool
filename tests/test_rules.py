@@ -1050,7 +1050,9 @@ class GoSqlFormattingTests(unittest.TestCase):
         for line in ('\trows, err := db.Query("SELECT * FROM users WHERE id = $1", id)',
                      '\trow := db.QueryRowContext(ctx, query, id)',
                      '\tdb.Where("name = ?", name).First(&u)',
-                     '\tmsg := fmt.Sprintf("SELECT took %s", d)'):
+                     '\tmsg := fmt.Sprintf("SELECT took %s", d)',
+                     '\tresp, err := client.Get("http://" + addr + "/healthz")',        # an HTTP client, not SQL
+                     '\terr := db.Get(&user, "SELECT * FROM users WHERE id = $1", id)'):
             self.assertNotIn("ACR-APP-001", ids("store.go", "package store\n\n" + line + "\n", self.GO), line)
 
 
