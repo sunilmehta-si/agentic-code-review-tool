@@ -1204,3 +1204,24 @@ class RestrictedProfileGapsTests(unittest.TestCase):
     def test_a_restricted_container_is_fine(self):
         full = self.pod("        allowPrivilegeEscalation: false\n        capabilities:\n          drop: [\"ALL\"]\n          add: [NET_BIND_SERVICE]\n")
         self.assertNotIn("ACR-K8S-021", ids("pod.yaml", full, self.K8S))
+
+
+class UnpinnedInstallTests(unittest.TestCase):
+    DF = {"dockerfile"}
+
+    def test_bare_package_names_are_flagged_across_continued_lines(self):
+        for src in ("FROM python:3.12-slim\nRUN pip install requests uvicorn\n",
+                    "FROM node:22\nRUN npm install -g pnpm\n",
+                    "FROM golang:1.23\nRUN go install github.com/x/tool@latest\n",
+                    "FROM python:3.12\nRUN apt-get update && \\\n    pip install \\\n      awscli\n"):
+            self.assertIn("ACR-DOCKER-012", ids("Dockerfile", src, self.DF), src)
+
+    def test_pinned_and_file_driven_installs_are_fine(self):
+        for src in ("FROM python:3.12-slim\nRUN pip install requests==2.32.4 uvicorn==0.34.0\n",
+                    "FROM python:3.12-slim\nCOPY requirements.txt .\nRUN pip install -r requirements.txt\n",
+                    "FROM python:3.12-slim\nCOPY . .\nRUN pip install -e .\n",
+                    "FROM python:3.12-slim\nRUN pip install --no-cache-dir ./dist/app-1.0-py3-none-any.whl\n",
+                    "FROM node:22\nRUN npm install -g pnpm@9.12.0\n",
+                    "FROM golang:1.23\nRUN go install github.com/x/tool@v1.4.2\n",
+                    "FROM node:22\nRUN npm ci\n"):
+            self.assertNotIn("ACR-DOCKER-012", ids("Dockerfile", src, self.DF), src)

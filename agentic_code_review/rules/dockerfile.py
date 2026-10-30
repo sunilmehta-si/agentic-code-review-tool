@@ -131,3 +131,43 @@ def copy_from_pin(path, text, lines):
         name = ref.rsplit("/", 1)[-1]
         if ":" not in name or name.endswith(":latest"):
             yield make(info, path, i, f"'{ref}' can change between builds.")
+
+
+# A RUN line may span several physical lines with backslashes; join them so one install command is one string.
+def _run_commands(lines: list[str]):
+    """(first line number, joined text) for every RUN instruction."""
+    i = 0
+    while i < len(lines):
+        if re.match(r"^\s*RUN\b", lines[i], re.I):
+            start, parts = i, [lines[i]]
+            while parts[-1].rstrip().endswith("\\") and i + 1 < len(lines):
+                i += 1
+                parts.append(lines[i])
+            yield start + 1, " ".join(x.rstrip("\\").strip() for x in parts)
+        i += 1
+
+
+UNPINNED_INSTALL = re.compile(
+    r"\bpip3?\s+install\b(?P<pip>[^&|;]*)|\bnpm\s+(install|i|add)\s+(-g|--global)\b(?P<npm>[^&|;]*)|\bgo\s+install\s+(?P<go>\S+@(latest|main|master))")
+
+
+@rule("ACR-DOCKER-012", "Package installed into the image at whatever version is latest", Severity.MEDIUM, "container", DF,
+      fix="Pin every package the image installs: `pip install pkg==1.2.3` (or `-r` a requirements file with hashes), "
+          "`npm install -g pkg@1.2.3`, `go install pkg@v1.2.3`. An image that pins its base and then installs "
+          "unpinned tools rebuilds differently every time, and takes a compromised release the day it is published.",
+      references=["https://docs.docker.com/build/building/best-practices/#pin-base-image-versions"])
+def unpinned_install(path, text, lines):
+    info = unpinned_install.info
+    for line_no, cmd in _run_commands(lines):
+        for m in UNPINNED_INSTALL.finditer(cmd):
+            if m.group("go"):
+                yield make(info, path, line_no, f"'{m.group('go')}' moves with the branch.")
+                continue
+            args = (m.group("pip") or m.group("npm") or "").split()
+            pkgs = [a for a in args if not a.startswith("-") and a not in ("install",) and "/" not in a and a not in (".", "..")]
+            # -r/-c files, -e ., URLs and local paths are pinned elsewhere or deliberate; a bare name is the problem
+            if any(a in ("-r", "--requirement", "-c", "--constraint", "-e", "--editable") for a in args) or not pkgs:
+                continue
+            loose = [p for p in pkgs if not re.search(r"==|@\d|@v\d|@\^|@~|@[0-9a-f]{7,}", p) and not p.endswith((".whl", ".tar.gz", ".tgz"))]
+            if loose:
+                yield make(info, path, line_no, f"'{loose[0]}' has no version.")

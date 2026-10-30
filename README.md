@@ -247,7 +247,7 @@ provider keys, private-key blocks and hardcoded passwords in the diff or tool ou
 
 ## Built-in rules
 
-126 rules, generated from the code (`acr rules`; `acr explain <id>` for details):
+127 rules, generated from the code (`acr rules`; `acr explain <id>` for details):
 
 <!-- regenerate: acr rules --format markdown -->
 
@@ -342,6 +342,7 @@ provider keys, private-key blocks and hardcoded passwords in the diff or tool ou
 | Containers (Dockerfile, Compose) | `ACR-DOCKER-009` | high | Credential file copied into the image |
 | Containers (Dockerfile, Compose) | `ACR-DOCKER-010` | medium | SSH server installed or exposed in the image |
 | Containers (Dockerfile, Compose) | `ACR-DOCKER-011` | medium | Stage copies from an external image not pinned (latest or no tag) |
+| Containers (Dockerfile, Compose) | `ACR-DOCKER-012` | medium | Package installed into the image at whatever version is latest |
 | GitHub Actions | `ACR-GHA-001` | critical | Privileged workflow checks out untrusted PR code |
 | GitHub Actions | `ACR-GHA-002` | high | Untrusted event data interpolated into a shell script |
 | GitHub Actions | `ACR-GHA-003` | medium | Third-party action not pinned to a commit SHA |
