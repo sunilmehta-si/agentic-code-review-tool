@@ -40,6 +40,12 @@ What makes a rule good here:
   `acr:ignore[YOUR-ID]`; don't re-implement that in the rule.
 - If it belongs in the demo, add a line to `examples/insecure-app`; `tests/test_examples.py` keeps it firing.
   Append to demo files rather than inserting, so the README's demo table keeps its line numbers.
+- **Run it over real code before it ships.** Clone two or three large repositories in the rule's language (for Go,
+  say, Argo CD, llm-d and etcd-operator; for Python, MLflow and Kubeflow Pipelines) and run only your rule over them
+  with `run_rules` and `classify.kinds`. Read every hit. A false positive you find this way is a pattern to exclude
+  now, and the true-positive count belongs in the changelog entry, so a reader knows what the rule finds in practice.
+  Several of the shipped rules changed shape at this step: an HTTP client's `Get` matched the SQL rule, test files
+  tripped the TLS rule, a umask-masked `0o666` tripped the file-mode rule.
 
 Rule ids are `ACR-<AREA>-<NNN>`; use the next free number in that area (`acr rules` lists them). Then:
 
