@@ -4,7 +4,22 @@ All notable changes to this project. The format follows [Keep a Changelog](https
 
 ## [Unreleased]
 
+Go is now reviewed as fully as Python: the SQL, shell, TLS, open-redirect and path-traversal rules cover Go's
+standard library and its common web and database packages, and three Go-specific rules join them. Every rule here
+was run over llm-d, Argo CD, KServe, Kubeflow Pipelines, MLflow and etcd-operator before shipping; the false positives
+that turned up (an HTTP client's Get read as SQL, TLS turned off in tests, a umask-masked mode) are fixed.
+
 ### Added
+- `ACR-APP-024`: Go servers started with `http.ListenAndServe` or an `http.Server` with no `ReadHeaderTimeout`, open
+  to Slowloris. Argo CD has eleven, Tesla's vehicle-command HTTP proxy two.
+- `ACR-APP-025`: files and directories created world-writable (0777, 0666) in Python and Go.
+- `ACR-APP-026`: an authorisation or identity check written as a Python `assert`, which `-O` removes.
+- `ACR-GHA-018` (high): an action whose owner is one edit, or one swapped pair of letters, from a well-known one
+  (`action/checkout`, `actoins/setup-python`, `dockr/login-action`).
+- `ACR-K8S-021` (low): containers without `allowPrivilegeEscalation: false` or `capabilities.drop: [ALL]`, the two
+  restricted-profile settings every container needs.
+- `ACR-DOCKER-012`: `pip`, `npm -g` and `go install` of packages with no version in a Dockerfile, one finding per
+  `RUN`. Argo CD's and Kubeflow's build images install several tools at `@latest`.
 - `ACR-APP-022`: `tarfile` and `zipfile` extraction with no `filter=` and no member-path check, the zip-slip shape of
   model and dataset downloads. Run over MLflow, KServe and Kubeflow Pipelines before shipping: four real
   extractions, no false positives left.
@@ -16,6 +31,11 @@ All notable changes to this project. The format follows [Keep a Changelog](https
 ### Changed
 - `ACR-APP-010` (predictable random numbers for a secret) covers Go's `math/rand`, in files that do not import
   `crypto/rand`.
+- `ACR-APP-001`, `-002`, `-005`, `-012` and `-013` cover Go: statements built with `fmt.Sprintf` or `+` for
+  database/sql, sqlx, pgx and GORM; `exec.Command("sh", "-c", ...)` with a built command; `InsecureSkipVerify: true`
+  and `grpc.WithInsecure()`; `http.Redirect` and Gin redirects to request values; file calls and path joins fed by
+  request values, route variables or form fields.
+- `ACR-APP-005` skips test files, where verification is turned off against the test's own self-signed server.
 
 ### Fixed
 - `ACR-K8S-005` no longer reports `image: ${VAR}` or `$(VAR)` placeholders as unpinned. The image is filled in at
