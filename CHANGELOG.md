@@ -4,6 +4,8 @@ All notable changes to this project. The format follows [Keep a Changelog](https
 
 ## [Unreleased]
 
+## [0.8.0] - 2026-10-30
+
 Go is now reviewed as fully as Python: the SQL, shell, TLS, open-redirect and path-traversal rules cover Go's
 standard library and its common web and database packages, and three Go-specific rules join them. Every rule here
 was run over llm-d, Argo CD, KServe, Kubeflow Pipelines, MLflow and etcd-operator before shipping; the false positives
