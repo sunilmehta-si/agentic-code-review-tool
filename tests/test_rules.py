@@ -1068,3 +1068,15 @@ class GoShellInjectionTests(unittest.TestCase):
                      '\tcmd := exec.Command("sh", "-c", "ulimit -n")',
                      '\tcmd := exec.CommandContext(ctx, "tar", "czf", dest, src)'):
             self.assertNotIn("ACR-APP-002", ids("run.go", "package run\n\n" + line + "\n", self.GO), line)
+
+
+class GoTlsOffTests(unittest.TestCase):
+    GO = {"app", "lang:go"}
+
+    def test_skipping_verification_is_flagged_and_a_flag_variable_is_not(self):
+        for line in ("\ttr.TLSClientConfig = &tls.Config{InsecureSkipVerify: true}", "\tcfg.InsecureSkipVerify = true",
+                     "\tconn, err := grpc.Dial(addr, grpc.WithInsecure())"):
+            self.assertIn("ACR-APP-005", ids("client.go", "package c\n\n" + line + "\n", self.GO), line)
+        for line in ("\tcfg := &tls.Config{InsecureSkipVerify: opts.Insecure, RootCAs: pool}",
+                     "\t// InsecureSkipVerify: true is never set here"):
+            self.assertNotIn("ACR-APP-005", ids("client.go", "package c\n\n" + line + "\n", self.GO), line)

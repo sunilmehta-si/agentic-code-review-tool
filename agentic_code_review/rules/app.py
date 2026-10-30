@@ -65,10 +65,11 @@ def unsafe_deserialise(path, text, lines):
     yield from line_matches(unsafe_deserialise.info, path, lines, pat)
 
 
-@rule("ACR-APP-005", "TLS certificate verification disabled", Severity.MEDIUM, "app-security", PY + JS,
-      fix="Keep verification on. If a private CA is needed, point the client at that CA bundle instead.")
+@rule("ACR-APP-005", "TLS certificate verification disabled", Severity.MEDIUM, "app-security", PY + JS + GO,
+      fix="Keep verification on. If a private CA is needed, point the client at that CA bundle (RootCAs in Go) instead.")
 def tls_off(path, text, lines):
-    pat = re.compile(r"verify\s*=\s*False|rejectUnauthorized\s*:\s*false|NODE_TLS_REJECT_UNAUTHORIZED\s*=\s*['\"]?0|ssl\._create_unverified_context")
+    pat = re.compile(r"verify\s*=\s*False|rejectUnauthorized\s*:\s*false|NODE_TLS_REJECT_UNAUTHORIZED\s*=\s*['\"]?0|ssl\._create_unverified_context"
+                     r"|InsecureSkipVerify:\s*true\b|\.InsecureSkipVerify\s*=\s*true\b|grpc\.WithInsecure\(\)")
     yield from line_matches(tls_off.info, path, lines, pat)
 
 
