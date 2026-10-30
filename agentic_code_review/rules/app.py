@@ -358,3 +358,25 @@ def go_server_no_timeouts(path, text, lines):
     spans += [m.start() for m in re.finditer(r"\bhttp\.Server\{", text)
               if not re.search(r"\b(ReadHeaderTimeout|ReadTimeout):", _bracketed(text, m.start(), "{", "}"))]
     yield from _report_spans(go_server_no_timeouts.info, path, text, lines, sorted(spans), "")
+
+
+@rule("ACR-APP-025", "File or directory created world-writable", Severity.MEDIUM, "app-security", PY + GO,
+      fix="Use the narrowest mode that works: 0o600 for files only this user reads, 0o644 for files others may read, "
+          "0o700 or 0o755 for directories. Mode 0777 or 0666 lets any local user replace the content, which for a "
+          "config, key or script the program later reads is code execution.",
+      references=["https://cwe.mitre.org/data/definitions/732.html"])
+def world_writable_mode(path, text, lines):
+    if _is_test(path):
+        return
+    # any call whose mode argument is octal 777/666/ends in 7 or 6 for others: chmod, mkdir, open, WriteFile, MkdirAll
+    pat = re.compile(r"\b(os\.(chmod|mkdir|makedirs|open|fchmod|mkfifo|mknod|umask)|os\.(Chmod|Mkdir|MkdirAll|WriteFile|OpenFile)|"
+                     r"ioutil\.WriteFile|Path\([^)]*\)\.(chmod|mkdir|touch)|\.chmod|\.mkdir|\.touch)\([^)\n]*?\b0o?[0-7]*[67][67]?[67]\b")
+    # a leading 0 in Go, 0o in Python; the last digit is "others", so any mode ending in 6 or 7 is world-writable
+    strict = re.compile(r"\b0o?[0-7]{0,2}[67]\b(?![.\d])")
+    for i, line in enumerate(lines, start=1):
+        m = pat.search(line)
+        if not m or ignored(line, world_writable_mode.info.rule_id) or line.lstrip().startswith(("#", "//")):
+            continue
+        modes = [x for x in strict.findall(line) if x.lstrip("0o")[-1] in "67" and len(x.lstrip("0o")) in (3, 4)]
+        if modes:
+            yield make(world_writable_mode.info, path, i, f"mode {modes[0]} lets any user write it.")

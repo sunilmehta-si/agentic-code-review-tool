@@ -1097,3 +1097,22 @@ class GoServerTimeoutTests(unittest.TestCase):
         self.assertNotIn("ACR-APP-024", ids("main.go", "package main\n\n\tsrv := &http.Server{ReadTimeout: t, Handler: h}\n", self.GO))
         self.assertNotIn("ACR-APP-024", ids("main_test.go", "package main\n\n\thttp.ListenAndServe(addr, nil)\n", self.GO))
         self.assertNotIn("ACR-APP-024", ids("main.go", "package main\n\n// http.ListenAndServe(addr, nil) would hang\n", self.GO))
+
+
+class WorldWritableModeTests(unittest.TestCase):
+    PY = {"app", "lang:python"}
+    GO = {"app", "lang:go"}
+
+    def test_modes_that_let_others_write_are_flagged(self):
+        for src in ("os.chmod(path, 0o777)\n", "os.makedirs(cache, 0o777, exist_ok=True)\n", "Path(p).chmod(0o666)\n"):
+            self.assertIn("ACR-APP-025", ids("setup_dirs.py", src, self.PY), src)
+        for src in ("\tos.WriteFile(cfg, data, 0777)\n", "\tos.MkdirAll(dir, 0o777)\n", "\tos.Chmod(sock, 0666)\n"):
+            self.assertIn("ACR-APP-025", ids("main.go", "package main\n\n" + src, self.GO), src)
+
+    def test_restrictive_modes_other_numbers_and_tests_are_fine(self):
+        for src in ("os.chmod(path, 0o600)\n", "os.makedirs(cache, 0o755, exist_ok=True)\n", "os.chmod(path, mode)\n",
+                    "retries = 7\nos.chmod(path, 0o644)\n"):
+            self.assertNotIn("ACR-APP-025", ids("setup_dirs.py", src, self.PY), src)
+        for src in ("\tos.WriteFile(cfg, data, 0o600)\n", "\tos.MkdirAll(dir, 0o750)\n", "\tos.WriteFile(cfg, data, 0o644) // 7 retries\n"):
+            self.assertNotIn("ACR-APP-025", ids("main.go", "package main\n\n" + src, self.GO), src)
+        self.assertNotIn("ACR-APP-025", ids("tests/test_io.py", "os.chmod(path, 0o777)\n", self.PY))
