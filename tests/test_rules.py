@@ -1082,6 +1082,8 @@ class GoTlsOffTests(unittest.TestCase):
         for line in ("\tcfg := &tls.Config{InsecureSkipVerify: opts.Insecure, RootCAs: pool}",
                      "\t// InsecureSkipVerify: true is never set here"):
             self.assertNotIn("ACR-APP-005", ids("client.go", "package c\n\n" + line + "\n", self.GO), line)
+        self.assertNotIn("ACR-APP-005", ids("client_test.go", "package c\n\n\tcfg := &tls.Config{InsecureSkipVerify: true}\n", self.GO))
+        self.assertNotIn("ACR-APP-005", ids("tests/test_client.py", "requests.get(url, verify=False)\n", {"app", "lang:python"}))
 
 
 class GoServerTimeoutTests(unittest.TestCase):
