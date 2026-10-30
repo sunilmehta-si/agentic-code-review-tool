@@ -380,3 +380,19 @@ def world_writable_mode(path, text, lines):
         modes = [x for x in strict.findall(line) if x.lstrip("0o")[-1] in "67" and len(x.lstrip("0o")) in (3, 4)]
         if modes:
             yield make(world_writable_mode.info, path, i, f"mode {modes[0]} lets any user write it.")
+
+
+@rule("ACR-APP-026", "Authorisation checked with assert", Severity.HIGH, "app-security", PY,
+      fix="Raise or return on the failed check (`if not user.is_admin: raise PermissionDenied`). Python drops every "
+          "`assert` when run with -O or PYTHONOPTIMIZE, which production images sometimes set, and the check "
+          "disappears with it.",
+      references=["https://cwe.mitre.org/data/definitions/617.html",
+                  "https://docs.python.org/3/reference/simple_stmts.html#the-assert-statement"])
+def assert_for_authorisation(path, text, lines):
+    """An assert that names a user, role, permission, token or ownership is a security check written as a debug aid."""
+    if _is_test(path):
+        return
+    pat = re.compile(r"^\s*assert\b[^\n]*\b(is_(authenticated|admin|staff|superuser|owner|active|verified)|has_(perm|perms|role|permission|access)|"
+                     r"can_(read|write|edit|delete|view|access)|permissions?|authoriz\w*|authent\w*|is_allowed|allowed|roles?|token|api_key|owner_id|user_id"
+                     r"|current_user|request\.user|scopes?)\b", re.I)
+    yield from line_matches(assert_for_authorisation.info, path, lines, pat)

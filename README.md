@@ -247,7 +247,7 @@ provider keys, private-key blocks and hardcoded passwords in the diff or tool ou
 
 ## Built-in rules
 
-123 rules, generated from the code (`acr rules`; `acr explain <id>` for details):
+124 rules, generated from the code (`acr rules`; `acr explain <id>` for details):
 
 <!-- regenerate: acr rules --format markdown -->
 
@@ -283,6 +283,7 @@ provider keys, private-key blocks and hardcoded passwords in the diff or tool ou
 | Application code | `ACR-APP-023` | medium | Temporary file created by name, open to a race (mktemp) |
 | Application code | `ACR-APP-024` | medium | Go HTTP server with no request timeouts |
 | Application code | `ACR-APP-025` | medium | File or directory created world-writable |
+| Application code | `ACR-APP-026` | high | Authorisation checked with assert |
 | AI / LLM / agent code | `ACR-AI-001` | high | User input concatenated into a system prompt (LLM01 Prompt Injection) |
 | AI / LLM / agent code | `ACR-AI-002` | critical | LLM output used as code, shell, SQL or HTML (LLM05 Improper Output Handling) |
 | AI / LLM / agent code | `ACR-AI-003` | high | Agent given dangerous tools without guardrails (LLM06 Excessive Agency) |

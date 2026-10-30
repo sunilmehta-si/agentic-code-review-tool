@@ -1116,3 +1116,19 @@ class WorldWritableModeTests(unittest.TestCase):
         for src in ("\tos.WriteFile(cfg, data, 0o600)\n", "\tos.MkdirAll(dir, 0o750)\n", "\tos.WriteFile(cfg, data, 0o644) // 7 retries\n"):
             self.assertNotIn("ACR-APP-025", ids("main.go", "package main\n\n" + src, self.GO), src)
         self.assertNotIn("ACR-APP-025", ids("tests/test_io.py", "os.chmod(path, 0o777)\n", self.PY))
+
+
+class AssertForAuthorisationTests(unittest.TestCase):
+    PY = {"app", "lang:python"}
+
+    def test_asserts_on_identity_or_permission_are_flagged(self):
+        for line in ("assert request.user.is_authenticated", "assert user.has_perm(\"models.delete\"), \"forbidden\"",
+                     "assert token == settings.API_TOKEN", "assert doc.owner_id == current_user.id",
+                     "    assert \"admin\" in roles"):
+            self.assertIn("ACR-APP-026", ids("views.py", line + "\n", self.PY), line)
+
+    def test_other_asserts_and_tests_are_fine(self):
+        for line in ("assert len(batch) > 0", "assert isinstance(cfg, dict)", "assert response.status_code == 200",
+                     "# assert user.is_admin was here"):
+            self.assertNotIn("ACR-APP-026", ids("views.py", line + "\n", self.PY), line)
+        self.assertNotIn("ACR-APP-026", ids("tests/test_views.py", "assert user.is_admin\n", self.PY))
