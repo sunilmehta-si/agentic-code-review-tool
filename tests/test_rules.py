@@ -1080,3 +1080,20 @@ class GoTlsOffTests(unittest.TestCase):
         for line in ("\tcfg := &tls.Config{InsecureSkipVerify: opts.Insecure, RootCAs: pool}",
                      "\t// InsecureSkipVerify: true is never set here"):
             self.assertNotIn("ACR-APP-005", ids("client.go", "package c\n\n" + line + "\n", self.GO), line)
+
+
+class GoServerTimeoutTests(unittest.TestCase):
+    GO = {"app", "lang:go"}
+
+    def test_default_server_and_servers_without_header_timeout_are_flagged(self):
+        for src in ("\tlog.Fatal(http.ListenAndServe(\":8080\", mux))",
+                    "\tsrv := &http.Server{\n\t\tAddr:    \":8080\",\n\t\tHandler: mux,\n\t}",
+                    "\terr := http.ListenAndServeTLS(addr, cert, key, nil)"):
+            self.assertIn("ACR-APP-024", ids("main.go", "package main\n\n" + src + "\n", self.GO), src)
+
+    def test_servers_with_timeouts_and_tests_are_fine(self):
+        src = "\tsrv := &http.Server{\n\t\tAddr:              \":8080\",\n\t\tReadHeaderTimeout: 5 * time.Second,\n\t}"
+        self.assertNotIn("ACR-APP-024", ids("main.go", "package main\n\n" + src + "\n", self.GO))
+        self.assertNotIn("ACR-APP-024", ids("main.go", "package main\n\n\tsrv := &http.Server{ReadTimeout: t, Handler: h}\n", self.GO))
+        self.assertNotIn("ACR-APP-024", ids("main_test.go", "package main\n\n\thttp.ListenAndServe(addr, nil)\n", self.GO))
+        self.assertNotIn("ACR-APP-024", ids("main.go", "package main\n\n// http.ListenAndServe(addr, nil) would hang\n", self.GO))

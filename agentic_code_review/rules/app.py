@@ -344,3 +344,17 @@ def predictable_temp_file(path, text, lines):
     pat = re.compile(r"\btempfile\.mktemp\(|\bos\.path\.join\(\s*(tempfile\.gettempdir\(\)|\"/tmp\"|'/tmp')\s*,\s*[\"']\w"
                      r"""|\bopen\(\s*[\"']/tmp/\w[^\"']*[\"']\s*,\s*[\"']w|\bfilepath\.Join\(os\.TempDir\(\),\s*"\w|\bos\.(Create|WriteFile)\("/tmp/\w""")
     yield from line_matches(predictable_temp_file.info, path, lines, pat)
+
+
+@rule("ACR-APP-024", "Go HTTP server with no request timeouts", Severity.MEDIUM, "app-security", GO,
+      fix="Serve from an `http.Server` that sets `ReadHeaderTimeout` (and usually `ReadTimeout`, `WriteTimeout`, "
+          "`IdleTimeout`): `http.ListenAndServe` and a server without them hold a connection open for as long as a "
+          "slow client keeps sending headers, so a few hundred idle sockets exhaust the listener (Slowloris).",
+      references=["https://pkg.go.dev/net/http#Server", "https://cwe.mitre.org/data/definitions/400.html"])
+def go_server_no_timeouts(path, text, lines):
+    if _is_test(path):
+        return
+    spans = [m.start() for m in re.finditer(r"\bhttp\.ListenAndServe(TLS)?\(", text)]
+    spans += [m.start() for m in re.finditer(r"\bhttp\.Server\{", text)
+              if not re.search(r"\b(ReadHeaderTimeout|ReadTimeout):", _bracketed(text, m.start(), "{", "}"))]
+    yield from _report_spans(go_server_no_timeouts.info, path, text, lines, sorted(spans), "")
