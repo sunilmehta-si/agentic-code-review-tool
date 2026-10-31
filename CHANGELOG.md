@@ -4,6 +4,13 @@ All notable changes to this project. The format follows [Keep a Changelog](https
 
 ## [Unreleased]
 
+## [0.8.1] - 2026-10-31
+
+A false-positive release. The built-in rules were swept over fifteen repositories (Argo CD, Kubeflow Pipelines,
+KServe, MLflow, flytekit, KAI Scheduler, etcd-operator, Tesla's vehicle-command and fleet-telemetry, llm-d's router
+and simulator, and this project's siblings); everything below came out of that sweep. The hardcoded-secret rule's
+findings on those repositories went from 1,556 to 101.
+
 ### Fixed
 
 - The pod rules no longer crash on a manifest whose `containers:` is written as a mapping, or stands in as a template
