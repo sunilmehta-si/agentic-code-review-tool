@@ -1,5 +1,5 @@
 # Container image for acr. Built to pass its own rules: pinned base, non-root user, clean package cache.
-FROM python:3.12-slim@sha256:a6e34c598f2467ed0e9a8d349809fcd8b5c603269512df273a0bb1784edc11b1
+FROM python:3.15-slim@sha256:94d3426f1def7db4a106a232ac121bfd975393e5dfd40a619b955fae45fe7913
 
 # git is needed to compute what a change touches.
 RUN apt-get update \
