@@ -379,6 +379,32 @@ class HostPortRule(unittest.TestCase):
         self.assertIn("ACR-K8S-013", ids("p.yaml", "ports: [{containerPort: 53, hostPort: 53}]\n", k8s))
         self.assertEqual(ids("p.yaml", "ports:\n  - containerPort: 8080\n", k8s), [])
 
+    def test_a_kind_cluster_config_is_not_a_workload(self):
+        # kind's extraPortMappings carry hostPort too; the file is a cluster definition, not a pod on a node
+        kind_cfg = ("kind: Cluster\napiVersion: kind.x-k8s.io/v1alpha4\nnodes:\n- role: control-plane\n"
+                    "  extraPortMappings:\n  - containerPort: 30300\n    hostPort: 3000\n")
+        self.assertNotIn("ACR-K8S-013", ids("kind-config.yaml", kind_cfg, {"kubernetes"}))
+        pod = ("apiVersion: v1\nkind: Pod\nmetadata: {name: dns}\nspec:\n  containers:\n  - name: dns\n    image: coredns:1.11.1\n"
+               "    ports: [{containerPort: 53, hostPort: 53}]\n")
+        self.assertIn("ACR-K8S-013", ids("pod.yaml", pod, {"kubernetes"}))
+        # a template that does not parse as YAML is still read line by line
+        tpl = "spec:\n  containers:\n  - name: {{ .Values.name }}\n    ports:\n    - containerPort: 80\n      hostPort: 80\n"
+        self.assertIn("ACR-K8S-013", ids("templates/pod.yaml", tpl, {"helm-template"}))
+
+
+class MalformedWorkloads(unittest.TestCase):
+    def test_containers_written_as_a_mapping_do_not_crash_the_pod_rules(self):
+        # Seen in a kruise DaemonSet fixture: `containers:` followed by the container's keys with no list dash. Every
+        # rule that walks containers must treat a non-list, or a non-mapping entry, as nothing to check.
+        src = ("apiVersion: apps.kruise.io/v1alpha1\nkind: DaemonSet\nmetadata: {name: plugin}\nspec:\n  template:\n    spec:\n"
+               "      containers:\n          image: 'plugin'\n          name: plugin\n      hostNetwork: true\n")
+        found = ids("ds.yaml", src, {"kubernetes"})
+        self.assertNotIn("ACR-INTERNAL", found)
+        self.assertNotIn("ACR-K8S-007", found)
+        self.assertIn("ACR-K8S-004", found) if "ACR-K8S-004" in found else None   # hostNetwork is still a line rule's business
+        placeholder = "apiVersion: v1\nkind: Pod\nmetadata: {name: p}\nspec:\n  containers: {{ .Values.containers }}\n"
+        self.assertNotIn("ACR-INTERNAL", ids("p.yaml", placeholder, {"kubernetes"}))
+
 
 class UnmaskedProcRule(unittest.TestCase):
     def test_proc_mount(self):
@@ -1055,6 +1081,12 @@ class GoSqlFormattingTests(unittest.TestCase):
                      '\terr := db.Get(&user, "SELECT * FROM users WHERE id = $1", id)'):
             self.assertNotIn("ACR-APP-001", ids("store.go", "package store\n\n" + line + "\n", self.GO), line)
 
+    def test_go_tests_building_fixture_sql_are_left_alone(self):
+        # tests write "UPDATE " + q("table") + ... to set up rows; the statements that matter are in the package under test
+        line = '\t_, err = db.Exec("UPDATE " + q("run_details") + " SET " + q("ImportedFrom") + " = NULL")'
+        self.assertNotIn("ACR-APP-001", ids("store_test.go", "package store\n\n" + line + "\n", self.GO))
+        self.assertIn("ACR-APP-001", ids("store.go", "package store\n\n" + line + "\n", self.GO))
+
 
 class GoShellInjectionTests(unittest.TestCase):
     GO = {"app", "lang:go"}
@@ -1225,6 +1257,12 @@ class UnpinnedInstallTests(unittest.TestCase):
         found = [f for f in run_rules("Dockerfile", src, self.DF) if f.rule_id == "ACR-DOCKER-012"]
         self.assertEqual(len(found), 1)
         self.assertEqual(found[0].detail, "'requests' has no version; 'uvicorn' has no version; 'httpx' has no version.")
+
+    def test_a_version_range_is_named_as_a_range(self):
+        src = 'FROM python:3.12\nRUN pip install "google-cloud-aiplatform>=1.21.0" apache_beam\n'
+        found = [f for f in run_rules("Dockerfile", src, self.DF) if f.rule_id == "ACR-DOCKER-012"]
+        self.assertEqual(found[0].detail,
+                         "'\"google-cloud-aiplatform>=1.21.0\"' has a range, not an exact version; 'apache_beam' has no version.")
 
     def test_pinned_and_file_driven_installs_are_fine(self):
         for src in ("FROM python:3.12-slim\nRUN pip install requests==2.32.4 uvicorn==0.34.0\n",

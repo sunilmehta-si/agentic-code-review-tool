@@ -104,6 +104,9 @@ def unconfined(path, text, lines):
       fix="Expose the workload through a Service (ClusterIP, or LoadBalancer/Ingress for outside traffic) instead of hostPort.",
       references=[PSS])
 def host_port(path, text, lines):
+    # hostPort is a pod-spec field; a kind cluster config's extraPortMappings has one too and is not a workload
+    if _parsed_without_workloads(text):
+        return
     yield from line_matches(host_port.info, path, lines, re.compile(r"(^\s*-?\s*|[{,]\s*)hostPort\s*:\s*['\"]?[1-9]\d*"))
 
 
@@ -149,6 +152,33 @@ def _container_line(lines: list[str], name) -> int:
     return find_line(lines, re.compile(rf"^\s*-\s*name\s*:\s*['\"]?{re.escape(str(name))}['\"]?\s*(#.*)?$"))
 
 
+def _containers(spec: dict, init: bool = False) -> list[dict]:
+    """The containers (and initContainers) of a pod spec that are mappings. A manifest with `containers:` written as a
+    mapping instead of a list, or a template placeholder in its place, is malformed input, not a rule's crash."""
+    keys = ("containers", "initContainers") if init else ("containers",)
+    out = []
+    for key in keys:
+        value = spec.get(key)
+        if isinstance(value, list):
+            out += [c for c in value if isinstance(c, dict)]
+    return out
+
+
+def _parsed_without_workloads(text: str) -> bool:
+    """True when the text is YAML whose documents all name a kind and none is a workload: a kind cluster config, a
+    CRD, a Kustomization. Templates that do not parse, and fragments with no kind, return False so line rules still
+    read them."""
+    try:
+        import yaml
+    except ImportError:
+        return False
+    try:
+        docs = [d for d in yaml.safe_load_all(text) if isinstance(d, dict)]
+    except yaml.YAMLError:
+        return False
+    return bool(docs) and all(d.get("kind") for d in docs) and not any(d.get("kind") in WORKLOADS for d in docs)
+
+
 def _pod_spec(doc: dict) -> dict:
     spec = doc.get("spec") or {}
     if doc.get("kind") == "Pod":
@@ -162,7 +192,7 @@ def _pod_spec(doc: dict) -> dict:
       fix="Set resources.requests and resources.limits (at least memory) so one pod cannot starve the node.")
 def limits(path, text, lines):
     for doc in _workloads(text):
-        for c in (_pod_spec(doc).get("containers") or []):
+        for c in _containers(_pod_spec(doc)):
             res = c.get("resources") or {}
             if not (res.get("limits") or {}).get("memory"):
                 yield make(limits.info, path, _container_line(lines, c.get('name')),
@@ -175,7 +205,7 @@ def limits(path, text, lines):
       references=["https://kubernetes.io/docs/tasks/manage-gpus/scheduling-gpus/"])
 def gpu(path, text, lines):
     for doc in _workloads(text):
-        for c in (_pod_spec(doc).get("containers") or []):
+        for c in _containers(_pod_spec(doc)):
             res = c.get("resources") or {}
             req = {k for k in (res.get("requests") or {}) if k.endswith("/gpu")}
             lim = {k for k in (res.get("limits") or {}) if k.endswith("/gpu")}
@@ -190,7 +220,7 @@ def non_root_missing(path, text, lines):
     for doc in _workloads(text):
         spec = _pod_spec(doc)
         pod_ok = (spec.get("securityContext") or {}).get("runAsNonRoot") is True
-        for c in (spec.get("containers") or []):
+        for c in _containers(spec):
             if not pod_ok and (c.get("securityContext") or {}).get("runAsNonRoot") is not True:
                 yield make(non_root_missing.info, path, _container_line(lines, c.get('name')),
                            f"Container '{c.get('name')}' may run as root.")
@@ -277,7 +307,7 @@ def restricted_profile_gaps(path, text, lines):
     info = restricted_profile_gaps.info
     for doc in _workloads(text):
         spec = _pod_spec(doc)
-        for c in (spec.get("containers") or []) + (spec.get("initContainers") or []):
+        for c in _containers(spec, init=True):
             sc = c.get("securityContext") or {}
             drops = [str(x).upper() for x in ((sc.get("capabilities") or {}).get("drop") or [])]
             missing = []
