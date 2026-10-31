@@ -11,3 +11,7 @@ check written as `assert`, an image that installs tools at whatever version is l
 ```bash
 acr review --root examples/insecure-app --all --no-scanners --fail-on never
 ```
+
+The pinned dependencies in `requirements.txt` are old on purpose, so the dependency rules have something to find;
+GitHub's Dependabot alerts on this repository point here and are expected. Nothing in this directory is installed or
+run by the tool, its tests or its CI.
