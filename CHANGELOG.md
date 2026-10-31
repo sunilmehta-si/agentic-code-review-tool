@@ -13,6 +13,11 @@ All notable changes to this project. The format follows [Keep a Changelog](https
 - ACR-APP-001 (SQL built with string formatting) skips test files in every language: tests build statements from
   literals to set up and inspect rows, and the statements that matter are in the code under test.
 - ACR-DOCKER-012 says a `pkg>=1.0` install has a range, not that it has no version.
+- ACR-SEC-002 (hardcoded password or token) no longer reports where a secret lives or comes from: names ending in
+  `name`, `ref`, `key`, `endpoint` and the like, values that are lower-case words joined by separators
+  (`"argocd-initial-admin-secret"`), the UPPER_SNAKE name of the environment variable a secret is read from, and
+  URLs. Across Kubeflow Pipelines, MLflow, Argo CD, KServe and flytekit this removed about three quarters of its
+  findings; what remains is credential-shaped.
 
 ## [0.8.0] - 2026-10-30
 

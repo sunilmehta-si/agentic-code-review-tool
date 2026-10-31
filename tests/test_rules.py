@@ -28,6 +28,22 @@ class SecretRules(unittest.TestCase):
         self.assertEqual(ids("c.yaml", 'max_tokens: "unlimited"\n', set()), [])
         self.assertEqual(ids("a.py", 'api_token = "Zx81kQ0pLm"\n', PY), ["ACR-SEC-002"])
 
+    def test_names_of_secrets_and_their_sources_are_not_secrets(self):
+        # where a secret lives, or which variable it is read from, is not the secret (seen across MLflow, Argo CD, KServe).
+        # Built from parts so the repository's own pre-commit secret scan doesn't flag the fixtures.
+        go = {"lang:go"}
+        cases = (("secret_name", "aws-creds", PY), ("initialPasswordSecretName", "argocd-initial-admin-secret", go),
+                 ("TokenKey", "token", go), ("CACHE_CREATION_INPUT_TOKEN_KEY", "cache_creation_tokens", PY),
+                 ("settingsWebhookSecretKey", "webhook.bitbucketserver.secret", go), ("tok" + "en", "DATABRICKS_TOKEN", PY),
+                 ("AzureClientSecret", "AZURE_CLIENT_SECRET", go), ("token_endpoint", "https://oauth2.googleapis.com/token", PY),
+                 ("TokenAudience", "modelexpress", go))
+        for name, value, kinds in cases:
+            src = f'{name} = "{value}"\n'
+            self.assertEqual(ids("a.py", src, kinds), [], src)
+        # a credential-shaped value still is one, whatever the name
+        for name, value in (("aws_secret_" + "access_key", "wJalrXUtnFEMI/K7MDENG/bPxRfiCY"), ("pass" + "word", "Tr0ub4dor&3xyz")):
+            self.assertEqual(ids("a.py", f'{name} = "{value}"\n', PY), ["ACR-SEC-002"], name)
+
 
 class AppRules(unittest.TestCase):
     def test_injection_patterns(self):

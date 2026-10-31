@@ -21,8 +21,19 @@ PROVIDER_PATTERNS: list[tuple[str, re.Pattern[str]]] = [
 GENERIC = re.compile(
     r"(?i)\b([a-z0-9_.-]*(password|passwd|secret|token|api[_-]?key|access[_-]?key|client[_-]?secret)[a-z0-9_.-]*)"
     r"\s*[:=]\s*['\"]([^'\"\s]{8,})['\"]")
-# Plural "tokens" names are settings, not credentials: max_tokens, http_tokens = "required", tokens_per_minute.
-NOT_A_SECRET_NAME = re.compile(r"(?i)tokens\b|tokens_")
+# Plural "tokens" names are settings, not credentials: max_tokens, http_tokens = "required", tokens_per_minute. A name
+# that ends in name, ref, key-name, path, flag and the like holds where a secret lives, not the secret: a
+# secret_name set to aws-creds, an initialPasswordSecretName naming a Kubernetes Secret, a TokenKey naming a key in it.
+NOT_A_SECRET_NAME = re.compile(r"(?i)tokens\b|tokens_|(_|[a-z])(names?|ref|refs|path|file|flag|flagname|header|field|label|prefix|suffix|"
+                               r"type|kind|mode|url|uri|env|var|id|interval|ttl|count|length|len|endpoint|audience|annotation|"
+                               r"format|version|subject|claims)$|"
+                               r"(secret|token|password|passwd)[_-]?key$|(secret|token|password)key$")
+# A value made of lower-case words joined by separators is a setting, a reference or a fixture label, not a credential
+# (a dotted settings key, a snake_case constant, a hyphenated label). Credentials mix cases and digits.
+SLUG_VALUE = re.compile(r"^[a-z][a-z0-9]*([._/-][a-z0-9]+)+$")
+# An UPPER_SNAKE value is the name of the environment variable the secret is read from; a URL is where to get one
+# (an OAuth token endpoint).
+NAME_OR_URL_VALUE = re.compile(r"^[A-Z][A-Z0-9_]{6,}$|^[a-z][a-z0-9+.-]*://")
 PLACEHOLDER = re.compile(r"(?i)(example|changeme|placeholder|dummy|sample|test|your[_-]|<[^>]+>|\$\{|\$\(|\{\{|x{4,}|\*{4,}|redacted|env\[|getenv)")
 
 FIX = ("Remove the value from the code, rotate it immediately (it is already in git history), and load it at runtime "
@@ -45,5 +56,6 @@ def generic_secret(path, text, lines):
     info = generic_secret.info
     for i, line in enumerate(lines, start=1):
         m = GENERIC.search(line)
-        if m and not PLACEHOLDER.search(m.group(3)) and not NOT_A_SECRET_NAME.search(m.group(1)):
+        if (m and not PLACEHOLDER.search(m.group(3)) and not NOT_A_SECRET_NAME.search(m.group(1))
+                and not SLUG_VALUE.match(m.group(3)) and not NAME_OR_URL_VALUE.match(m.group(3))):
             yield make(info, path, i, f"A value is assigned to a '{m.group(2).lower()}'-like name in source.")
