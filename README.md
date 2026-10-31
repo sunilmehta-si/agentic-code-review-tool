@@ -422,7 +422,7 @@ Inspired by the hybrid "deterministic pipeline + agent" approach popularised by 
 
 Other open-source infrastructure work by [Sunil Mehta](https://github.com/sunilmehta-si):
 
-- [k8s-inference-routing-benchmark](https://github.com/sunilmehta-si/k8s-inference-routing-benchmark): How much the router in front of LLM servers matters, measured: a Kubernetes Service against the llm-d Router's scorers on identical chat and RAG traces.
+- [k8s-inference-routing-benchmark](https://github.com/sunilmehta-si/k8s-inference-routing-benchmark): How much the router in front of LLM servers matters, measured: a Kubernetes Service against the llm-d Router's scorers on identical chat and RAG traces, with the picker's estimate of each pod's cache against the pods' real contents.
 - [kubernetes-secure-mlops-pipeline](https://github.com/sunilmehta-si/kubernetes-secure-mlops-pipeline): A model's path from training to serving with every artifact signed, attested and admitted by policy, drilled in CI; reviewed by this tool on every pull request.
 - [k8s-gpu-scheduler-benchmark](https://github.com/sunilmehta-si/k8s-gpu-scheduler-benchmark): Benchmarks Kubernetes GPU schedulers (default, Kueue, Volcano, KAI) in simulation and on real clusters.
 - [ai-devsecops-cicd](https://github.com/sunilmehta-si/ai-devsecops-cicd): Reference DevSecOps pipeline for LLM and AI-agent services: AI security tests, SBOM/AI-BOM, signing, admission policy.
