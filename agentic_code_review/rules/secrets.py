@@ -26,7 +26,7 @@ GENERIC = re.compile(
 # secret_name set to aws-creds, an initialPasswordSecretName naming a Kubernetes Secret, a TokenKey naming a key in it.
 NOT_A_SECRET_NAME = re.compile(r"(?i)tokens\b|tokens_|(_|[a-z])(names?|ref|refs|path|file|flag|flagname|header|field|label|prefix|suffix|"
                                r"type|kind|mode|url|uri|env|var|id|interval|ttl|count|length|len|endpoint|audience|annotation|"
-                               r"format|version|subject|claims)$|"
+                               r"format|version|subject|claims|keykey|param|pattern|mtime)$|"
                                r"(secret|token|password|passwd)[_-]?key$|(secret|token|password)key$")
 # A value made of lower-case words joined by separators is a setting, a reference or a fixture label, not a credential
 # (a dotted settings key, a snake_case constant, a hyphenated label). Credentials mix cases and digits.
@@ -34,7 +34,11 @@ SLUG_VALUE = re.compile(r"^[a-z][a-z0-9]*([._/-][a-z0-9]+)+$")
 # An UPPER_SNAKE value is the name of the environment variable the secret is read from; a URL is where to get one
 # (an OAuth token endpoint).
 NAME_OR_URL_VALUE = re.compile(r"^[A-Z][A-Z0-9_]{6,}$|^[a-z][a-z0-9+.-]*://")
-PLACEHOLDER = re.compile(r"(?i)(example|changeme|placeholder|dummy|sample|test|your[_-]|<[^>]+>|\$\{|\$\(|\{\{|x{4,}|\*{4,}|redacted|env\[|getenv)")
+# A single word with no digit, lower-case or camelCase, is an identifier (a parameter name, an auth method, a key inside
+# a Secret), and a value that is just the secret word itself names a field: the password field is called "password".
+# Credentials mix letters with digits or symbols.
+CAMEL_WORD_VALUE = re.compile(r"^[a-z]+(?:[A-Z][a-z]+)*$")
+PLACEHOLDER = re.compile(r"(?i)(example|changeme|placeholder|dummy|sample|test|your[_-]|<[^>]+>|^\$|\$\{|\$\(|\{\{|x{4,}|\*{4,}|redacted|env\[|getenv)")
 
 FIX = ("Remove the value from the code, rotate it immediately (it is already in git history), and load it at runtime "
        "from a secret manager or an injected environment variable.")
@@ -57,5 +61,7 @@ def generic_secret(path, text, lines):
     for i, line in enumerate(lines, start=1):
         m = GENERIC.search(line)
         if (m and not PLACEHOLDER.search(m.group(3)) and not NOT_A_SECRET_NAME.search(m.group(1))
-                and not SLUG_VALUE.match(m.group(3)) and not NAME_OR_URL_VALUE.match(m.group(3))):
+                and not SLUG_VALUE.match(m.group(3)) and not NAME_OR_URL_VALUE.match(m.group(3))
+                and not CAMEL_WORD_VALUE.match(m.group(3))
+                and re.sub(r"[_-]", "", m.group(3).lower()) != re.sub(r"[_-]", "", m.group(2).lower())):
             yield make(info, path, i, f"A value is assigned to a '{m.group(2).lower()}'-like name in source.")

@@ -36,7 +36,10 @@ class SecretRules(unittest.TestCase):
                  ("TokenKey", "token", go), ("CACHE_CREATION_INPUT_TOKEN_KEY", "cache_creation_tokens", PY),
                  ("settingsWebhookSecretKey", "webhook.bitbucketserver.secret", go), ("tok" + "en", "DATABRICKS_TOKEN", PY),
                  ("AzureClientSecret", "AZURE_CLIENT_SECRET", go), ("token_endpoint", "https://oauth2.googleapis.com/token", PY),
-                 ("TokenAudience", "modelexpress", go))
+                 ("TokenAudience", "modelexpress", go), ("minioArtifactAccessKeyKey", "accesskey", go),
+                 ("S3ParamAccessKeyKey", "accessKeyKey", go), ("AuthMethodTokenReview", "tokenreview", go),
+                 ("CHANGE_PASSWORD_PARAM", "changePassword", {"lang:typescript"}), ("pass" + "word", "password", go),
+                 ("ARGOCD_AUTH_TOKEN", "$DEX_TOKEN", {"shell"}), ("passwordPattern", "^.{8,32}$", set()))
         for name, value, kinds in cases:
             src = f'{name} = "{value}"\n'
             self.assertEqual(ids("a.py", src, kinds), [], src)

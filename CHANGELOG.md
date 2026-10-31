@@ -16,7 +16,8 @@ All notable changes to this project. The format follows [Keep a Changelog](https
 - ACR-SEC-002 (hardcoded password or token) no longer reports where a secret lives or comes from: names ending in
   `name`, `ref`, `key`, `endpoint` and the like, values that are lower-case words joined by separators
   (`"argocd-initial-admin-secret"`), the UPPER_SNAKE name of the environment variable a secret is read from, and
-  URLs. Across Kubeflow Pipelines, MLflow, Argo CD, KServe and flytekit this removed about three quarters of its
+  URLs, camelCase identifiers, a shell variable reference and a value that is the secret word itself
+  (`password = "password"` names a field). Across Kubeflow Pipelines, MLflow, Argo CD, KServe and flytekit this removed about three quarters of its
   findings; what remains is credential-shaped.
 
 ## [0.8.0] - 2026-10-30
