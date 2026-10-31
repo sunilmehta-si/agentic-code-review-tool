@@ -22,6 +22,10 @@ GO = ["lang:go"]
           ".format or fmt.Sprintf to build SQL.",
       references=["https://owasp.org/Top10/A03_2021-Injection/"])
 def sql_formatting(path, text, lines):
+    """Tests build statements from literals to set up and inspect rows (MLflow's schema tests, Kubeflow's storage
+    tests); nothing an attacker controls reaches them, and the statements that matter are in the code under test."""
+    if _is_test(path):
+        return
     pat = re.compile(r"""\.(execute|executemany|raw|query)\(\s*(f["']|["'][^"']*["']\s*(%|\+|\.format\())""", re.I)
     sql_js = re.compile(r"""\.query\(\s*`[^`]*\$\{""")
     # database/sql, sqlx, pgx and GORM: the statement is the first argument; fmt.Sprintf or + on it is the bug
@@ -29,8 +33,7 @@ def sql_formatting(path, text, lines):
     sql_go = re.compile(r"""\.(Query|QueryRow|Exec|Prepare|Raw|Where)(Context)?\(\s*(ctx,\s*)?(fmt\.Sprintf\(|"[^"]*"\s*\+)""")
     yield from line_matches(sql_formatting.info, path, lines, pat)
     yield from line_matches(sql_formatting.info, path, lines, sql_js)
-    if not _is_test(path):      # Go tests build fixture SQL from quoted identifiers; the statements under test are elsewhere
-        yield from line_matches(sql_formatting.info, path, lines, sql_go)
+    yield from line_matches(sql_formatting.info, path, lines, sql_go)
 
 
 @rule("ACR-APP-002", "Shell command built from a string", Severity.HIGH, "app-security", PY + JS + GO,

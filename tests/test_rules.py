@@ -1081,11 +1081,14 @@ class GoSqlFormattingTests(unittest.TestCase):
                      '\terr := db.Get(&user, "SELECT * FROM users WHERE id = $1", id)'):
             self.assertNotIn("ACR-APP-001", ids("store.go", "package store\n\n" + line + "\n", self.GO), line)
 
-    def test_go_tests_building_fixture_sql_are_left_alone(self):
-        # tests write "UPDATE " + q("table") + ... to set up rows; the statements that matter are in the package under test
+    def test_tests_building_fixture_sql_are_left_alone(self):
+        # tests write "UPDATE " + q("table") + ... to set up rows; the statements that matter are in the code under test
         line = '\t_, err = db.Exec("UPDATE " + q("run_details") + " SET " + q("ImportedFrom") + " = NULL")'
         self.assertNotIn("ACR-APP-001", ids("store_test.go", "package store\n\n" + line + "\n", self.GO))
         self.assertIn("ACR-APP-001", ids("store.go", "package store\n\n" + line + "\n", self.GO))
+        py = 'cur.execute(f"SELECT * FROM {table} WHERE id={x}")\n'
+        self.assertNotIn("ACR-APP-001", ids("tests/test_schema.py", py, {"app", "lang:python"}))
+        self.assertIn("ACR-APP-001", ids("store/schema.py", py, {"app", "lang:python"}))
 
 
 class GoShellInjectionTests(unittest.TestCase):
