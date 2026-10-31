@@ -4,6 +4,16 @@ All notable changes to this project. The format follows [Keep a Changelog](https
 
 ## [Unreleased]
 
+### Fixed
+
+- The pod rules no longer crash on a manifest whose `containers:` is written as a mapping, or stands in as a template
+  placeholder; the review reported an internal error for such a file (seen on a kruise DaemonSet fixture in Argo CD).
+- ACR-K8S-013 (hostPort) no longer reads kind cluster configs, whose `extraPortMappings` carry `hostPort` too: a YAML
+  file whose documents all name a kind and none is a workload is skipped. Templates and fragments are still read.
+- ACR-APP-001 (SQL built with string formatting) skips test files in every language: tests build statements from
+  literals to set up and inspect rows, and the statements that matter are in the code under test.
+- ACR-DOCKER-012 says a `pkg>=1.0` install has a range, not that it has no version.
+
 ## [0.8.0] - 2026-10-30
 
 Go is now reviewed as fully as Python: the SQL, shell, TLS, open-redirect and path-traversal rules cover Go's
