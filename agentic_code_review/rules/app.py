@@ -29,7 +29,8 @@ def sql_formatting(path, text, lines):
     sql_go = re.compile(r"""\.(Query|QueryRow|Exec|Prepare|Raw|Where)(Context)?\(\s*(ctx,\s*)?(fmt\.Sprintf\(|"[^"]*"\s*\+)""")
     yield from line_matches(sql_formatting.info, path, lines, pat)
     yield from line_matches(sql_formatting.info, path, lines, sql_js)
-    yield from line_matches(sql_formatting.info, path, lines, sql_go)
+    if not _is_test(path):      # Go tests build fixture SQL from quoted identifiers; the statements under test are elsewhere
+        yield from line_matches(sql_formatting.info, path, lines, sql_go)
 
 
 @rule("ACR-APP-002", "Shell command built from a string", Severity.HIGH, "app-security", PY + JS + GO,
