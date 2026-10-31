@@ -170,6 +170,7 @@ def unpinned_install(path, text, lines):
             if any(a in ("-r", "--requirement", "-c", "--constraint", "-e", "--editable") for a in args) or not pkgs:
                 continue
             loose = [p for p in pkgs if not re.search(r"==|@\d|@v\d|@\^|@~|@[0-9a-f]{7,}", p) and not p.endswith((".whl", ".tar.gz", ".tgz"))]
-            loose_all += [f"'{p}' has no version" for p in loose]
+            loose_all += [f"'{p}' has a range, not an exact version" if re.search(r"[<>~!]=?", p) else f"'{p}' has no version"
+                          for p in loose]
         if loose_all:                                      # one finding per RUN, naming everything loose in it
             yield make(info, path, line_no, "; ".join(loose_all) + ".")
