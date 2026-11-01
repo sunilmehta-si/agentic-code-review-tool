@@ -16,6 +16,8 @@ All notable changes to this project. The format follows [Keep a Changelog](https
 - ACR-AI-004, 005 and 010 (unpinned model loads, LLM calls without a token limit, agents run unsandboxed) skip test
   modules, which load small public models, call mocked clients and assert that the dangerous flag is absent.
   MLflow's findings for the three went from 186 to 61.
+- ACR-GHA-002 (untrusted event data in a run step) no longer reports `github.event.pull_request.base.ref` or
+  `base.sha`: the base branch is one of the repository's own, chosen from a list. The head ref is still reported.
 
 ## [0.8.1] - 2026-10-31
 
