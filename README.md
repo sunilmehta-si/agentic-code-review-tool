@@ -248,6 +248,12 @@ provider keys, private-key blocks and hardcoded passwords in the diff or tool ou
 
 ## Built-in rules
 
+Every rule is run over real repositories before it ships (Argo CD, Kubeflow Pipelines, KServe, MLflow, flytekit and
+others, with `scripts/sweep.py`), and the false positives that turn up are fixed first: tests and fixtures are not
+deployments, the name of a secret is not the secret, a pull request's base branch is not attacker input. The changelog
+says how each sweep moved the counts.
+
+
 127 rules, generated from the code (`acr rules`; `acr explain <id>` for details):
 
 <!-- regenerate: acr rules --format markdown -->
