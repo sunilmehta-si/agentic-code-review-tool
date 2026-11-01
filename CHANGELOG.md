@@ -4,6 +4,11 @@ All notable changes to this project. The format follows [Keep a Changelog](https
 
 ## [Unreleased]
 
+### Added
+- `scripts/sweep.py` runs the built-in rules over whole repositories and prints findings per rule and repository, a
+  sample of the lines behind each rule, and with `--before` how the counts moved since the last sweep. CONTRIBUTING
+  asks for a sweep before a rule ships.
+
 ### Changed
 - ACR-K8S-005, 007, 009 and 021 (image tags, limits, non-root, restricted-profile gaps) skip manifests under
   `testdata/` and `fixtures/`: inputs a project's tests read, never applied to a cluster. Argo CD alone carried
