@@ -173,6 +173,15 @@ class InfraRules(unittest.TestCase):
         for rid in ("ACR-GHA-001", "ACR-GHA-002", "ACR-GHA-003", "ACR-GHA-004"):
             self.assertIn(rid, found)
 
+
+    def test_the_base_branch_of_a_pull_request_is_not_untrusted(self):
+        # KServe merges the target branch in a run step; the base ref is one of the repository's branches, not author text
+        wf = ("on: pull_request\njobs:\n  b:\n    runs-on: ubuntu-latest\n    steps:\n      - run: |\n"
+              "          git fetch origin ${{ github.event.pull_request.base.ref }}\n"
+              "          git merge --no-edit origin/${{ github.event.pull_request.base.ref }}\n")
+        self.assertNotIn("ACR-GHA-002", ids(".github/workflows/m.yml", wf, {"github-actions"}))
+        head = wf.replace("base.ref }}\n          git merge", "head.ref }}\n          git merge")
+        self.assertIn("ACR-GHA-002", ids(".github/workflows/m.yml", head, {"github-actions"}))
     def test_oidc_scoped_to_job_not_workflow(self):
         top = "on: push\npermissions:\n  contents: read\n  id-token: write\njobs:\n  deploy:\n    runs-on: x\n"
         self.assertIn("ACR-GHA-007", ids(".github/workflows/d.yml", top, {"github-actions"}))

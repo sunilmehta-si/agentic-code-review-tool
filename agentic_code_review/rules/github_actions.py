@@ -12,6 +12,9 @@ GHA = ["github-actions"]
 HARDENING = "https://docs.github.com/en/actions/security-for-github-actions/security-guides/security-hardening-for-github-actions"
 UNTRUSTED = re.compile(r"\$\{\{\s*(github\.event\.(issue|pull_request|comment|review|review_comment|discussion|head_commit|commits|pages)"
                        r"[^}]*\.(title|body|message|name|label|ref|email|head_ref)|github\.head_ref)[^}]*\}\}")
+# The base branch of a pull request is one of the repository's own branches, chosen from a list, not typed by the
+# author; KServe's workflows merge it in a run step, and that is not an injection.
+BASE_REF = re.compile(r"\$\{\{\s*github\.event\.pull_request\.base\.(ref|sha)\s*\}\}")
 FIRST_PARTY = ("actions/", "github/")
 ENV_FILE_WRITE = re.compile(r">>?\s*\"?\$\{?(GITHUB_ENV|GITHUB_PATH)\b")
 
@@ -53,7 +56,7 @@ def prt_checkout(path, text, lines):
 def script_injection(path, text, lines):
     run_lines = _run_block_lines(lines)
     for i, line in enumerate(lines, start=1):
-        if i in run_lines and UNTRUSTED.search(line):
+        if i in run_lines and UNTRUSTED.search(BASE_REF.sub("", line)):
             yield make(script_injection.info, path, i)
 
 
