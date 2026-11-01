@@ -57,6 +57,19 @@ acr classify path/to/sample.file   # check your file kinds route the file to the
 `tests/test_registry.py` checks every rule has a unique id, a fix and known file kinds; `tests/test_engine_report_cli.py`
 fails if the README table is stale.
 
+## Sweep a rule over real code before it ships
+
+A rule that is right on its test fixtures can still be wrong on the code people actually write. Run the built-in rules
+over a few large repositories you have checked out and read what the new rule reports:
+
+```bash
+python scripts/sweep.py --out /tmp/sweep --rule ACR-APP-099 --samples 20 ~/src/argo-cd ~/src/kserve ~/src/mlflow
+```
+
+Fix the false positives before the pull request, name the repositories you swept in the changelog, and when a change
+narrows a rule, run the sweep again with `--before /tmp/sweep` so the entry can say how the counts moved. Every false
+positive the rules have lost so far came out of such a sweep.
+
 ## Before you open a pull request
 
 - `python -W error::SyntaxWarning -m unittest discover -s tests -t .` passes (CI uses the same flags).
