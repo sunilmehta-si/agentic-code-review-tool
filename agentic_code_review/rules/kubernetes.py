@@ -8,7 +8,7 @@ from __future__ import annotations
 import re
 
 from ..models import Severity
-from .base import find_line, line_matches, make, rule
+from .base import is_fixture, find_line, line_matches, make, rule
 
 K8S = ["kubernetes", "helm-template"]
 PSS = "https://kubernetes.io/docs/concepts/security/pod-security-standards/"
@@ -66,6 +66,8 @@ def capabilities(path, text, lines):
 @rule("ACR-K8S-005", "Container image not pinned (latest or no tag)", Severity.MEDIUM, "kubernetes", K8S,
       fix="Pin images to an immutable digest (image@sha256:...) or at least a specific version tag.")
 def image_pin(path, text, lines):
+    if is_fixture(path):      # a manifest under testdata/ or fixtures/ is a test's input, never deployed
+        return
     info = image_pin.info
     if POLICY_DOC.search(text):
         return  # Kyverno/Gatekeeper policies contain image *patterns* that enforce pinning, not images
@@ -191,6 +193,8 @@ def _pod_spec(doc: dict) -> dict:
 @rule("ACR-K8S-007", "Container has no CPU/memory limits", Severity.MEDIUM, "kubernetes", ["kubernetes"],
       fix="Set resources.requests and resources.limits (at least memory) so one pod cannot starve the node.")
 def limits(path, text, lines):
+    if is_fixture(path):      # a manifest under testdata/ or fixtures/ is a test's input, never deployed
+        return
     for doc in _workloads(text):
         for c in _containers(_pod_spec(doc)):
             res = c.get("resources") or {}
@@ -217,6 +221,8 @@ def gpu(path, text, lines):
 @rule("ACR-K8S-009", "Pod does not require a non-root user", Severity.LOW, "kubernetes", ["kubernetes"],
       fix="Add securityContext.runAsNonRoot: true at pod or container level.", references=[PSS])
 def non_root_missing(path, text, lines):
+    if is_fixture(path):      # a manifest under testdata/ or fixtures/ is a test's input, never deployed
+        return
     for doc in _workloads(text):
         spec = _pod_spec(doc)
         pod_ok = (spec.get("securityContext") or {}).get("runAsNonRoot") is True
@@ -304,6 +310,8 @@ def rbac_escalation(path, text, lines):
           "process that gets code execution starts with setuid binaries and a dozen capabilities to work with.",
       references=[PSS])
 def restricted_profile_gaps(path, text, lines):
+    if is_fixture(path):      # a manifest under testdata/ or fixtures/ is a test's input, never deployed
+        return
     info = restricted_profile_gaps.info
     for doc in _workloads(text):
         spec = _pod_spec(doc)

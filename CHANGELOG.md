@@ -4,6 +4,14 @@ All notable changes to this project. The format follows [Keep a Changelog](https
 
 ## [Unreleased]
 
+### Changed
+- ACR-K8S-005, 007, 009 and 021 (image tags, limits, non-root, restricted-profile gaps) skip manifests under
+  `testdata/` and `fixtures/`: inputs a project's tests read, never applied to a cluster. Argo CD alone carried
+  600 such findings. Manifests under `examples/`, `test/e2e/` and the like are still read.
+- ACR-AI-004, 005 and 010 (unpinned model loads, LLM calls without a token limit, agents run unsandboxed) skip test
+  modules, which load small public models, call mocked clients and assert that the dangerous flag is absent.
+  MLflow's findings for the three went from 186 to 61.
+
 ## [0.8.1] - 2026-10-31
 
 A false-positive release. The built-in rules were swept over fifteen repositories (Argo CD, Kubeflow Pipelines,
