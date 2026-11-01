@@ -10,7 +10,7 @@ import re
 import tokenize
 
 from ..models import Severity
-from .base import ignored, line_matches, make, rule
+from .base import ignored, is_test, line_matches, make, rule
 
 PY = ["lang:python"]
 JS = ["lang:javascript", "lang:typescript"]
@@ -238,13 +238,7 @@ def ecdsa_scalar_big_int(path, text, lines):
 
 
 
-TEST_DIRS = {"test", "tests", "e2e", "testdata", "testutil", "testing"}
-
-
-def _is_test(path: str) -> bool:
-    *dirs, name = path.split("/")
-    return (name.endswith("_test.go") or name.startswith("test_") or name.endswith("_test.py")
-            or name == "conftest.py" or bool(TEST_DIRS & set(dirs)))
+_is_test = is_test
 
 
 def _python_strings(text: str) -> list[tuple[int, int]]:

@@ -8,7 +8,7 @@ from __future__ import annotations
 import re
 
 from ..models import Severity
-from .base import line_matches, make, rule
+from .base import is_test, line_matches, make, rule
 
 AI = ["ai-code"]
 OWASP_LLM = "https://genai.owasp.org/llm-top-10/"
@@ -51,6 +51,8 @@ def excessive_agency(path, text, lines):
       fix="Avoid trust_remote_code; load weights with torch.load(..., weights_only=True) or safetensors; pin a model revision.",
       references=[OWASP_LLM, "https://huggingface.co/docs/safetensors"])
 def model_supply_chain(path, text, lines):
+    if is_test(path):      # tests load small public models and mock the rest; what ships is elsewhere
+        return
     info = model_supply_chain.info
     remote = re.compile(r"trust_remote_code\s*=\s*True")
     torch_load = re.compile(r"\btorch\.load\((?![^)]*weights_only\s*=\s*True)")
@@ -67,6 +69,8 @@ def model_supply_chain(path, text, lines):
       fix="Set max_tokens (or max_output_tokens), a request timeout, and a step limit on agent loops.",
       references=[OWASP_LLM])
 def unbounded(path, text, lines):
+    if is_test(path):      # tests call mocked or recorded clients; a missing limit there bounds nothing
+        return
     info = unbounded.info
     call = re.compile(r"\.(chat\.completions|completions|messages|responses)\.(create|stream)\(|\bgenerate_content\(")
     limit = re.compile(r"max_(output_|completion_)?tokens|max_new_tokens|maxTokens|maxOutputTokens")
@@ -139,6 +143,8 @@ def unbounded_agent_loop(path, text, lines):
           "token and no secrets it does not need; untrusted PR text can steer an unrestricted agent.",
       references=[OWASP_LLM, "https://docs.anthropic.com/en/docs/claude-code/security"])
 def agent_permissions_off(path, text, lines):
+    if is_test(path):      # tests assert the dangerous flag is absent, which quotes it
+        return
     pat = re.compile(
         r"--dangerously-skip-permissions\b|--dangerously-bypass-approvals-and-sandbox\b"  # acr:ignore[ACR-AI-010]
         r"|\b(claude|codex|gemini)\b[^\n]*\s--yolo\b"  # acr:ignore[ACR-AI-010]

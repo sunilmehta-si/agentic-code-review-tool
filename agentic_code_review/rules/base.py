@@ -130,3 +130,19 @@ def run_rules(path: str, text: str, kinds: set[str]) -> list[Finding]:
                 out.append(Finding(rule_id="ACR-INTERNAL", title=f"Rule {info.rule_id} failed: {exc.__class__.__name__}",
                                    severity=Severity.INFO, path=path, line=1, tool="acr", category="other"))
     return out
+
+
+TEST_DIRS = {"test", "tests", "e2e", "testdata", "testutil", "testing"}
+FIXTURE_DIRS = {"testdata", "fixtures"}
+
+
+def is_test(path: str) -> bool:
+    """A test module or anything under a test directory: code whose inputs nobody outside controls."""
+    *dirs, name = path.split("/")
+    return (name.endswith("_test.go") or name.startswith("test_") or name.endswith("_test.py")
+            or name == "conftest.py" or bool(TEST_DIRS & set(dirs)))
+
+
+def is_fixture(path: str) -> bool:
+    """A file under testdata/ or fixtures/: an input the project's tests read, never something it deploys."""
+    return bool(FIXTURE_DIRS & set(path.split("/")[:-1]))

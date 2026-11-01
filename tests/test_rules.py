@@ -411,6 +411,29 @@ class HostPortRule(unittest.TestCase):
         self.assertIn("ACR-K8S-013", ids("templates/pod.yaml", tpl, {"helm-template"}))
 
 
+class TestInputsAreNotDeployments(unittest.TestCase):
+    POD = ("apiVersion: v1\nkind: Pod\nmetadata: {name: p}\nspec:\n  containers:\n  - name: app\n    image: nginx:latest\n")
+
+    def test_manifests_under_testdata_or_fixtures_skip_the_hygiene_rules(self):
+        # Argo CD alone carries 600 such manifests: inputs its own tests read, never applied to a cluster
+        for path in ("controller/testdata/pod.yaml", "pkg/fixtures/pod.yaml"):
+            found = ids(path, self.POD, {"kubernetes"})
+            for rid in ("ACR-K8S-005", "ACR-K8S-007", "ACR-K8S-009", "ACR-K8S-021"):
+                self.assertNotIn(rid, found, path)
+        # examples and e2e manifests are what people copy and what gets applied: still read
+        for path in ("examples/pod.yaml", "test/e2e/pod.yaml", "manifests/pod.yaml"):
+            self.assertIn("ACR-K8S-005", ids(path, self.POD, {"kubernetes"}), path)
+
+    def test_ai_rules_skip_test_modules(self):
+        AI = PY_AI
+        model = 'm = AutoModel.from_pretrained("o/m", trust_remote_code=True)\n'
+        call = 'resp = client.chat.completions.create(model="gpt-4o", messages=msgs)\n'
+        flag = 'assert "--dangerously-bypass-approvals-and-sandbox" not in args\n'
+        for src, rid in ((model, "ACR-AI-004"), (call, "ACR-AI-005"), (flag, "ACR-AI-010")):
+            self.assertNotIn(rid, ids("tests/test_models.py", src, AI), rid)
+            self.assertIn(rid, ids("mlflow/models.py", src, AI), rid)
+
+
 class MalformedWorkloads(unittest.TestCase):
     def test_containers_written_as_a_mapping_do_not_crash_the_pod_rules(self):
         # Seen in a kruise DaemonSet fixture: `containers:` followed by the container's keys with no list dash. Every
