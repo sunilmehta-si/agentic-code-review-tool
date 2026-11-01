@@ -433,6 +433,14 @@ class TestInputsAreNotDeployments(unittest.TestCase):
         for path in ("examples/pod.yaml", "test/e2e/pod.yaml", "manifests/pod.yaml"):
             self.assertIn("ACR-K8S-005", ids(path, self.POD, {"kubernetes"}), path)
 
+    def test_rbac_rules_skip_fixtures_too(self):
+        role = ("apiVersion: rbac.authorization.k8s.io/v1\nkind: ClusterRole\nmetadata: {name: admin}\nrules:\n"
+                "- apiGroups: ['*']\n  resources: ['*']\n  verbs: ['*']\n- apiGroups: ['']\n  resources: [users]\n  verbs: [impersonate]\n")
+        self.assertEqual([r for r in ids("cmd/testdata/test_clusterrole.yaml", role, {"kubernetes"}) if r.startswith("ACR-K8S")], [])
+        found = ids("manifests/clusterrole.yaml", role, {"kubernetes"})
+        self.assertIn("ACR-K8S-010", found)
+        self.assertIn("ACR-K8S-020", found)
+
     def test_ai_rules_skip_test_modules(self):
         AI = PY_AI
         model = 'm = AutoModel.from_pretrained("o/m", trust_remote_code=True)\n'

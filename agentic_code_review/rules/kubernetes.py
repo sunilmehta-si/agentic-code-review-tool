@@ -247,6 +247,8 @@ def _docs(text: str, kinds: set[str]):
       fix="Grant only the verbs and resources the workload uses, in its own namespace (Role, not ClusterRole), and never bind service accounts to cluster-admin.",
       references=["https://kubernetes.io/docs/concepts/security/rbac-good-practices/"])
 def rbac_wildcard(path, text, lines):
+    if is_fixture(path):      # a ClusterRole under testdata/ is a test's input (Argo CD keeps an admin one), never bound
+        return
     info = rbac_wildcard.info
     for doc in _docs(text, {"Role", "ClusterRole"}):
         name = (doc.get("metadata") or {}).get("name", "")
@@ -285,6 +287,8 @@ ESCALATIONS = [
           "suppress the finding there with a reason.",
       references=["https://kubernetes.io/docs/concepts/security/rbac-good-practices/#privilege-escalation-risks"])
 def rbac_escalation(path, text, lines):
+    if is_fixture(path):      # a ClusterRole under testdata/ is a test's input (Argo CD keeps an admin one), never bound
+        return
     """Short of '*', a few permissions let a holder gain more than it was given; the API server documents them."""
     info = rbac_escalation.info
     for doc in _docs(text, {"Role", "ClusterRole"}):
