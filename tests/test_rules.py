@@ -1140,6 +1140,22 @@ class GoSqlFormattingTests(unittest.TestCase):
                      '\terr := db.Get(&user, "SELECT * FROM users WHERE id = $1", id)'):
             self.assertNotIn("ACR-APP-001", ids("store.go", "package store\n\n" + line + "\n", self.GO), line)
 
+    def test_unverified_jwt_and_wildcard_cors_in_go(self):
+        self.assertIn("ACR-APP-008", ids("auth.go", 'package a\ntok, err := p.Parse(raw, func(t *jwt.Token) (any, error) { return jwt.UnsafeAllowNoneSignatureType, nil })\n', self.GO))
+        self.assertIn("ACR-APP-008", ids("auth.go", 'package a\ntok := jwt.NewWithClaims(jwt.SigningMethodNone, claims)\n', self.GO))
+        self.assertNotIn("ACR-APP-008", ids("auth_test.go", 'package a\ntok := jwt.NewWithClaims(jwt.SigningMethodNone, claims)\n', self.GO))
+        # reading a verified token's own claims is inspection, not acceptance: Argo CD does it seventeen times
+        self.assertNotIn("ACR-APP-008", ids("auth.go", 'package a\n_, _, err := parser.ParseUnverified(raw, &claims)\n', self.GO))
+        self.assertNotIn("ACR-APP-008", ids("auth.go", 'package a\ntok, err := jwt.ParseWithClaims(raw, claims, keyFunc)\n', self.GO))
+        rs = 'package a\nc := cors.New(cors.Options{\n\tAllowedOrigins: []string{"*"},\n\tAllowCredentials: true,\n})\n'
+        self.assertIn("ACR-APP-009", ids("srv.go", rs, self.GO))
+        self.assertIn("ACR-APP-009", ids("srv.go", 'package a\ncfg := cors.Config{AllowAllOrigins: true, AllowCredentials: true}\n', self.GO))
+        hand = ('package a\nw.Header().Set("Access-Control-Allow-Origin", "*")\n'
+                'w.Header().Set("Access-Control-Allow-Credentials", "true")\n')
+        self.assertIn("ACR-APP-009", ids("srv.go", hand, self.GO))
+        self.assertNotIn("ACR-APP-009", ids("srv.go", rs.replace('"*"', '"https://app.example.com"'), self.GO))
+        self.assertNotIn("ACR-APP-009", ids("srv.go", 'package a\nc := cors.New(cors.Options{AllowedOrigins: []string{"*"}})\n', self.GO))
+
     def test_weak_hash_and_old_tls_in_go(self):
         self.assertIn("ACR-APP-007", ids("sum.go", 'package x\nfunc f(b []byte) [16]byte { return md5.Sum(b) }\n', self.GO))
         self.assertIn("ACR-APP-007", ids("sum.go", 'package x\nh := sha1.New()\n', self.GO))

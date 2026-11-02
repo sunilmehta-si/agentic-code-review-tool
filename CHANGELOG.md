@@ -9,6 +9,11 @@ All notable changes to this project. The format follows [Keep a Changelog](https
   `MinVersion` of SSL 3.0, TLS 1.0 or 1.1. A `tls.Config` without `MinVersion` is not reported: Go has defaulted to
   TLS 1.2 since 1.22. Go tests are skipped; they hash fixtures and pin old versions to test their rejection. Swept
   over Argo CD, KServe, KAI, etcd-operator, llm-d and Tesla's two repositories: four and one findings.
+- ACR-APP-008 (JWT accepted unverified) and ACR-APP-009 (CORS wildcard with credentials) cover Go: golang-jwt's
+  `UnsafeAllowNoneSignatureType` and `SigningMethodNone` outside tests; rs/cors `AllowedOrigins: {"*"}` or
+  gin-contrib `AllowAllOrigins: true` beside `AllowCredentials: true`, and the two headers written by hand.
+  `ParseUnverified` is deliberately not reported: a sweep found Argo CD using it seventeen times to read a verified
+  token's own claims, which is inspection, not acceptance.
 
 ## [0.9.0] - 2026-11-02
 

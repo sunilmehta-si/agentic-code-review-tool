@@ -99,24 +99,35 @@ def weak_hash(path, text, lines):
     yield from line_matches(weak_hash.info, path, lines, pat)
 
 
-@rule("ACR-APP-008", "JWT accepted without verifying its signature or expiry", Severity.CRITICAL, "app-security", PY + JS,
+@rule("ACR-APP-008", "JWT accepted without verifying its signature or expiry", Severity.CRITICAL, "app-security", PY + JS + GO,
       fix="Always verify: pass the key and an explicit algorithms list (never 'none'), and keep expiry checks on.",
       references=["https://cheatsheetseries.owasp.org/cheatsheets/JSON_Web_Token_for_Java_Cheat_Sheet.html"])
 def jwt_unverified(path, text, lines):
+    """Go (golang-jwt): accepting or minting alg=none tokens, through the library's unsafe none-signature escape hatch
+    or its none signing method, outside a test. Parsing a token without verifying it is not reported: Argo CD does it
+    seventeen times to read a verified token's own claims (expiry, subject), which is inspection, not acceptance."""
     pat = re.compile(r"""["']verify_signature["']\s*:\s*False|["']verify_exp["']\s*:\s*False|jwt\.decode\([^)]*verify\s*=\s*False"""
-                     r"""|algorithms\s*[:=]\s*\[\s*["']none["']|ignoreExpiration\s*:\s*true|\bjwt\.decode\(\s*\w+\s*\)""", re.I)
+                     r"""|algorithms\s*[:=]\s*\[\s*["']none["']|ignoreExpiration\s*:\s*true|\bjwt\.decode\(\s*\w+\s*\)"""   # acr:ignore[ACR-APP-008]
+                     r"""|UnsafeAllowNoneSignatureType|jwt\.SigningMethodNone\b""", re.I)   # acr:ignore[ACR-APP-008]
+    if path.endswith(".go") and _is_test(path):
+        return
     yield from line_matches(jwt_unverified.info, path, lines, pat)
 
 
-@rule("ACR-APP-009", "CORS allows any origin together with credentials", Severity.HIGH, "app-security", PY + JS,
+@rule("ACR-APP-009", "CORS allows any origin together with credentials", Severity.HIGH, "app-security", PY + JS + GO,
       fix="List the exact trusted origins. Never combine a wildcard or reflected origin with credentials (cookies, auth headers).",
       references=["https://developer.mozilla.org/en-US/docs/Web/HTTP/CORS"])
 def cors_wildcard(path, text, lines):
-    creds = re.compile(r"allow_credentials\s*=\s*True|supports_credentials\s*=\s*True|credentials\s*:\s*true", re.I)
+    """Go: rs/cors with every origin allowed, gin-contrib's allow-all flag, or the two response headers written by hand
+    with a wildcard and credentials on. Browsers refuse that pair, but a server that reflects the Origin header
+    instead is the usual next step, so the intent is what is reported."""
+    creds = re.compile(r"allow_credentials\s*=\s*True|supports_credentials\s*=\s*True|credentials\s*:\s*true"
+                       r"|AllowCredentials:\s*true|Access-Control-Allow-Credentials\",\s*\"true", re.I)
     if not creds.search(text):
         return
     wildcard = re.compile(r"""allow_origins\s*=\s*\[\s*["']\*["']|origins\s*=\s*["']\*["']|origin\s*:\s*(["']\*["']|true)\b"""
-                          r"""|CORS\([^)]*resources\s*=\s*\{[^}]*["']origins["']\s*:\s*["']\*["']""")
+                          r"""|CORS\([^)]*resources\s*=\s*\{[^}]*["']origins["']\s*:\s*["']\*["']"""
+                          r"""|AllowedOrigins:\s*\[\]string\{\s*"\*"|AllowAllOrigins:\s*true|Access-Control-Allow-Origin",\s*"\*\"""")   # acr:ignore[ACR-APP-009]
     yield from line_matches(cors_wildcard.info, path, lines, wildcard)
 
 
