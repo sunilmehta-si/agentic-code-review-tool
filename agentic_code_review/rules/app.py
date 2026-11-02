@@ -200,13 +200,26 @@ def weak_tls(path, text, lines):
     yield from line_matches(weak_tls.info, path, lines, pat)
 
 
-@rule("ACR-APP-015", "Session or auth cookie without Secure or HttpOnly", Severity.MEDIUM, "app-security", PY + JS,
+@rule("ACR-APP-015", "Session or auth cookie without Secure or HttpOnly", Severity.MEDIUM, "app-security", PY + JS + GO,
       fix="Keep Secure (HTTPS only) and HttpOnly (no JavaScript access) on session and auth cookies, plus SameSite=Lax or Strict.",
       references=["https://cheatsheetseries.owasp.org/cheatsheets/Session_Management_Cheat_Sheet.html#cookies"])
 def insecure_cookie(path, text, lines):
+    """Go: an http.Cookie literal whose Name says session, auth, token, sid or jwt and which does not set both Secure
+    and HttpOnly to true (Go's zero values are false, so leaving them out is leaving them off). Tests are skipped."""
     pat = re.compile(r"\b(SESSION|CSRF)_COOKIE_(SECURE|HTTPONLY)\s*=\s*False\b|\bset_cookie\([^)]*\b(secure|httponly)\s*=\s*False"
                      r"|\bhttpOnly\s*:\s*false\b")
     yield from line_matches(insecure_cookie.info, path, lines, pat)
+    if path.endswith(".go") and not _is_test(path):
+        spans = []
+        for m in re.finditer(r"\bhttp\.Cookie\{", text):
+            body = _bracketed(text, m.start(), "{", "}")
+            if not re.search(r"\bName:\s*\"[^\"]*(session|auth|token|sid|jwt)[^\"]*\"", body, re.I):
+                continue
+            missing = [f for f in ("Secure", "HttpOnly") if not re.search(rf"\b{f}:\s*true\b", body)]
+            if missing:
+                spans.append((m.start(), " and ".join(missing) + " not set to true."))
+        for start, detail in sorted(spans):
+            yield from _report_spans(insecure_cookie.info, path, text, lines, [start], detail)
 
 
 @rule("ACR-APP-016", "Regular expression built from request input (ReDoS)", Severity.MEDIUM, "app-security", PY + JS,

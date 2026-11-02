@@ -1156,6 +1156,17 @@ class GoSqlFormattingTests(unittest.TestCase):
         self.assertNotIn("ACR-APP-009", ids("srv.go", rs.replace('"*"', '"https://app.example.com"'), self.GO))
         self.assertNotIn("ACR-APP-009", ids("srv.go", 'package a\nc := cors.New(cors.Options{AllowedOrigins: []string{"*"}})\n', self.GO))
 
+    def test_session_cookies_in_go_need_secure_and_httponly(self):
+        bad = 'package a\nhttp.SetCookie(w, &http.Cookie{\n\tName:  "session",\n\tValue: tok,\n\tPath:  "/",\n})\n'
+        found = [f for f in run_rules("h.go", bad, self.GO) if f.rule_id == "ACR-APP-015"]
+        self.assertEqual(len(found), 1)
+        self.assertEqual(found[0].detail, "Secure and HttpOnly not set to true.")
+        half = bad.replace('\tPath:  "/",', '\tSecure: true,')
+        self.assertEqual([f.detail for f in run_rules("h.go", half, self.GO) if f.rule_id == "ACR-APP-015"], ["HttpOnly not set to true."])
+        self.assertNotIn("ACR-APP-015", ids("h.go", 'package a\nhttp.SetCookie(w, &http.Cookie{Name: "auth_token", Value: t, Secure: true, HttpOnly: true})\n', self.GO))
+        self.assertNotIn("ACR-APP-015", ids("h.go", 'package a\nhttp.SetCookie(w, &http.Cookie{Name: "theme", Value: "dark"})\n', self.GO))   # not a credential
+        self.assertNotIn("ACR-APP-015", ids("h_test.go", bad, self.GO))
+
     def test_weak_hash_and_old_tls_in_go(self):
         self.assertIn("ACR-APP-007", ids("sum.go", 'package x\nfunc f(b []byte) [16]byte { return md5.Sum(b) }\n', self.GO))
         self.assertIn("ACR-APP-007", ids("sum.go", 'package x\nh := sha1.New()\n', self.GO))

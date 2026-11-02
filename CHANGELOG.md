@@ -14,6 +14,8 @@ All notable changes to this project. The format follows [Keep a Changelog](https
   gin-contrib `AllowAllOrigins: true` beside `AllowCredentials: true`, and the two headers written by hand.
   `ParseUnverified` is deliberately not reported: a sweep found Argo CD using it seventeen times to read a verified
   token's own claims, which is inspection, not acceptance.
+- ACR-APP-015 (session cookie without Secure or HttpOnly) covers Go: an `http.Cookie` literal named like a session,
+  auth, token, sid or jwt cookie that does not set both flags to true (Go's zero values are false). Tests are skipped.
 
 ## [0.9.0] - 2026-11-02
 
