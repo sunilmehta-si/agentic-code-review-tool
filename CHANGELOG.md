@@ -4,6 +4,8 @@ All notable changes to this project. The format follows [Keep a Changelog](https
 
 ## [Unreleased]
 
+## [0.9.0] - 2026-11-02
+
 Measured with `scripts/sweep.py` over Argo CD, Kubeflow Pipelines, KServe, MLflow and flytekit, the built-in rules'
 findings went from 4,654 to 2,315 since 0.8.1; every removed finding was a test input, a fixture, the name of a secret,
 or a pull request's own base branch. What a rule still reports in those repositories is what it is for.

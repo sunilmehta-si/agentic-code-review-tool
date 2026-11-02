@@ -1,3 +1,3 @@
 """agentic-code-review-tool: agentic, scanner-grounded code review for the whole pull request."""
 
-__version__ = "0.8.1"
+__version__ = "0.9.0"
