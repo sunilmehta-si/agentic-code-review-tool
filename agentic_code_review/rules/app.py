@@ -93,7 +93,7 @@ def debug_on(path, text, lines):
 def weak_hash(path, text, lines):
     """Go: md5.New(), md5.Sum(...), sha1.New(), sha1.Sum(...). Tests hash fixtures and are skipped; a cache key or an
     ETag built with md5 is reported like Python's, since the rule cannot tell it from a signature."""
-    pat = re.compile(r"hashlib\.(md5|sha1)\(|createHash\(\s*['\"](md5|sha1)['\"]|\b(md5|sha1)\.(New|Sum)\(")
+    pat = re.compile(r"hashlib\.(md5|sha1)\(|createHash\(\s*['\"](md5|sha1)['\"]|\b(md5|sha1)\.(New|Sum)\(")   # acr:ignore[ACR-APP-007]
     if path.endswith(".go") and _is_test(path):
         return
     yield from line_matches(weak_hash.info, path, lines, pat)

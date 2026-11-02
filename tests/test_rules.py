@@ -1369,6 +1369,7 @@ class UnpinnedInstallTests(unittest.TestCase):
         for src in ("FROM python:3.12-slim\nRUN pip install requests==2.32.4 uvicorn==0.34.0\n",
                     "FROM python:3.12-slim\nCOPY requirements.txt .\nRUN pip install -r requirements.txt\n",
                     "FROM python:3.12-slim\nCOPY . .\nRUN pip install -e .\n",
+                    'FROM python:3.12-slim\nCOPY . .\nRUN pip install --no-cache-dir ".[claude]"\n',       # the image\'s own code, with an extra
                     "FROM python:3.12-slim\nRUN pip install --no-cache-dir ./dist/app-1.0-py3-none-any.whl\n",
                     "FROM node:22\nRUN npm install -g pnpm@9.12.0\n",
                     "FROM golang:1.23\nRUN go install github.com/x/tool@v1.4.2\n",

@@ -165,7 +165,8 @@ def unpinned_install(path, text, lines):
                 loose_all.append(f"'{m.group('go')}' moves with the branch")
                 continue
             args = (m.group("pip") or m.group("npm") or "").split()
-            pkgs = [a for a in args if not a.startswith("-") and a not in ("install",) and "/" not in a and a not in (".", "..")]
+            # a local path (".", "..", ".[claude]", "./pkg") is the image's own code, pinned by the build context
+            pkgs = [a for a in args if not a.strip("\"'").startswith(("-", ".")) and a not in ("install",) and "/" not in a]
             # -r/-c files, -e ., URLs and local paths are pinned elsewhere or deliberate; a bare name is the problem
             if any(a in ("-r", "--requirement", "-c", "--constraint", "-e", "--editable") for a in args) or not pkgs:
                 continue
