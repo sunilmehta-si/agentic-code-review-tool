@@ -4,6 +4,10 @@ All notable changes to this project. The format follows [Keep a Changelog](https
 
 ## [Unreleased]
 
+### Fixed
+- ACR-DOCKER-012 no longer reports `pip install ".[extra]"`: a local path with an extra, quoted or not, is the image's
+  own code, pinned by the build context.
+
 ### Changed
 - ACR-APP-007 (weak hash) and ACR-APP-014 (deprecated TLS version) cover Go: `md5`/`sha1` `New` and `Sum`, and a
   `MinVersion` of SSL 3.0, TLS 1.0 or 1.1. A `tls.Config` without `MinVersion` is not reported: Go has defaulted to

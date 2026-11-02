@@ -100,7 +100,8 @@ def weak_hash(path, text, lines):
 
 
 @rule("ACR-APP-008", "JWT accepted without verifying its signature or expiry", Severity.CRITICAL, "app-security", PY + JS + GO,
-      fix="Always verify: pass the key and an explicit algorithms list (never 'none'), and keep expiry checks on.",
+      fix="Always verify: pass the key and an explicit algorithms list (never 'none'), and keep expiry checks on. In Go, "
+          "never enable the none signing method outside a test.",
       references=["https://cheatsheetseries.owasp.org/cheatsheets/JSON_Web_Token_for_Java_Cheat_Sheet.html"])
 def jwt_unverified(path, text, lines):
     """Go (golang-jwt): accepting or minting alg=none tokens, through the library's unsafe none-signature escape hatch
