@@ -4,6 +4,12 @@ All notable changes to this project. The format follows [Keep a Changelog](https
 
 ## [Unreleased]
 
+## [0.10.0] - 2026-11-02
+
+Go parity, second round: the weak-hash, deprecated-TLS, JWT, CORS and cookie rules now read Go, each swept over nine Go
+repositories before shipping and each leaving alone what those repositories showed to be legitimate (a `tls.Config`
+without `MinVersion` on Go 1.22+, a token parsed to inspect its own claims).
+
 ### Fixed
 - ACR-DOCKER-012 no longer reports `pip install ".[extra]"`: a local path with an extra, quoted or not, is the image's
   own code, pinned by the build context.
