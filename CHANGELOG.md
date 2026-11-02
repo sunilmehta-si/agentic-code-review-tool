@@ -4,6 +4,12 @@ All notable changes to this project. The format follows [Keep a Changelog](https
 
 ## [Unreleased]
 
+### Changed
+- ACR-APP-007 (weak hash) and ACR-APP-014 (deprecated TLS version) cover Go: `md5`/`sha1` `New` and `Sum`, and a
+  `MinVersion` of SSL 3.0, TLS 1.0 or 1.1. A `tls.Config` without `MinVersion` is not reported: Go has defaulted to
+  TLS 1.2 since 1.22. Go tests are skipped; they hash fixtures and pin old versions to test their rejection. Swept
+  over Argo CD, KServe, KAI, etcd-operator, llm-d and Tesla's two repositories: four and one findings.
+
 ## [0.9.0] - 2026-11-02
 
 Measured with `scripts/sweep.py` over Argo CD, Kubeflow Pipelines, KServe, MLflow and flytekit, the built-in rules'

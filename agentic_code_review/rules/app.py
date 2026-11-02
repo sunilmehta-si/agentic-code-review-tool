@@ -88,10 +88,14 @@ def debug_on(path, text, lines):
     yield from line_matches(debug_on.info, path, lines, pat)
 
 
-@rule("ACR-APP-007", "Weak hash used for security", Severity.LOW, "app-security", PY + JS,
-      fix="Use SHA-256+ for integrity, and bcrypt/scrypt/argon2 for passwords.")
+@rule("ACR-APP-007", "Weak hash used for security", Severity.LOW, "app-security", PY + JS + GO,
+      fix="Use SHA-256+ for integrity, and bcrypt/scrypt/argon2 for passwords (Go: crypto/sha256, golang.org/x/crypto/bcrypt).")
 def weak_hash(path, text, lines):
-    pat = re.compile(r"hashlib\.(md5|sha1)\(|createHash\(\s*['\"](md5|sha1)['\"]")
+    """Go: md5.New(), md5.Sum(...), sha1.New(), sha1.Sum(...). Tests hash fixtures and are skipped; a cache key or an
+    ETag built with md5 is reported like Python's, since the rule cannot tell it from a signature."""
+    pat = re.compile(r"hashlib\.(md5|sha1)\(|createHash\(\s*['\"](md5|sha1)['\"]|\b(md5|sha1)\.(New|Sum)\(")
+    if path.endswith(".go") and _is_test(path):
+        return
     yield from line_matches(weak_hash.info, path, lines, pat)
 
 
@@ -170,13 +174,18 @@ def path_traversal(path, text, lines):
     yield from line_matches(path_traversal.info, path, lines, pat)
 
 
-@rule("ACR-APP-014", "Deprecated SSL/TLS protocol version allowed", Severity.MEDIUM, "app-security", PY + JS,
+@rule("ACR-APP-014", "Deprecated SSL/TLS protocol version allowed", Severity.MEDIUM, "app-security", PY + JS + GO,
       fix="Use the library default (ssl.create_default_context(), Node's defaults) or require TLS 1.2+: "
           "ctx.minimum_version = ssl.TLSVersion.TLSv1_2 / minVersion: 'TLSv1.2'.",
       references=["https://datatracker.ietf.org/doc/html/rfc8996"])
 def weak_tls(path, text, lines):
+    """Go: a MinVersion of tls.VersionSSL30, VersionTLS10 or VersionTLS11. A tls.Config with no MinVersion is fine:
+    since Go 1.22 both clients and servers default to TLS 1.2. Tests pin old versions to test the rejection of them."""
     pat = re.compile(r"\bssl\.PROTOCOL_(SSLv2|SSLv3|TLSv1|TLSv1_1)\b|\bTLSVersion\.(SSLv3|TLSv1|TLSv1_1)\b"
-                     r"|\bminVersion\s*:\s*['\"](TLSv1|TLSv1\.1)['\"]|\bsecureProtocol\s*:\s*['\"](SSLv2|SSLv3|TLSv1|TLSv1_1)_method")
+                     r"|\bminVersion\s*:\s*['\"](TLSv1|TLSv1\.1)['\"]|\bsecureProtocol\s*:\s*['\"](SSLv2|SSLv3|TLSv1|TLSv1_1)_method"
+                     r"|\bMinVersion:\s*tls\.(VersionSSL30|VersionTLS10|VersionTLS11)\b")
+    if path.endswith(".go") and _is_test(path):
+        return
     yield from line_matches(weak_tls.info, path, lines, pat)
 
 

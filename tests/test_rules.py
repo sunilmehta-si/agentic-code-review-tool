@@ -1140,6 +1140,18 @@ class GoSqlFormattingTests(unittest.TestCase):
                      '\terr := db.Get(&user, "SELECT * FROM users WHERE id = $1", id)'):
             self.assertNotIn("ACR-APP-001", ids("store.go", "package store\n\n" + line + "\n", self.GO), line)
 
+    def test_weak_hash_and_old_tls_in_go(self):
+        self.assertIn("ACR-APP-007", ids("sum.go", 'package x\nfunc f(b []byte) [16]byte { return md5.Sum(b) }\n', self.GO))
+        self.assertIn("ACR-APP-007", ids("sum.go", 'package x\nh := sha1.New()\n', self.GO))
+        self.assertNotIn("ACR-APP-007", ids("sum_test.go", 'package x\nfunc f(b []byte) { _ = md5.Sum(b) }\n', self.GO))
+        self.assertNotIn("ACR-APP-007", ids("sum.go", 'package x\nh := sha256.New()\n', self.GO))
+        self.assertIn("ACR-APP-014", ids("srv.go", 'package x\ncfg := &tls.Config{MinVersion: tls.VersionTLS10}\n', self.GO))
+        self.assertIn("ACR-APP-014", ids("srv.go", 'package x\ncfg := &tls.Config{\n\tMinVersion: tls.VersionTLS11,\n}\n', self.GO))
+        # no MinVersion is TLS 1.2 since Go 1.22, and tests pin old versions to test their rejection
+        self.assertNotIn("ACR-APP-014", ids("srv.go", 'package x\ncfg := &tls.Config{Certificates: certs}\n', self.GO))
+        self.assertNotIn("ACR-APP-014", ids("srv.go", 'package x\ncfg := &tls.Config{MinVersion: tls.VersionTLS12}\n', self.GO))
+        self.assertNotIn("ACR-APP-014", ids("tls_test.go", 'package x\ncfg := &tls.Config{MinVersion: tls.VersionTLS10}\n', self.GO))
+
     def test_tests_building_fixture_sql_are_left_alone(self):
         # tests write "UPDATE " + q("table") + ... to set up rows; the statements that matter are in the code under test
         line = '\t_, err = db.Exec("UPDATE " + q("run_details") + " SET " + q("ImportedFrom") + " = NULL")'
