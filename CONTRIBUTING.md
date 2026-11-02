@@ -57,6 +57,10 @@ acr classify path/to/sample.file   # check your file kinds route the file to the
 `tests/test_registry.py` checks every rule has a unique id, a fix and known file kinds; `tests/test_engine_report_cli.py`
 fails if the README table is stale.
 
+The tool reviews its own source in CI, so a pattern line that spells out what it looks for (`UnsafeAllowNoneSignatureType`,
+a wildcard origin beside credentials) is read as a finding. Put `# acr:ignore[<rule id>]` at the end of such a line, and
+keep docstrings in prose rather than quoting the exact tokens; both show up the first time the gate runs.
+
 ## Sweep a rule over real code before it ships
 
 A rule that is right on its test fixtures can still be wrong on the code people actually write. Run the built-in rules
