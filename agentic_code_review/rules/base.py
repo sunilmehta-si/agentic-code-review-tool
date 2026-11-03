@@ -132,15 +132,26 @@ def find_line(lines: list[str], needle: str | re.Pattern[str], start: int = 1) -
     return 1
 
 
+# Lines a kind of file says no rule should read: kind -> function from the file's lines to those line numbers. A rule
+# that applies to the kind never reports on them. Kubernetes uses it to leave out CustomResourceDefinition documents.
+LINE_FILTERS: dict[str, Callable[[list[str]], set[int]]] = {}
+
+
 def run_rules(path: str, text: str, kinds: set[str]) -> list[Finding]:
     lines = text.splitlines()
     out: list[Finding] = []
+    skipped: dict[str, set[int]] = {}
     for info, fn in REGISTRY:
         if info.applies_to & kinds or "*" in info.applies_to:
             try:
                 # Suppression is checked at the reported line, so structural rules (which point at a
                 # container, block or server entry) honour `acr:ignore` exactly like line rules do.
-                out.extend(f for f in fn(path, text, lines) if not suppressed(lines, f))
+                found = [f for f in fn(path, text, lines) if not suppressed(lines, f)]
+                for kind in info.applies_to & kinds & LINE_FILTERS.keys():
+                    if kind not in skipped:
+                        skipped[kind] = LINE_FILTERS[kind](lines)
+                    found = [f for f in found if f.line not in skipped[kind]]
+                out.extend(found)
             except Exception as exc:  # a broken rule must never break the whole review
                 out.append(Finding(rule_id="ACR-INTERNAL", title=f"Rule {info.rule_id} failed: {exc.__class__.__name__}",
                                    severity=Severity.INFO, path=path, line=1, tool="acr", category="other"))

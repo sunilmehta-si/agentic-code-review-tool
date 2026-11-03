@@ -8,12 +8,34 @@ from __future__ import annotations
 import re
 
 from ..models import Severity
-from .base import is_fixture, find_line, line_matches, make, rule
+from .base import LINE_FILTERS, is_fixture, find_line, line_matches, make, rule
 
 K8S = ["kubernetes", "helm-template"]
 PSS = "https://kubernetes.io/docs/concepts/security/pod-security-standards/"
 POLICY_DOC = re.compile(r"^apiVersion:\s*(kyverno\.io|templates\.gatekeeper\.sh|constraints\.gatekeeper\.sh)/", re.M)
 WORKLOADS = {"Pod", "Deployment", "StatefulSet", "DaemonSet", "ReplicaSet", "Job", "CronJob"}
+
+CRD_KIND = re.compile(r"^kind:\s*CustomResourceDefinition\s*(?:#.*)?$")
+DOC_BREAK = re.compile(r"^---\s*(?:#.*)?$")
+
+
+def crd_lines(lines: list[str]) -> set[int]:
+    """Line numbers inside CustomResourceDefinition documents. A CRD's schema describes the fields of a pod spec
+    (`hostPath:`, `privileged:`, `image:`) without being one: Kubeflow Trainer, Volcano and KubeRay put 38 findings
+    there. A file can hold CRDs next to workloads, so this is decided per document, not per file."""
+    out: set[int] = set()
+    start, crd = 1, False
+    for i, line in enumerate(lines + ["---"], start=1):
+        if DOC_BREAK.match(line):
+            if crd:
+                out.update(range(start, i))
+            start, crd = i + 1, False
+        elif CRD_KIND.match(line):
+            crd = True
+    return out
+
+
+LINE_FILTERS["kubernetes"] = LINE_FILTERS["helm-template"] = crd_lines
 
 
 @rule("ACR-K8S-001", "Privileged container or privilege escalation allowed", Severity.CRITICAL, "kubernetes", K8S,

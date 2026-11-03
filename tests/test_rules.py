@@ -1375,3 +1375,73 @@ class UnpinnedInstallTests(unittest.TestCase):
                     "FROM golang:1.23\nRUN go install github.com/x/tool@v1.4.2\n",
                     "FROM node:22\nRUN npm ci\n"):
             self.assertNotIn("ACR-DOCKER-012", ids("Dockerfile", src, self.DF), src)
+
+
+CRD = """apiVersion: apiextensions.k8s.io/v1
+kind: CustomResourceDefinition
+metadata:
+  name: trainingruntimes.example.org
+spec:
+  versions:
+    - schema:
+        openAPIV3Schema:
+          properties:
+            volumes:
+              items:
+                properties:
+                  hostPath:
+                    type: object
+            securityContext:
+              properties:
+                privileged:
+                  type: boolean
+"""
+POD = """apiVersion: v1
+kind: Pod
+metadata:
+  name: p
+spec:
+  volumes:
+    - name: v
+      hostPath:
+        path: /data
+"""
+
+
+class CustomResourceDefinitionsAreNotWorkloads(unittest.TestCase):
+    """A CRD's schema names the fields of a pod spec without being one."""
+
+    K8S = {"kubernetes"}
+
+    def lines(self, text, rule="ACR-K8S-003", kinds=None):
+        return sorted(f.line for f in run_rules("m.yaml", text, kinds or self.K8S) if f.rule_id == rule)
+
+    def test_a_schema_that_names_hostpath_is_not_a_hostpath_mount(self):
+        self.assertEqual(self.lines(CRD), [])
+
+    def test_the_same_field_in_a_pod_is_still_reported(self):
+        self.assertEqual(self.lines(POD), [8])
+
+    def test_in_a_bundle_only_the_workload_document_reports(self):
+        bundle = CRD + "---\n" + POD
+        self.assertEqual(self.lines(bundle), [len(CRD.splitlines()) + 1 + 8])
+        self.assertEqual(self.lines(POD + "---\n" + CRD), [8])                    # either order
+
+    def test_a_comment_after_the_separator_still_ends_the_document(self):
+        self.assertEqual(self.lines(CRD + "--- # the pod\n" + POD), [len(CRD.splitlines()) + 1 + 8])
+
+    def test_a_kind_that_is_indented_is_not_the_documents_kind(self):
+        config = "apiVersion: v1\nkind: ConfigMap\ndata:\n  note: |\n    kind: CustomResourceDefinition\n"
+        pod = POD + "  other:\n    kind: CustomResourceDefinition\n"
+        self.assertEqual(self.lines(pod), [8])
+        self.assertEqual(self.lines(config + "---\n" + POD), [len(config.splitlines()) + 1 + 8])
+
+    def test_a_crd_in_a_helm_template_is_left_out_too(self):
+        self.assertEqual(self.lines(CRD, kinds={"helm-template"}), [])
+        self.assertEqual(self.lines(POD, kinds={"helm-template"}), [8])
+
+    def test_other_kinds_of_file_are_unaffected(self):
+        from agentic_code_review.rules.kubernetes import crd_lines
+        self.assertEqual(crd_lines(["kind: Pod", "---", "kind: CustomResourceDefinition", "spec: {}"]), {3, 4})
+        self.assertEqual(crd_lines(["kind: CustomResourceDefinition"]), {1})
+        self.assertEqual(crd_lines([]), set())
