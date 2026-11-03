@@ -64,6 +64,38 @@ class AppRules(unittest.TestCase):
         self.assertEqual(ids("a.py", "w = np.load(f)\n", PY), [])
 
 
+class DynamicExecRule(unittest.TestCase):
+    def found(self, text, path="app.py"):
+        return "ACR-APP-003" in ids(path, text, PY)
+
+    def test_builtin_calls_are_reported(self):
+        self.assertTrue(self.found("x = eval(user)\n"))
+        self.assertTrue(self.found("exec(code)\n"))
+
+    def test_a_name_the_file_imports_or_defines_is_not_the_builtin(self):
+        self.assertFalse(self.found("from inspect_ai import Task, eval\n\nlog = eval(task)\n"))
+        self.assertFalse(self.found("from tools import (\n    run,\n    eval,\n)\n\neval(task)\n"))
+        self.assertFalse(self.found("def exec(self, cmd):\n    return 1\n\nexec('ls')\n"))
+        self.assertFalse(self.found("eval = make_evaluator()\neval(x)\n"))
+
+    def test_the_other_builtin_is_still_reported_when_only_one_is_rebound(self):
+        self.assertTrue(self.found("from inspect_ai import eval\n\nexec(code)\n"))
+
+    def test_a_call_shown_inside_a_string_or_docstring_is_not_a_call(self):
+        self.assertFalse(self.found('def f():\n    """Run it with eval(task) or eval("a.py")."""\n'))
+        self.assertFalse(self.found('msg = "use eval(x) instead"\n'))
+        self.assertFalse(self.found('print(f"{n} eval(s) failed: {names}")\n'))
+
+    def test_a_call_whose_argument_is_a_string_is_still_a_call(self):
+        self.assertTrue(self.found('eval("1 + 1")\n'))
+
+    def test_javascript_is_unchanged(self):
+        self.assertIn("ACR-APP-003", ids("a.js", "const f = new Function(body);\n", {"app", "lang:javascript"}))
+
+    def test_inline_ignore_still_works(self):
+        self.assertFalse(self.found("eval(x)  # acr:ignore ACR-APP-003 - trusted\n"))
+
+
 class JwtRule(unittest.TestCase):
     def test_unverified_tokens(self):
         for src in ('jwt.decode(tok, options={"verify_signature": False})\n', 'jwt.decode(tok, key, algorithms=["none"])\n',

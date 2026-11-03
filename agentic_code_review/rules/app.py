@@ -56,7 +56,36 @@ def shell_injection(path, text, lines):
       fix="Remove eval/exec/new Function. Parse data with a real parser (json.loads, ast.literal_eval) instead.")
 def dynamic_exec(path, text, lines):
     pat = re.compile(r"(?<![\w.])(eval|exec)\(|\bnew Function\(")
-    yield from line_matches(dynamic_exec.info, path, lines, pat)
+    if not path.endswith((".py", ".pyi")):
+        yield from line_matches(dynamic_exec.info, path, lines, pat)
+        return
+    # A Python file can give the names its own meaning (`from inspect_ai import eval`, `def exec(...)`), and a
+    # docstring or message can show a call without making one: neither runs the builtin.
+    own = _rebound_builtins(text)
+    strings = _python_strings(text)
+    starts = [0]
+    for line in text.splitlines(keepends=True):
+        starts.append(starts[-1] + len(line))
+    for i, src in enumerate(lines, start=1):
+        if ignored(src, dynamic_exec.info.rule_id) or src.lstrip().startswith("#"):
+            continue
+        offset = starts[i - 1]
+        for m in pat.finditer(src):
+            if m.group(1) in own or any(a <= offset + m.start() < b for a, b in strings):
+                continue
+            yield make(dynamic_exec.info, path, i, "")
+            break
+
+
+def _rebound_builtins(text: str) -> set[str]:
+    """`eval` and `exec` when the file imports, defines or assigns a name of its own, so a bare call is not the builtin."""
+    names: set[str] = set()
+    for m in re.finditer(r"^\s*(?:async\s+)?def\s+(eval|exec)\b|^\s*(eval|exec)\s*=[^=]|^\s*(?:import|from)\s[^\n(]*\b(eval|exec)\b",
+                         text, re.MULTILINE):
+        names.add(next(g for g in m.groups() if g))
+    for block in re.findall(r"^\s*from\s+[\w.]+\s+import\s*\(([^)]*)\)", text, re.MULTILINE):
+        names |= {n for n in re.findall(r"\b(eval|exec)\b", block)}
+    return names
 
 
 @rule("ACR-APP-004", "Unsafe deserialisation", Severity.HIGH, "app-security", PY,
@@ -280,7 +309,7 @@ def _python_strings(text: str) -> list[tuple[int, int]]:
     starts = [0]
     for line in text.splitlines(keepends=True):
         starts.append(starts[-1] + len(line))
-    kinds = {tokenize.STRING} | {getattr(tokenize, k) for k in ("FSTRING_START",) if hasattr(tokenize, k)}
+    kinds = {tokenize.STRING} | {getattr(tokenize, k) for k in ("FSTRING_START", "FSTRING_MIDDLE") if hasattr(tokenize, k)}
     try:
         return [(starts[tok.start[0] - 1] + tok.start[1], starts[tok.end[0] - 1] + tok.end[1])
                 for tok in tokenize.generate_tokens(io.StringIO(text).readline) if tok.type in kinds]

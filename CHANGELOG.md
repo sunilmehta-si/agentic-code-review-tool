@@ -4,6 +4,12 @@ All notable changes to this project. The format follows [Keep a Changelog](https
 
 ## [Unreleased]
 
+### Fixed
+
+- `ACR-APP-003` no longer reports a Python `eval` or `exec` the file imports, defines or assigns itself (such as
+  `from inspect_ai import eval`), or one shown inside a string, a docstring or an f-string. On Inspect AI that took the
+  rule from 1,124 findings to 8; seven call the builtin and one is a JavaScript template string.
+
 ## [0.11.0] - 2026-11-03
 
 A new supply-chain rule and a false-positive pass over seven more Go and Kubernetes projects (KubeRay, Kueue, Kubeflow
