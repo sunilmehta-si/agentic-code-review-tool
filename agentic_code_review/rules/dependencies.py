@@ -8,11 +8,20 @@ from __future__ import annotations
 import re
 from typing import Iterable, Iterator
 
+import yaml
+
 from ..classify import PIP_PINS
 from ..models import Finding, Severity
 from .base import ignored, make, rule
 
 LOCK = {"lockfile"}
+DEPENDABOT = {"dependabot"}
+# Days a release must have been out before Dependabot proposes it. A compromised release is usually found and
+# withdrawn within days; anything shorter than this proposes it while it is still the newest thing on the registry.
+MIN_COOLDOWN_DAYS = 7
+UPDATE_ITEM = re.compile(r"^\s*-\s*package-ecosystem\s*:")
+SEMVER_DAYS = ("semver-major-days", "semver-minor-days", "semver-patch-days")
+DEPENDABOT_OPTIONS = "https://docs.github.com/en/code-security/reference/supply-chain-security/dependabot-options-reference"
 
 TOML_NAME = re.compile(r'^name\s*=\s*"([^"]+)"\s*$')
 TOML_VERSION = re.compile(r'^version\s*=\s*"([^"]+)"\s*$')
@@ -165,3 +174,50 @@ def moving_git_requirement(path: str, text: str, lines: list[str]) -> Iterable[F
         if re.fullmatch(r"[0-9a-f]{40}", ref):
             continue
         yield make(info, path, i, f"ref '{ref}' moves" if ref else "no ref: the default branch's tip at install time")
+
+
+def _days(value: object) -> int | None:
+    return value if isinstance(value, int) and not isinstance(value, bool) else None
+
+
+def cooldown_days(update: dict) -> int:
+    """The shortest wait Dependabot applies to this update: 0 without a cooldown block. Without default-days Dependabot
+    waits 3 days, and each semver-*-days sets the wait for that kind of bump alone, so the default only matters while
+    one of the three is missing."""
+    cooldown = update.get("cooldown")
+    if not isinstance(cooldown, dict):
+        return 0
+    levels = [_days(cooldown.get(k)) for k in SEMVER_DAYS]
+    waits = [w for w in levels if w is not None]
+    if len(waits) < len(SEMVER_DAYS):
+        default = _days(cooldown.get("default-days", 3))
+        if default is not None:
+            waits.append(default)
+    return min(waits, default=0)
+
+
+@rule("ACR-DEP-006", "Dependabot proposes a release the day it is published", Severity.LOW, "dependency", DEPENDABOT,
+      fix=f"Add `cooldown:` with `default-days: {MIN_COOLDOWN_DAYS}` or more to the update. Security updates ignore the cooldown, so "
+          "an urgent fix still arrives at once, while a release that is compromised and withdrawn within days is never proposed.",
+      references=[DEPENDABOT_OPTIONS])
+def dependabot_cooldown(path, text, lines):
+    info = dependabot_cooldown.info
+    try:
+        config = yaml.safe_load(text)
+    except yaml.YAMLError:
+        return
+    updates = config.get("updates") if isinstance(config, dict) else None
+    if not isinstance(updates, list):
+        return
+    starts = [i for i, line in enumerate(lines, start=1) if UPDATE_ITEM.match(line)]
+    fallback = next((i for i, line in enumerate(lines, start=1) if re.match(r"^updates\s*:", line)), 1)
+    for n, update in enumerate(updates):
+        if not isinstance(update, dict):
+            continue
+        line = starts[n] if len(starts) == len(updates) else fallback
+        days = cooldown_days(update)
+        if days >= MIN_COOLDOWN_DAYS or ignored(lines[line - 1], info.rule_id):
+            continue
+        what = "has no cooldown" if "cooldown" not in update else f"waits {days} day{'s' if days != 1 else ''}"
+        yield make(info, path, line, f"The '{update.get('package-ecosystem', '?')}' update {what}; a release that is "
+                                     f"less than {MIN_COOLDOWN_DAYS} days old can be proposed.")

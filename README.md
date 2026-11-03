@@ -254,7 +254,7 @@ deployments, the name of a secret is not the secret, a pull request's base branc
 says how each sweep moved the counts.
 
 
-127 rules, generated from the code (`acr rules`; `acr explain <id>` for details):
+128 rules, generated from the code (`acr rules`; `acr explain <id>` for details):
 
 <!-- regenerate: acr rules --format markdown -->
 
@@ -386,6 +386,7 @@ says how each sweep moved the counts.
 | Dependencies | `ACR-DEP-003` | medium | Extra package index next to PyPI, open to dependency confusion |
 | Dependencies | `ACR-DEP-004` | low | npm lock installs a package from git with no integrity hash |
 | Dependencies | `ACR-DEP-005` | medium | pip requirement installed from a moving git ref |
+| Dependencies | `ACR-DEP-006` | low | Dependabot proposes a release the day it is published |
 | Dependencies | `ACR-GHA-016` | medium | Dependency installed from a moving git ref in a workflow |
 
 ## Optional scanners

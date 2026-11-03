@@ -1,6 +1,7 @@
 import unittest
 
-from agentic_code_review.rules.dependencies import pinned_versions
+from agentic_code_review.rules import base
+from agentic_code_review.rules.dependencies import cooldown_days, pinned_versions
 
 from .helpers import ids
 
@@ -124,3 +125,80 @@ class MovingGitRequirementRule(unittest.TestCase):
 
     def test_only_pip_files_are_read(self):
         self.assertNotIn("ACR-DEP-005", ids("uv.lock", 'source = { git = "https://github.com/org/pkg?rev=main" }\n', LOCK))
+
+
+DEPENDABOT = {"dependabot"}
+UPDATES = "version: 2\nupdates:\n  - package-ecosystem: pip\n    directory: /\n    schedule:\n      interval: weekly\n"
+
+
+class CooldownDaysTests(unittest.TestCase):
+    def test_no_cooldown_block_is_no_wait(self):
+        self.assertEqual(cooldown_days({"package-ecosystem": "pip"}), 0)
+        self.assertEqual(cooldown_days({"cooldown": None}), 0)
+        self.assertEqual(cooldown_days({"cooldown": "14"}), 0)
+
+    def test_default_days_is_the_wait_and_three_when_omitted(self):
+        self.assertEqual(cooldown_days({"cooldown": {"default-days": 14}}), 14)
+        self.assertEqual(cooldown_days({"cooldown": {"include": ["*"]}}), 3)
+
+    def test_a_semver_level_sets_the_wait_for_that_bump_alone(self):
+        self.assertEqual(cooldown_days({"cooldown": {"default-days": 14, "semver-patch-days": 1}}), 1)
+        self.assertEqual(cooldown_days({"cooldown": {"default-days": 14, "semver-major-days": 30}}), 14)
+
+    def test_the_default_does_not_matter_once_all_three_levels_are_set(self):
+        levels = {"semver-major-days": 30, "semver-minor-days": 14, "semver-patch-days": 7}
+        self.assertEqual(cooldown_days({"cooldown": {**levels}}), 7)
+        self.assertEqual(cooldown_days({"cooldown": {**levels, "default-days": 1}}), 7)
+
+    def test_a_value_that_is_not_a_whole_number_of_days_is_ignored(self):
+        self.assertEqual(cooldown_days({"cooldown": {"default-days": "14"}}), 0)
+        self.assertEqual(cooldown_days({"cooldown": {"default-days": True}}), 0)
+
+
+class DependabotCooldownRule(unittest.TestCase):
+    def findings(self, text, path=".github/dependabot.yml", kinds=DEPENDABOT):
+        return [f for f in base.run_rules(path, text, kinds) if f.rule_id == "ACR-DEP-006"]
+
+    def test_an_update_without_a_cooldown_is_flagged_at_its_own_line(self):
+        text = UPDATES + "  - package-ecosystem: docker\n    directory: /\n"
+        found = self.findings(text)
+        self.assertEqual([f.line for f in found], [3, 7])
+        self.assertIn("'pip' update has no cooldown", found[0].detail)
+        self.assertIn("'docker' update has no cooldown", found[1].detail)
+
+    def test_a_cooldown_of_a_week_or_more_is_accepted(self):
+        for days in (7, 14, 30):
+            with self.subTest(days=days):
+                self.assertEqual(self.findings(UPDATES + f"    cooldown:\n      default-days: {days}\n"), [])
+
+    def test_a_short_cooldown_is_flagged_with_its_length(self):
+        found = self.findings(UPDATES + "    cooldown:\n      default-days: 3\n")
+        self.assertEqual(len(found), 1)
+        self.assertIn("waits 3 days", found[0].detail)
+        self.assertIn("waits 1 day;", self.findings(UPDATES + "    cooldown:\n      default-days: 1\n")[0].detail)
+
+    def test_a_short_level_is_flagged_even_with_a_long_default(self):
+        text = UPDATES + "    cooldown:\n      default-days: 14\n      semver-patch-days: 0\n"
+        self.assertEqual(len(self.findings(text)), 1)
+
+    def test_only_the_updates_that_lack_one_are_flagged(self):
+        text = UPDATES + "    cooldown:\n      default-days: 14\n  - package-ecosystem: docker\n    directory: /\n"
+        self.assertEqual([f.line for f in self.findings(text)], [9])
+
+    def test_the_inline_marker_on_the_entry_silences_it(self):
+        text = UPDATES.replace("package-ecosystem: pip", "package-ecosystem: pip   # acr:ignore[ACR-DEP-006]")
+        self.assertEqual(self.findings(text), [])
+
+    def test_an_update_listed_with_another_key_first_still_reports(self):
+        text = "version: 2\nupdates:\n  - directory: /\n    package-ecosystem: pip\n"
+        found = self.findings(text)
+        self.assertEqual([f.line for f in found], [2])         # no entry line to point at, so the updates: line
+
+    def test_a_file_with_no_updates_or_broken_yaml_is_left_alone(self):
+        self.assertEqual(self.findings("version: 2\n"), [])
+        self.assertEqual(self.findings("updates: nope\n"), [])
+        self.assertEqual(self.findings("updates: [\n"), [])
+        self.assertEqual(self.findings("- just\n- a list\n"), [])
+
+    def test_it_runs_on_the_dependabot_file_only(self):
+        self.assertEqual(self.findings(UPDATES, path="ci.yml", kinds={"github-actions"}), [])

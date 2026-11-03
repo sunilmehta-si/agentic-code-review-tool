@@ -5,7 +5,7 @@ import unittest
 from agentic_code_review.models import CATEGORIES
 from agentic_code_review.rules import base
 
-KNOWN_KINDS = {"*", "app", "ai-code", "dockerfile", "github-actions", "terraform", "kubernetes", "helm-template", "shell",
+KNOWN_KINDS = {"*", "app", "ai-code", "dockerfile", "github-actions", "dependabot", "terraform", "kubernetes", "helm-template", "shell",
                "mcp-config", "agent-skill", "agent-settings", "compose", "agent-instructions", "agent-plugin", "lockfile"}
 
 
