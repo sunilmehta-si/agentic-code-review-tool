@@ -37,7 +37,13 @@ What makes a rule good here:
 - **A fix, not just a warning.** The `fix` text is shown in PR comments.
 - **Tests both ways.** Add a positive case *and* a nearby safe case that must not fire, in `tests/test_rules.py`.
 - **Suppressions come for free.** `run_rules` drops findings whose reported line carries `acr:ignore` or
-  `acr:ignore[YOUR-ID]`; don't re-implement that in the rule.
+  `acr:ignore[YOUR-ID]`, and gosec's and bandit's own markers for the rules in `GOSEC_RULES` and `BANDIT_RULES` in
+  `rules/base.py`; don't re-implement that in the rule. If your rule duplicates a check one of those tools makes, add
+  its id to the matching set, so a line the authors already reviewed with `//nolint:gosec` or `# nosec` stays quiet.
+- **Whole regions to leave alone belong in a line filter, not in every rule.** `LINE_FILTERS` in `rules/base.py` maps a
+  file kind to a function from the file's lines to line numbers no rule of that kind reports on; the Kubernetes kinds
+  use it to skip CustomResourceDefinition documents, whose schemas name `hostPath` and `privileged` without being pods.
+  Decide per document or block, not per file: a bundle can hold a CRD next to the workloads you do want to check.
 - If it belongs in the demo, add a line to `examples/insecure-app`; `tests/test_examples.py` keeps it firing.
   Append to demo files rather than inserting, so the README's demo table keeps its line numbers.
 - **Run it over real code before it ships.** Clone two or three large repositories in the rule's language (for Go,
@@ -45,7 +51,7 @@ What makes a rule good here:
   with `run_rules` and `classify.kinds`. Read every hit. A false positive you find this way is a pattern to exclude
   now, and the true-positive count belongs in the changelog entry, so a reader knows what the rule finds in practice.
   Several of the shipped rules changed shape at this step: an HTTP client's `Get` matched the SQL rule, test files
-  tripped the TLS rule, a umask-masked `0o666` tripped the file-mode rule.
+  tripped the TLS rule, a umask-masked `0o666` tripped the file-mode rule, a CRD schema read as a `hostPath` mount.
 
 Rule ids are `ACR-<AREA>-<NNN>`; use the next free number in that area (`acr rules` lists them). Then:
 
