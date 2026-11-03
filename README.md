@@ -56,7 +56,7 @@ acr init                           # write a starter .acr.yml
 acr review                         # working tree vs HEAD
 acr review --staged                # only what you are about to commit
 acr review --base origin/main      # what a PR would change (merge-base)
-acr review --all                   # audit every tracked file
+acr review --all                   # audit every tracked file (or every file, in a directory that is not a git repository)
 acr review --format sarif -o acr.sarif   # for GitHub code scanning
 acr review --format github         # annotations in a GitHub Actions log
 acr review --format gitlab -o gl-code-quality-report.json   # GitLab merge request Code Quality
@@ -71,7 +71,7 @@ acr classify Dockerfile k8s/app.yaml   # which file kinds and rules apply to a f
 | `--fail-on {critical,high,medium,low,never}` | `high` | Exit 1 if a finding at or above this severity remains |
 | `--no-scanners` | off | Built-in rules only |
 | `--scanners semgrep,trivy` | all installed | Run a subset of external scanners |
-| `--exclude 'docs/*'` | — | Skip paths (repeatable) |
+| `--exclude 'docs/*'` | — | Skip paths (repeatable); `node_modules/`, `vendor/`, `third_party/`, `dist/`, `build/` and virtual environments are always left out, and so is any file with a line over 20,000 characters (a minified bundle) |
 | `--include 'services/api/*'` | everything | Only review matching paths (repeatable); `include:` in `.acr.yml` |
 | `--sarif`, `--json`, `--markdown PATH` | — | Write extra report formats from the same run (no re-scan) |
 | `--baseline FILE` | `.acr-baseline.json` if present | Suppress findings accepted with `acr baseline` |
@@ -82,6 +82,9 @@ Suppress a deliberate, reviewed line with an inline comment. `acr:ignore` silenc
 `acr:ignore[ACR-APP-004, semgrep:*]` silences only the listed rules (ids or globs), so anything else on the line
 is still reported. Markers work for built-in rules and external scanner findings alike. Add `until=2026-12-31` to make a
 suppression lapse on that date; after it, the finding is reported again with a note that its exemption expired.
+
+A line that already carries gosec's `//nolint:gosec` or `// #nosec`, or bandit's `# nosec`, counts as reviewed for the
+rules whose checks those tools also make (eleven and fourteen of the application rules); a bare `//nolint` does not.
 
 ## Configure once per repository
 
