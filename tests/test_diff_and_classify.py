@@ -232,3 +232,63 @@ class ContextLineTests(unittest.TestCase):
         root = git_repo({"a.py": "x = 1\n"})
         (root / "new.py").write_text("x = 1\nos.system(a)\n")
         self.assertEqual([(f.path, f.line) for f in review(root, use_scanners=False).findings], [("new.py", 2)])
+
+
+class NotAGitRepositoryTests(unittest.TestCase):
+    """A source export or an unpacked release has no .git; `--all` reviews it, and the other modes say why they cannot."""
+
+    def setUp(self):
+        import tempfile
+        from pathlib import Path
+        self.root = Path(tempfile.mkdtemp(prefix="acr-nogit-"))
+        (self.root / "app.py").write_text("import os\nos.system(user_cmd)\n")
+        (self.root / "pkg").mkdir()
+        (self.root / "pkg" / "util.py").write_text("x = 1\n")
+        for skipped in ("node_modules/dep", "__pycache__", ".venv/lib", ".git/hooks"):
+            (self.root / skipped).mkdir(parents=True)
+            (self.root / skipped / "f.py").write_text("os.system(user_cmd)\n")
+
+    def test_every_file_is_listed_without_the_installed_and_generated_directories(self):
+        from agentic_code_review import diff
+        files = diff.all_files(self.root)
+        self.assertEqual(sorted(files), ["app.py", "pkg/util.py"])
+        self.assertEqual(files["app.py"].added_lines, {1, 2})
+
+    def test_a_symbolic_link_is_not_followed_out_of_the_tree(self):
+        import tempfile
+        from pathlib import Path
+
+        from agentic_code_review import diff
+        outside = Path(tempfile.mkdtemp(prefix="acr-outside-")) / "secret.py"
+        outside.write_text("os.system(user_cmd)\n")
+        (self.root / "link.py").symlink_to(outside)
+        (self.root / "linked_dir").symlink_to(outside.parent, target_is_directory=True)
+        self.assertEqual(sorted(diff.all_files(self.root)), ["app.py", "pkg/util.py"])
+
+    def test_a_full_review_finds_what_is_in_the_tree(self):
+        from agentic_code_review import engine
+        result = engine.review(self.root, full=True, use_scanners=False)
+        self.assertEqual([(f.rule_id, f.path, f.line) for f in result.findings if f.rule_id == "ACR-APP-002"],
+                         [("ACR-APP-002", "app.py", 2)])
+
+    def test_the_other_modes_say_to_use_all(self):
+        import io
+        from contextlib import redirect_stderr
+
+        from agentic_code_review.cli import main
+        err = io.StringIO()
+        with redirect_stderr(err):
+            code = main(["review", "--root", str(self.root), "--no-scanners"])
+        self.assertEqual(code, 2)
+        self.assertIn("is not a git repository; use --all to review every file in a directory", err.getvalue())
+
+    def test_a_git_failure_inside_a_repository_is_still_raised(self):
+        import subprocess
+        from unittest import mock
+
+        from agentic_code_review import diff
+        boom = subprocess.CalledProcessError(1, "git", stderr="fatal: bad object")
+        with mock.patch.object(diff, "in_work_tree", return_value=True), \
+                mock.patch.object(diff.subprocess, "run", side_effect=boom):
+            with self.assertRaises(subprocess.CalledProcessError):
+                diff.all_files(self.root)

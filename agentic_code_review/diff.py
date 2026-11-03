@@ -6,6 +6,7 @@ codebase without drowning every PR in old findings.
 from __future__ import annotations
 
 import codecs
+import os
 import re
 import subprocess
 import sys
@@ -16,10 +17,25 @@ from .models import ChangedFile
 HUNK = re.compile(r"^@@ -\d+(?:,\d+)? \+(\d+)(?:,(\d+))? @@")
 
 
+class NotARepository(RuntimeError):
+    """The review root is not inside a git work tree, so there is no history to diff against."""
+
+
+# Directories that hold installed or generated files, not the project: left out when a tree is walked without git.
+SKIP_DIRS = {".git", "node_modules", "__pycache__", ".venv", "venv"}
+
+
 def _git(root: Path, *args: str) -> str:
     # quotepath=off prints non-ASCII names as-is; names with quotes, backslashes or control characters stay C-quoted.
     return subprocess.run(["git", "-C", str(root), "-c", "core.quotepath=off", *args], check=True, capture_output=True,
                           text=True, encoding="utf-8", errors="surrogateescape").stdout
+
+
+def in_work_tree(root: Path) -> bool:
+    """Whether `root` is inside a git work tree. Asked of git itself, by exit status: its messages are translated and
+    `git diff` outside a repository does not fail the way `git ls-files` does."""
+    return subprocess.run(["git", "-C", str(root), "rev-parse", "--is-inside-work-tree"],
+                          capture_output=True, text=True).stdout.strip() == "true"
 
 
 def unquote(name: str) -> str:
@@ -78,6 +94,12 @@ def _range_diff(root: Path, base: str, head: str | None, context: str) -> str:
 
 def changed_files(root: Path, base: str | None, head: str | None, staged: bool = False) -> dict[str, ChangedFile]:
     """Changed files between two refs (merge-base semantics), the staged index, or the working tree vs HEAD."""
+    if not in_work_tree(root):
+        raise NotARepository(f"{root} is not a git repository; use --all to review every file in a directory")
+    return _changed_files(root, base, head, staged)
+
+
+def _changed_files(root: Path, base: str | None, head: str | None, staged: bool) -> dict[str, ChangedFile]:
     if staged:
         return parse_unified_diff(_git(root, "diff", "--cached", "-U0", "--no-color", "--diff-filter=ACMR"))
     if base:
@@ -100,10 +122,25 @@ def staged_text(root: Path, path: str, max_bytes: int) -> str | None:
     return data.decode("utf-8", errors="replace")
 
 
+def _walk(root: Path) -> list[str]:
+    """Every file under `root` as a relative path, for a tree that is not a git work tree. Symbolic links are left out:
+    a link can point outside the tree being reviewed."""
+    names = []
+    for here, dirs, files in os.walk(root):
+        dirs[:] = sorted(d for d in dirs if d not in SKIP_DIRS)
+        for name in sorted(files):
+            path = Path(here, name)
+            if not path.is_symlink():
+                names.append(path.relative_to(root).as_posix())
+    return names
+
+
 def all_files(root: Path) -> dict[str, ChangedFile]:
-    """Full-repository mode: every tracked file, every line counts as changed."""
+    """Full-repository mode: every tracked file, every line counts as changed. A directory that is not a git work
+    tree (an unpacked release, a source export) is walked instead."""
     out: dict[str, ChangedFile] = {}
-    for path in map(unquote, _git(root, "ls-files").splitlines()):
+    names = [unquote(n) for n in _git(root, "ls-files").splitlines()] if in_work_tree(root) else _walk(root)
+    for path in names:
         p = root / path
         if p.is_file():
             out[path] = ChangedFile(path, set(range(1, _line_count(p) + 1)))
