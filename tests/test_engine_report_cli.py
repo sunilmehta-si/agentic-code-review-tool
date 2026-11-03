@@ -1,4 +1,5 @@
 import io
+import subprocess
 import json
 import unittest
 from contextlib import redirect_stdout
@@ -199,8 +200,34 @@ class SkippedFilesTests(unittest.TestCase):
         with mock.patch.object(engine, "MAX_BYTES", 30):
             result = review(root, use_scanners=False)
         self.assertEqual(result.skipped, ["big.py", "model.bin"])
-        self.assertIn("2 binary or oversized file(s)", report.to_markdown(result))
+        self.assertIn("2 binary, oversized or minified file(s)", report.to_markdown(result))
         self.assertEqual(json.loads(report.to_json(result))["files_skipped"], ["big.py", "model.bin"])
+
+    def test_a_minified_bundle_is_skipped_and_a_long_ordinary_line_is_not(self):
+        bundle = "import*as e from'x';" + "a=eval(b);" * 3000                      # one 30,000-character line
+        root = git_repo({"a.py": "x = 1\n", "web/bundle.js": bundle + "\n",
+                         "web/key.yaml": "data: " + "A" * 4000 + "\n",            # a base64 private key is about this long
+                         "web/app.js": "eval(userInput)\n"})
+        result = review(root, full=True, use_scanners=False)
+        self.assertEqual(result.skipped, ["web/bundle.js"])
+        self.assertIn("web/key.yaml", result.file_kinds)
+        self.assertTrue([f for f in result.findings if f.path == "web/app.js" and f.rule_id == "ACR-APP-003"])
+        self.assertEqual([f for f in result.findings if f.path == "web/bundle.js"], [])
+
+    def test_a_staged_minified_file_is_skipped_too(self):
+        root = git_repo({"a.py": "x = 1\n"})
+        (root / "bundle.js").write_text("a=eval(b);" * 3000 + "\n")
+        subprocess.run(["git", "-C", str(root), "add", "bundle.js"], check=True)
+        result = review(root, staged=True, use_scanners=False)
+        self.assertEqual(result.skipped, ["bundle.js"])
+
+    def test_third_party_code_is_left_out_like_vendor(self):
+        files = {"a.py": "x = 1\n", "src/own.py": "eval(user)\n"}
+        for d in ("third_party/lib", "vendor/lib", "src/third_party/lib"):
+            files[f"{d}/x.py"] = "eval(user)\n"
+        result = review(git_repo(files), full=True, use_scanners=False)
+        self.assertEqual(sorted({f.path for f in result.findings if f.rule_id == "ACR-APP-003"}), ["src/own.py"])
+
 
 
 class IncludeTests(unittest.TestCase):

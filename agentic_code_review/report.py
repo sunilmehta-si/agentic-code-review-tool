@@ -101,7 +101,7 @@ def to_markdown(result: ReviewResult, threshold: Severity = Severity.HIGH) -> st
         lines.append("⚠️ Scanner(s) failed, so their checks did not run: "
                      + "; ".join(f"{name} ({why})" for name, why in sorted(result.scanners_failed.items())))
     if result.skipped:
-        lines.append(f"<sub>{len(result.skipped)} binary or oversized file(s) were not reviewed.</sub>")
+        lines.append(f"<sub>{len(result.skipped)} binary, oversized or minified file(s) were not reviewed.</sub>")
     if shown:
         base = _blob_base()
         header = ["| | Severity | Location | Issue | Rule |", "|---|---|---|---|---|"]

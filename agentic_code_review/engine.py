@@ -18,9 +18,12 @@ from .models import ChangedFile, Finding, Severity, fingerprint
 from .rules import base as rules_base
 from .scanners import available_scanners
 
-DEFAULT_EXCLUDES = ("node_modules/*", "vendor/*", "dist/*", "build/*", ".venv/*", "venv/*", "*.min.js", "*.lock",
+DEFAULT_EXCLUDES = ("node_modules/*", "vendor/*", "third_party/*", "dist/*", "build/*", ".venv/*", "venv/*", "*.min.js", "*.lock",
                     "package-lock.json", "*.png", "*.jpg", "*.gif", "*.pdf", "*.zip", "*.svg")
 MAX_BYTES = 1_000_000
+# A line this long is a minified or generated bundle, not code anyone reads: swagger-ui's one-line bundle matched two
+# rules in KubeRay. Real source and data files, including a base64 private key, stay far below it.
+MAX_LINE_CHARS = 20_000
 
 
 @dataclass
@@ -80,7 +83,11 @@ def _read(root: Path, path: str) -> str | None:
         return None
     if b"\x00" in data[:4096]:
         return None  # binary
-    return data.decode("utf-8", errors="replace")
+    return _unless_minified(data.decode("utf-8", errors="replace"))
+
+
+def _unless_minified(text: str | None) -> str | None:
+    return None if text is not None and any(len(line) > MAX_LINE_CHARS for line in text.splitlines()) else text
 
 
 def _suppressed(file_lines: dict[str, list[str]], f: Finding) -> bool:
@@ -144,7 +151,7 @@ def review(root: Path, base: str | None = None, head: str | None = None, full: b
     started = time.perf_counter()
     for path in sorted(files):
         # In staged mode rules read what will be committed, not unstaged edits in the working tree.
-        text = diff.staged_text(root, path, MAX_BYTES) if staged else _read(root, path)
+        text = _unless_minified(diff.staged_text(root, path, MAX_BYTES)) if staged else _read(root, path)
         if text is None:
             skipped.append(path)
             continue
