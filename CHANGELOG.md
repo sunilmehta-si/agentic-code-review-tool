@@ -4,6 +4,32 @@ All notable changes to this project. The format follows [Keep a Changelog](https
 
 ## [Unreleased]
 
+## [0.11.0] - 2026-11-03
+
+A new supply-chain rule and a false-positive pass over seven more Go and Kubernetes projects (KubeRay, Kueue, Kubeflow
+Trainer, Volcano, KAI Scheduler, llm-d, production-stack): 1,984 findings before, 1,942 after: 35 CRD schema
+fields read as pod volumes, five on minified or vendored code, and two the authors had already reviewed with a
+`//nolint:gosec` comment. Nothing new appeared. What the sweep left is mostly deployment hygiene those projects have
+not adopted (unpinned actions, `secrets: inherit`, containers that run as root), which is what the rules are for.
+
+### Added
+- ACR-DEP-006 (low): a Dependabot update whose shortest wait after a release is under seven days, whether it has no
+  `cooldown`, a short `default-days`, or a short `semver-*-days`. Without `default-days` Dependabot waits three days,
+  and the default stops mattering once all three semver levels are set; both are read. A release that is compromised
+  is usually found and withdrawn within days. Security updates ignore the cooldown. `.github/dependabot.yml` is a
+  file kind of its own (`dependabot`). The rule flags every update in Kueue (5), KAI Scheduler (6) and Trainer (17).
+- `acr review --all` reviews a directory that is not a git repository, such as an unpacked release: it walks the tree,
+  leaves out `.git`, `node_modules`, `__pycache__` and virtual environments, and never follows a symbolic link. The
+  other modes now say `is not a git repository; use --all` instead of showing a git command line.
+
+### Changed
+- `//nolint:gosec`, `// #nosec` and `# nosec` count as a reviewed decision for the rules those tools also check (eleven
+  and fourteen application rules); a bare `//nolint` or another linter does not.
+- `third_party/` is left out by default beside `vendor/` and `node_modules/`, and a file with a line over 20,000
+  characters (a minified bundle) is reported as skipped. KubeRay's swagger-ui bundles produced four findings.
+- Kubernetes rules skip CustomResourceDefinition documents, decided per document so a bundle that holds CRDs next to
+  workloads keeps its findings on the workloads. A CRD's schema names `hostPath` without being a pod: 35 findings.
+
 ## [0.10.0] - 2026-11-02
 
 Go parity, second round: the weak-hash, deprecated-TLS, JWT, CORS and cookie rules now read Go, each swept over nine Go
