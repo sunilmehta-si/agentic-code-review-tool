@@ -1,6 +1,6 @@
 import unittest
 
-from agentic_code_review.rules.base import ignored
+from agentic_code_review.rules.base import BANDIT_RULES, GOSEC_RULES, REGISTRY, ignored
 from tests.helpers import ids
 
 PY = {"app", "lang:python"}
@@ -83,3 +83,48 @@ class ExpiringSuppressionTests(unittest.TestCase):
         self.assertEqual([f.rule_id for f in found], ["ACR-APP-004"])
         self.assertIn("expired on 2020-01-01", found[0].detail)
         self.assertEqual(ids("a.py", "cfg = yaml.load(fh)  # acr:ignore[ACR-APP-004] until=2999-01-01\n", PY), [])
+
+
+GO = {"app", "lang:go"}
+
+
+class OtherToolsMarkersTests(unittest.TestCase):
+    """gosec's and bandit's own markers are reviewed decisions about the same findings."""
+
+    def test_nolint_gosec_covers_the_rules_gosec_also_checks(self):
+        line = "hashBytes := sha1.Sum(serialObj) //nolint:gosec // We are not using this for security purposes"
+        self.assertTrue(ignored(line, "ACR-APP-007"))
+        self.assertTrue(ignored("tlsCfg := &tls.Config{InsecureSkipVerify: true} //nolint:gosec // local only", "ACR-APP-005"))
+        self.assertTrue(ignored("x() //nolint:govet,gosec", "ACR-APP-002"))
+        self.assertTrue(ignored("x() //nolint:gosec,G401", "ACR-APP-007"))
+
+    def test_gosec_hash_nosec_comment_counts_too(self):
+        self.assertTrue(ignored("h := md5.New() // #nosec G401", "ACR-APP-007"))
+        self.assertTrue(ignored("os.MkdirAll(d, 0o777) // #nosec", "ACR-APP-025"))
+
+    def test_a_bare_nolint_or_another_linter_is_not_a_security_decision(self):
+        self.assertFalse(ignored("h := sha1.New() //nolint", "ACR-APP-007"))
+        self.assertFalse(ignored("h := sha1.New() //nolint:govet", "ACR-APP-007"))
+        self.assertFalse(ignored("h := sha1.New() //nolint:gosecurity", "ACR-APP-007"))      # a different linter name
+
+    def test_a_marker_does_not_reach_rules_its_tool_does_not_check(self):
+        self.assertFalse(ignored("w.Header().Set(\"Access-Control-Allow-Origin\", \"*\") //nolint:gosec", "ACR-APP-009"))
+        self.assertFalse(ignored("x = 1  # nosec", "ACR-APP-009"))
+        self.assertFalse(ignored("jwt.ParseUnverified(t, c) //nolint:gosec", "ACR-APP-008"))
+        self.assertFalse(ignored("srv := &http.Server{} # nosec", "ACR-APP-024"))             # bandit has no check for it
+
+    def test_bandit_nosec_covers_its_rules_with_or_without_a_test_id(self):
+        self.assertTrue(ignored("subprocess.run(cmd, shell=True)  # nosec", "ACR-APP-002"))
+        self.assertTrue(ignored("subprocess.run(cmd, shell=True)  # nosec B602", "ACR-APP-002"))
+        self.assertTrue(ignored("requests.get(url)  # nosec B113", "ACR-APP-021"))
+        self.assertTrue(ignored("assert user.is_admin  # nosec", "ACR-APP-026"))
+
+    def test_findings_on_a_marked_line_are_not_reported_and_the_same_line_unmarked_is(self):
+        self.assertEqual(ids("a/util.go", "package a\nfunc f() { h := sha1.New() //nolint:gosec // naming, not security\n }\n", GO), [])
+        self.assertIn("ACR-APP-007", ids("a/util.go", "package a\nfunc f() { h := sha1.New() }\n", GO))
+        self.assertEqual(ids("a.py", "import subprocess\nsubprocess.run(cmd, shell=True)  # nosec B602\n", PY), [])
+        self.assertIn("ACR-APP-002", ids("a.py", "import subprocess\nsubprocess.run(cmd, shell=True)\n", PY))
+
+    def test_every_rule_a_marker_covers_exists(self):
+        known = {info.rule_id for info, _ in REGISTRY}
+        self.assertEqual((GOSEC_RULES | BANDIT_RULES) - known, set())

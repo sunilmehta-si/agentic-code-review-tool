@@ -40,14 +40,29 @@ def expired_on(text: str, rule_id: str, today: datetime.date | None = None) -> s
     return m.group(1) if (today or datetime.date.today()) > until else None
 
 
+# The other tools' markers. A line that carries gosec's `//nolint:gosec` or `// #nosec`, or bandit's `# nosec`, records a
+# reviewed decision about the same kind of finding, usually with the reason beside it (KubeRay: "We are not using this
+# for security purposes"). Reporting it again only teaches people to stop trusting the report. Each marker covers the
+# rules whose checks that tool also makes, and no others: a bare `//nolint` silences linters, not security rules.
+GOSEC_MARKER = re.compile(r"//\s*(?:nolint\s*:[\w,\s-]*\bgosec\b|#nosec\b)")
+BANDIT_MARKER = re.compile(r"#\s*nosec\b")
+GOSEC_RULES = frozenset(f"ACR-APP-{n:03d}" for n in (1, 2, 5, 7, 10, 13, 14, 22, 23, 24, 25))
+BANDIT_RULES = frozenset(f"ACR-APP-{n:03d}" for n in (1, 2, 3, 4, 5, 6, 7, 10, 11, 13, 21, 22, 23, 26))
+
+
+def _acknowledged(text: str, rule_id: str) -> bool:
+    return bool((rule_id in GOSEC_RULES and GOSEC_MARKER.search(text)) or (rule_id in BANDIT_RULES and BANDIT_MARKER.search(text)))
+
+
 def ignored(text: str, rule_id: str, today: datetime.date | None = None) -> bool:
     """True if a line carries an inline suppression that covers `rule_id`.
 
     A bare `acr:ignore` silences every rule on the line; `acr:ignore[ACR-AI-005, semgrep:*]`
     silences only the listed rule ids or globs, so other problems on the same line still show.
-    Adding `until=YYYY-MM-DD` makes the suppression lapse after that date.
+    Adding `until=YYYY-MM-DD` makes the suppression lapse after that date. gosec's and bandit's own markers
+    count for the rules they cover too (see GOSEC_RULES and BANDIT_RULES).
     """
-    return _covers(text, rule_id) and expired_on(text, rule_id, today) is None
+    return (_covers(text, rule_id) and expired_on(text, rule_id, today) is None) or _acknowledged(text, rule_id)
 
 
 def suppressed(lines: list[str], f: Finding) -> bool:
