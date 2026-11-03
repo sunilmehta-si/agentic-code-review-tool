@@ -19,6 +19,10 @@ class ClassifyTests(unittest.TestCase):
     def test_file_kinds(self):
         self.assertIn("dockerfile", kinds("svc/Dockerfile", "FROM x"))
         self.assertIn("github-actions", kinds(".github/workflows/ci.yml", "on: push"))
+        self.assertEqual(kinds(".github/dependabot.yml", "version: 2\nupdates: []\n"), {"dependabot"})
+        self.assertIn("dependabot", kinds(".github/dependabot.yaml", "version: 2"))
+        self.assertNotIn("dependabot", kinds("docs/dependabot.yml", "version: 2"))               # only the file GitHub reads
+        self.assertNotIn("dependabot", kinds(".github/workflows/dependabot.yml", "on: push"))    # a workflow of that name is one
         self.assertIn("kubernetes", kinds("k8s/d.yaml", "apiVersion: v1\nkind: Pod\n"))
         self.assertNotIn("kubernetes", kinds("config.yaml", "foo: bar"))
         self.assertIn("terraform", kinds("main.tf", ""))

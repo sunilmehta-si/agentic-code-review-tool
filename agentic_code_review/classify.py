@@ -22,6 +22,8 @@ def kinds(path: str, text: str) -> set[str]:
         out.add("dockerfile")
     if lower.startswith(".github/workflows/") and p.suffix in (".yml", ".yaml"):
         out.add("github-actions")
+    if lower in (".github/dependabot.yml", ".github/dependabot.yaml"):
+        out.add("dependabot")
     if p.suffix == ".tf":
         out.add("terraform")
     if COMPOSE.fullmatch(name.lower()):
