@@ -1,3 +1,5 @@
+# Each update waits 14 days after a release, so a compromised or withdrawn release is usually found before it is
+# proposed. Security updates are not delayed.
 # Pinned SHAs and digests are only safe if they are kept current: Dependabot opens weekly update PRs.
 version: 2
 updates:
@@ -5,6 +7,8 @@ updates:
     directory: /
     schedule:
       interval: weekly
+    cooldown:
+      default-days: 14
     groups:
       actions:
         patterns: ["*"]
@@ -12,7 +16,11 @@ updates:
     directory: /
     schedule:
       interval: weekly
+    cooldown:
+      default-days: 14
   - package-ecosystem: docker
     directory: /
     schedule:
       interval: weekly
+    cooldown:
+      default-days: 14
