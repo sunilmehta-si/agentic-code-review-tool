@@ -4,6 +4,8 @@ All notable changes to this project. The format follows [Keep a Changelog](https
 
 ## [Unreleased]
 
+## [0.11.1] - 2026-11-04
+
 ### Fixed
 
 - `ACR-APP-003` no longer reports a Python `eval` or `exec` the file imports, defines or assigns itself (such as
