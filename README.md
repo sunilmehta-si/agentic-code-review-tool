@@ -10,6 +10,8 @@
 reviewed by this tool's GitHub Action with Claude. The reviewer confirmed 11 of 12 findings, dismissed the one planted
 false positive, and wrote a fix for each. The PR stays open as a showcase and will not be merged.
 
+**Tuned on real code, not only on test cases.** Every rule is swept over whole open-source repositories (Argo CD, KServe, MLflow, Kueue, Inspect AI and more) before it ships, and the false positives that turn up are fixed first; [how the sweeps work](#built-in-rules).
+
 ```text
 $ acr review --base origin/main
 ## Agentic code review · ❌ Changes requested
