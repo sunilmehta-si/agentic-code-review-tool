@@ -4,6 +4,11 @@ All notable changes to this project. The format follows [Keep a Changelog](https
 
 ## [Unreleased]
 
+### Changed
+
+- The container image is built on `python:3.15-slim` (3.15.1, built 2026-10-21, 19 days old) instead of 3.12. The
+  pinned digest is the 3.15.1 build; the 3.15.2 build of 2026-11-05 is adoptable from 2026-11-19.
+
 ## [0.11.1] - 2026-11-04
 
 ### Fixed

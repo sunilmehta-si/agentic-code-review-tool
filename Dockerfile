@@ -1,5 +1,7 @@
 # Container image for acr. Built to pass its own rules: pinned base, non-root user, clean package cache.
-FROM python:3.12-slim@sha256:a6e34c598f2467ed0e9a8d349809fcd8b5c603269512df273a0bb1784edc11b1
+# 3.15.1, built 2026-10-21 (digest from the registry; 14 days old on 2026-11-04). The 3.15.2 build of 2026-11-05 is
+# adoptable from 2026-11-19.
+FROM python:3.15-slim@sha256:533b0b2f9b5d46fd097091cf826f27902f1d6c3bca714b6dc74551356aa97a51
 
 # git is needed to compute what a change touches.
 RUN apt-get update \
