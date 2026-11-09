@@ -1,0 +1,17 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: support-bot
+spec:
+  replicas: 2
+  selector:
+    matchLabels: {app: support-bot}
+  template:
+    metadata:
+      labels: {app: support-bot}
+    spec:
+      containers:
+        - name: support-bot
+          image: ghcr.io/acme/support-bot:latest
+          securityContext:
+            privileged: true
