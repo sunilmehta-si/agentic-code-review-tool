@@ -1,0 +1,75 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="920" height="540" viewBox="0 0 920 540" role="img" aria-labelledby="t d">
+  <title id="t">acr reviewing a pull request</title>
+  <desc id="d">Real output from the showcase pull request #1: acr finds 2 critical, 3 high, 5 medium and 1 low issue in 3 changed files; the Claude reviewer confirms 11 of 12 findings, dismisses 1 false positive and writes a fix; the check fails with exit code 1.</desc>
+  <style>
+    .m{font-family:ui-monospace,SFMono-Regular,"SF Mono",Menlo,Consolas,"Liberation Mono",monospace;font-size:14px;fill:#c9d1e6}
+    .s{font-size:13px}
+    .w{fill:#ffffff;font-weight:700}
+    .g{fill:#34d399}.r{fill:#f87171}.o{fill:#fb923c}.y{fill:#facc15}.b{fill:#60a5fa}
+    .loc{fill:#93c5fd}.dim{fill:#6b7596}.mut{fill:#9aa4c2}.ai{fill:#a5b4fc;font-weight:700}
+    .h{opacity:0}
+  </style>
+  <defs>
+    <clipPath id="type"><rect x="0" y="50" width="0" height="24">
+      <animate attributeName="width" from="40" to="440" begin="0.4s" dur="1.3s" fill="freeze" calcMode="discrete"
+        values="40;60;80;100;120;140;160;180;200;220;240;260;280;300;320;340;360;380;400;420;440"/>
+    </rect></clipPath>
+  </defs>
+
+  <rect width="920" height="540" rx="12" fill="#0f1528"/>
+  <rect x="0.5" y="0.5" width="919" height="539" rx="12" fill="none" stroke="#27304d"/>
+  <path d="M12 0.5h896a11.5 11.5 0 0 1 11.5 11.5v24.5H0.5V12A11.5 11.5 0 0 1 12 0.5z" fill="#141c34"/>
+  <circle cx="22" cy="18" r="6" fill="#f87171"/><circle cx="42" cy="18" r="6" fill="#fbbf24"/><circle cx="62" cy="18" r="6" fill="#34d399"/>
+  <text x="460" y="23" text-anchor="middle" class="m s dim">showcase PR #1 · GitHub Action with Claude</text>
+
+  <!-- command, typed -->
+  <text x="28" y="66" class="m g">$</text>
+  <text x="44" y="66" class="m w" style="font-weight:500" clip-path="url(#type)">acr review --base origin/main --ai claude</text>
+  <rect x="44" y="53" width="8" height="17" fill="#c9d1e6">
+    <animate attributeName="x" values="44;64;84;104;124;144;164;184;204;224;244;264;284;304;324;344;364;384;404;424;444" begin="0.4s" dur="1.3s" fill="freeze" calcMode="discrete"/>
+    <animate attributeName="opacity" values="1;0;1" dur="1s" repeatCount="indefinite"/>
+    <set attributeName="visibility" to="hidden" begin="2s" fill="freeze"/>
+  </rect>
+
+  <!-- summary -->
+  <g class="h"><set attributeName="opacity" to="1" begin="2s" fill="freeze"/>
+    <text x="28" y="100" class="m w">Agentic code review · <tspan class="r">✗ Changes requested</tspan></text></g>
+  <g class="h"><set attributeName="opacity" to="1" begin="2.3s" fill="freeze"/>
+    <text x="28" y="124" class="m" xml:space="preserve"><tspan class="r">●</tspan> 2 critical   <tspan class="o">●</tspan> 3 high   <tspan class="y">●</tspan> 5 medium   <tspan class="b">●</tspan> 1 low</text></g>
+  <g class="h"><set attributeName="opacity" to="1" begin="2.5s" fill="freeze"/>
+    <text x="28" y="148" class="m mut">Reviewed 3 changed files · Kubernetes 4 · AI/agent 3 · Containers 3 · App code 1</text></g>
+
+  <!-- findings -->
+  <g class="h"><set attributeName="opacity" to="1" begin="2.9s" fill="freeze"/>
+    <text x="28" y="182" class="m s r" style="font-weight:700">CRIT</text><text x="86" y="182" class="m s loc">chat_service.py:24</text>
+    <text x="258" y="182" class="m s">LLM output used as code, shell, SQL or HTML</text><text x="892" y="182" text-anchor="end" class="m s dim">ACR-AI-002</text></g>
+  <g class="h"><set attributeName="opacity" to="1" begin="3.15s" fill="freeze"/>
+    <text x="28" y="206" class="m s r" style="font-weight:700">CRIT</text><text x="86" y="206" class="m s loc">deployment.yaml:17</text>
+    <text x="258" y="206" class="m s">Privileged container or privilege escalation</text><text x="892" y="206" text-anchor="end" class="m s dim">ACR-K8S-001</text></g>
+  <g class="h"><set attributeName="opacity" to="1" begin="3.4s" fill="freeze"/>
+    <text x="28" y="230" class="m s o" style="font-weight:700">HIGH</text><text x="86" y="230" class="m s loc">Dockerfile:2</text>
+    <text x="258" y="230" class="m s">Remote script piped straight into a shell</text><text x="892" y="230" text-anchor="end" class="m s dim">ACR-DOCKER-003</text></g>
+  <g class="h"><set attributeName="opacity" to="1" begin="3.65s" fill="freeze"/>
+    <text x="28" y="254" class="m s o" style="font-weight:700">HIGH</text><text x="86" y="254" class="m s loc">chat_service.py:15</text>
+    <text x="258" y="254" class="m s">User input concatenated into a system prompt</text><text x="892" y="254" text-anchor="end" class="m s dim">ACR-AI-001</text></g>
+  <g class="h"><set attributeName="opacity" to="1" begin="3.9s" fill="freeze"/>
+    <text x="86" y="278" class="m s dim">… 8 more (1 high, 5 medium, 1 low, 1 dismissed)</text></g>
+
+  <!-- AI reviewer -->
+  <g class="h"><set attributeName="opacity" to="1" begin="4.6s" fill="freeze"/>
+    <rect x="16" y="294" width="888" height="194" rx="8" fill="#6366f1" fill-opacity="0.09" stroke="#6366f1" stroke-opacity="0.35"/>
+    <text x="32" y="320" class="m ai">AI reviewer · Claude</text></g>
+  <g class="h"><set attributeName="opacity" to="1" begin="5.1s" fill="freeze"/>
+    <text x="32" y="346" class="m"><tspan class="g">✓</tspan> confirmed 11 of 12 findings</text></g>
+  <g class="h"><set attributeName="opacity" to="1" begin="5.5s" fill="freeze"/>
+    <text x="32" y="370" class="m"><tspan class="mut">✗</tspan> dismissed 1 false positive: disk_usage() runs a hard-coded command, no user input</text></g>
+  <g class="h"><set attributeName="opacity" to="1" begin="6.1s" fill="freeze"/>
+    <text x="32" y="404" class="m"><tspan class="w">Fix</tspan> <tspan class="loc">chat_service.py:24</tspan></text>
+    <text x="32" y="428" class="m s">Never run model output. Let the model pick from a fixed set of action IDs and</text>
+    <text x="32" y="450" class="m s">map each one to a hard-coded argv list: cmd = ACTIONS[reply.strip()]</text>
+    <text x="32" y="472" class="m s">then subprocess.run(cmd, shell=False). Better still, have a human approve it.</text></g>
+
+  <!-- result -->
+  <g class="h"><set attributeName="opacity" to="1" begin="7s" fill="freeze"/>
+    <text x="28" y="520" class="m"><tspan class="r">✗</tspan> exit 1 · the check fails (fail-on: high) · SARIF + inline comments posted</text></g>
+</svg>
