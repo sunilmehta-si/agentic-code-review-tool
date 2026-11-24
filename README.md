@@ -4,6 +4,8 @@
 
 **Agentic, scanner-grounded code review for the whole pull request** — application code, infrastructure, and the AI/LLM/agent code most review tools don't understand yet.
 
+<p align="center"><a href="https://github.com/sunilmehta-si/agentic-code-review-tool/pull/1"><img src="docs/demo.svg" width="920" alt="acr reviewing showcase PR #1: 2 critical, 3 high, 5 medium and 1 low finding in 3 changed files; the Claude reviewer confirms 11 of 12, dismisses 1 false positive and writes a fix; the check fails with exit 1"></a></p>
+
 `acr` reviews only the lines a PR changes, runs high-precision built-in rules plus the open-source scanners you already trust, merges duplicates, and (optionally) hands every finding to an LLM agent that reads the surrounding code to confirm it, dismiss false positives and write the fix. The output is one PR comment, inline annotations, SARIF for GitHub code scanning, and an exit code that can gate the merge.
 
 **[See a live AI review →](https://github.com/sunilmehta-si/agentic-code-review-tool/pull/1)** A real pull request with deliberately insecure AI, Kubernetes and Docker code,
